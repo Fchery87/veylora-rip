@@ -107,6 +107,18 @@ export class AppStore {
     }, "Written to file sink. Not physical output.");
   }
 
+  setWhitePolicy(jobId: string, policy: string) {
+    return this.run(() => this.#services.setWhitePolicy(jobId, policy), "White policy changed");
+  }
+
+  setWhiteMask(jobId: string, mask: { source: string; invert: boolean }) {
+    return this.run(() => this.#services.setWhiteMask(jobId, mask), "White mask changed");
+  }
+
+  setWhiteChoke(jobId: string, chokeMm: number) {
+    return this.run(() => this.#services.setWhiteChoke(jobId, chokeMm), "White choke changed");
+  }
+
   releaseToPrinter(jobId: string) {
     return this.run(() => this.#services.releaseToPrinter(jobId), "Job released to printer");
   }

@@ -11,6 +11,8 @@ function caps(over: Partial<CapabilityState> = {}): CapabilityState {
       maturity: "experimental",
       sheetSizes: ["A3"],
       whiteChoke: false,
+      whiteMaskInvert: false,
+      whitePolicies: ["Underbase"],
       screenedInspect: true,
     },
     sinks: { physicalPrinter: false, fileSink: true },
@@ -31,7 +33,7 @@ function job(over: Partial<JobDetail> = {}): JobDetail {
     findings: [],
     attempts: [],
     provenance: [],
-    whitePolicy: { source: "Auto", policy: "Underbase", chokeMm: 0 },
+    whitePolicy: { source: "Auto", policy: "Underbase", invertMask: false, chokeMm: 0 },
     rendered: false,
     ...over,
   };

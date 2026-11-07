@@ -61,7 +61,7 @@ function baseJob(over: Partial<JobDetail> & Pick<JobDetail, "id" | "name">): Job
       { label: "Recipe", value: "RCP-fixture-01" },
       { label: "Snapshot hash", value: "sha256:fixture-0000" },
     ],
-    whitePolicy: { source: "Auto from alpha", policy: "Underbase", chokeMm: 0 },
+    whitePolicy: { source: "Auto from alpha", policy: "Underbase", invertMask: false, chokeMm: 0 },
     rendered: false,
     ...over,
   };
@@ -172,6 +172,8 @@ interface ModeFixture {
   maturity: ModeMaturity;
   sheetSizes: string[];
   whiteChoke: boolean;
+  whiteMaskInvert: boolean;
+  whitePolicies: string[];
   screenedInspect: boolean;
 }
 
@@ -180,12 +182,16 @@ const MODES: Record<string, ModeFixture> = {
     maturity: "experimental",
     sheetSizes: ["A3", "A4"],
     whiteChoke: false,
+    whiteMaskInvert: false,
+    whitePolicies: ["Underbase", "No white"],
     screenedInspect: true,
   },
   "PM-exp-02": {
     maturity: "experimental",
     sheetSizes: ["A4"],
     whiteChoke: true,
+    whiteMaskInvert: false,
+    whitePolicies: ["Underbase", "Highlight", "No white"],
     screenedInspect: false,
   },
 };
@@ -243,6 +249,10 @@ const deviceModes = (selected: string): DeviceModeModel[] =>
     maturity: m.maturity,
     selected: id === selected,
   }));
+
+function assertDraft(job: JobDetail) {
+  if (job.rendered) throw new Error("Snapshot frozen. Duplicate the job to edit.");
+}
 
 const summary = (j: JobDetail): JobSummary => ({
   id: j.id,
@@ -342,6 +352,30 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
         message: "APNG is not supported. Export a static PNG.",
       },
     ],
+    setWhitePolicy: async (id, policy) => {
+      assertDraft(find(id));
+      if (!MODES[modeId].whitePolicies.includes(policy)) {
+        throw new Error(`White policy ${policy} is not supported by mode ${modeId}`);
+      }
+      return update(id, (j) => ({ ...j, whitePolicy: { ...j.whitePolicy, policy } }));
+    },
+    setWhiteMask: async (id, mask) => {
+      assertDraft(find(id));
+      if (mask.invert && !MODES[modeId].whiteMaskInvert) {
+        throw new Error(`Mask inversion is not supported by mode ${modeId}`);
+      }
+      return update(id, (j) => ({
+        ...j,
+        whitePolicy: { ...j.whitePolicy, source: mask.source, invertMask: mask.invert },
+      }));
+    },
+    setWhiteChoke: async (id, chokeMm) => {
+      assertDraft(find(id));
+      if (!MODES[modeId].whiteChoke) {
+        throw new Error(`White choke is not supported by mode ${modeId}`);
+      }
+      return update(id, (j) => ({ ...j, whitePolicy: { ...j.whitePolicy, chokeMm } }));
+    },
     renderAndHold: async (id) =>
       update(id, (j) => ({ ...j, state: "held", rendered: true, updated: "just now" })),
     acknowledgeFinding: async (id, findingId) =>

@@ -130,7 +130,7 @@ describe("labels and unsupported controls", () => {
     await user.click(screen.getByRole("tab", { name: "Sheet" }));
     const choke = screen.getByRole("spinbutton", { name: /White choke/ });
     expect(choke).toBeDisabled();
-    expect(screen.getByText("Not supported by mode PM-exp-01")).toBeInTheDocument();
+    expect(choke).toHaveAccessibleDescription("Not supported by mode PM-exp-01");
   });
 
   it("marks experimental maturity on recipes", async () => {
@@ -230,5 +230,68 @@ describe("device mode and recipe selection", () => {
       expect(within(list).getByRole("button", { name: /Use Fixture transfer/ })).toBeEnabled(),
     );
     expect(within(list).getAllByText("Selected")).toHaveLength(1);
+  });
+});
+
+describe("white policy and mask controls", () => {
+  async function openSheet(name: RegExp) {
+    const ctx = await openApp();
+    await openJob(ctx.user, name);
+    await ctx.user.click(screen.getByRole("tab", { name: "Sheet" }));
+    return ctx;
+  }
+
+  it("changes the white policy and mask source on a draft job", async () => {
+    const { user } = await openSheet(/Pocket print/);
+    await user.selectOptions(screen.getByRole("combobox", { name: "White policy" }), "No white");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Mask source" }),
+      "Whole placement",
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "White policy" })).toHaveValue("No white"),
+    );
+    expect(screen.getByRole("combobox", { name: "Mask source" })).toHaveValue("Whole placement");
+  });
+
+  it("shows unsupported mask inversion disabled with the mode reason", async () => {
+    await openSheet(/Pocket print/);
+    const invert = screen.getByRole("checkbox", { name: "Invert mask" });
+    expect(invert).toBeDisabled();
+    expect(invert).not.toBeChecked();
+    expect(invert).toHaveAccessibleDescription("Not supported by mode PM-exp-01");
+  });
+
+  it("does not show an editable-looking value for unsupported white choke", async () => {
+    await openSheet(/Pocket print/);
+    const choke = screen.getByRole("spinbutton", { name: /White choke/ });
+    expect(choke).toBeDisabled();
+    expect(choke).toHaveValue(null);
+  });
+
+  it("freezes policy and mask controls once the job has rendered", async () => {
+    await openSheet(/Front chest/);
+    expect(screen.getByRole("combobox", { name: "White policy" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Mask source" })).toBeDisabled();
+  });
+
+  it("enables white choke in a mode that supports it", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Recipes" }));
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Device mode" }),
+      "PM-exp-02",
+    );
+    await user.click(screen.getByRole("button", { name: "Jobs" }));
+    await openJob(user, /Pocket print/);
+    await user.click(screen.getByRole("tab", { name: "Sheet" }));
+    const choke = screen.getByRole("spinbutton", { name: /White choke/ });
+    expect(choke).toBeEnabled();
+    await user.clear(choke);
+    await user.type(choke, "0.3");
+    await user.tab();
+    await user.click(screen.getByRole("tab", { name: "Provenance" }));
+    await user.click(screen.getByRole("tab", { name: "Sheet" }));
+    expect(screen.getByRole("spinbutton", { name: /White choke/ })).toHaveValue(0.3);
   });
 });

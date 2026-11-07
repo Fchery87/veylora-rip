@@ -27,6 +27,9 @@ export interface CapabilityState {
     maturity: ModeMaturity;
     sheetSizes: string[];
     whiteChoke: boolean;
+    /** Mask inversion needs device-mode support. */
+    whiteMaskInvert: boolean;
+    whitePolicies: string[];
     screenedInspect: boolean;
   };
   sinks: {
@@ -89,7 +92,13 @@ export interface JobDetail extends JobSummary {
   findings: Finding[];
   attempts: Attempt[];
   provenance: { label: string; value: string }[];
-  whitePolicy: { source: string; policy: string; chokeMm: number };
+  whitePolicy: {
+    /** Mask source. */
+    source: string;
+    policy: string;
+    invertMask: boolean;
+    chokeMm: number;
+  };
   rendered: boolean;
 }
 
@@ -150,6 +159,8 @@ export type ReviewOutcome = "finished" | "reprint" | "printed-badly" | "decide-l
 
 export type ChannelTestResult = "matched" | "mismatch";
 
+export const WHITE_MASK_SOURCES = ["Auto from alpha", "Whole placement"] as const;
+
 export interface AppServices {
   getCapabilities(): Promise<CapabilityState>;
   listJobs(): Promise<JobSummary[]>;
@@ -168,6 +179,11 @@ export interface AppServices {
   selectRecipe(recipeId: string): Promise<RecipeModel[]>;
   listTargets(): Promise<TargetModel[]>;
   listArtworkCandidates(): Promise<ArtworkCandidate[]>;
+  /** Draft jobs only; rendered jobs are frozen snapshots. */
+  setWhitePolicy(jobId: string, policy: string): Promise<JobDetail>;
+  setWhiteMask(jobId: string, mask: { source: string; invert: boolean }): Promise<JobDetail>;
+  /** Rejects when the active device mode does not support choke. */
+  setWhiteChoke(jobId: string, chokeMm: number): Promise<JobDetail>;
   renderAndHold(jobId: string): Promise<JobDetail>;
   acknowledgeFinding(jobId: string, findingId: string): Promise<JobDetail>;
   writeToFileSink(jobId: string): Promise<JobDetail>;
