@@ -141,11 +141,18 @@ export interface DiagnosticExportResult {
 
 export type ReviewOutcome = "finished" | "reprint" | "printed-badly" | "decide-later";
 
+export type ChannelTestResult = "matched" | "mismatch";
+
 export interface AppServices {
   getCapabilities(): Promise<CapabilityState>;
   listJobs(): Promise<JobSummary[]>;
   getJob(jobId: string): Promise<JobDetail>;
-  getDeviceSetup(): Promise<DeviceSetupModel>;
+  /** Null until a device setup has been created. */
+  getDeviceSetup(): Promise<DeviceSetupModel | null>;
+  /** Creates revision 1 of a setup. Every channel starts as not tested. */
+  createDeviceSetup(name: string): Promise<DeviceSetupModel>;
+  /** Records bench evidence for one logical ink. Verified once every channel matched. */
+  recordChannelTest(logicalInk: string, result: ChannelTestResult): Promise<DeviceSetupModel>;
   listRecipes(): Promise<RecipeModel[]>;
   listTargets(): Promise<TargetModel[]>;
   listArtworkCandidates(): Promise<ArtworkCandidate[]>;

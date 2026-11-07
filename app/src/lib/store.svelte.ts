@@ -71,15 +71,22 @@ export class AppStore {
     this.tab = "review";
   }
 
-  private async run(action: () => Promise<unknown>, message: string) {
+  /** Run a service command, refresh capability and job state, and announce the result. */
+  async command<T>(action: () => Promise<T>, message: string): Promise<T | undefined> {
     try {
       this.error = "";
-      await action();
+      const result = await action();
       await this.refresh();
       this.announcement = message;
+      return result;
     } catch (e) {
       this.error = e instanceof Error ? e.message : String(e);
+      return undefined;
     }
+  }
+
+  private run(action: () => Promise<unknown>, message: string) {
+    return this.command(action, message);
   }
 
   renderAndHold(jobId: string) {

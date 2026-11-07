@@ -165,3 +165,43 @@ describe("other screens", () => {
     expect(services.calls.exportDiagnosticReport).toHaveLength(1);
   });
 });
+
+describe("setup and channel verification", () => {
+  it("creates a device setup from an empty install and unlocks gated navigation", async () => {
+    const { user } = await openApp("fresh-install");
+    expect(screen.getByRole("button", { name: "Targets" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    await user.type(await screen.findByRole("textbox", { name: "Setup name" }), "Garage bench");
+    await user.click(screen.getByRole("button", { name: "Create setup" }));
+    expect(
+      await screen.findByRole("heading", { name: /Garage bench · rev 1/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Targets" })).toBeEnabled();
+  });
+
+  it("records a channel test result and marks the setup verified once every channel matched", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    const table = await screen.findByRole("table", { name: "Channel map" });
+    const inks = ["C", "M", "Y", "K", "W"];
+    for (const ink of inks) {
+      await user.selectOptions(screen.getByRole("combobox", { name: "Channel" }), ink);
+      await user.selectOptions(screen.getByRole("combobox", { name: "Result" }), "matched");
+      await user.click(screen.getByRole("button", { name: "Record test result" }));
+      await within(table).findAllByText("Matched");
+    }
+    expect(within(table).getAllByText("Matched")).toHaveLength(5);
+    expect(await within(screen.getByRole("main")).findByText("Verified")).toBeInTheDocument();
+  });
+
+  it("shows a mismatch as bad evidence and keeps the setup unverified", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    const table = await screen.findByRole("table", { name: "Channel map" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Channel" }), "Y");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Result" }), "mismatch");
+    await user.click(screen.getByRole("button", { name: "Record test result" }));
+    expect(await within(table).findByText("Mismatch")).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).getByText("Unverified")).toBeInTheDocument();
+  });
+});

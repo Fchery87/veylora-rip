@@ -2,6 +2,7 @@ import type {
   AppServices,
   Attempt,
   CapabilityState,
+  ChannelTestResult,
   DeviceSetupModel,
   DiagnosticExportRequest,
   Finding,
@@ -115,10 +116,10 @@ function workingDayJobs(): JobDetail[] {
   ];
 }
 
-function workingDaySetup(): DeviceSetupModel {
+function newSetup(name: string): DeviceSetupModel {
   return {
-    name: "Home bench",
-    revision: 3,
+    name,
+    revision: 1,
     verified: false,
     channels: [
       {
@@ -160,7 +161,11 @@ function workingDaySetup(): DeviceSetupModel {
   };
 }
 
-function capabilities(scenario: Scenario, jobs: JobDetail[], hasSetup: boolean): CapabilityState {
+function workingDaySetup(): DeviceSetupModel {
+  return { ...newSetup("Home bench"), revision: 3 };
+}
+
+function capabilities(jobs: JobDetail[], setup: DeviceSetupModel | null): CapabilityState {
   const open = jobs.find((j) =>
     j.attempts.some((a) => a.outcome === "ambiguous" || a.outcome === "kept-in-review"),
   );
@@ -170,10 +175,10 @@ function capabilities(scenario: Scenario, jobs: JobDetail[], hasSetup: boolean):
   return {
     dataSource: "fixture",
     setup: {
-      exists: scenario === "working-day" && hasSetup,
-      verified: false,
+      exists: setup !== null,
+      verified: setup?.verified ?? false,
       experimental: false,
-      name: scenario === "working-day" ? "Home bench rev 3" : "",
+      name: setup ? `${setup.name} rev ${setup.revision}` : "",
     },
     mode: {
       id: "PM-exp-01",
@@ -201,6 +206,7 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
   let jobs: JobDetail[] = scenario === "working-day" ? workingDayJobs() : [];
   const calls: MockServices["calls"] = { exportDiagnosticReport: [] };
   let sinkCounter = 0;
+  let setup: DeviceSetupModel | null = scenario === "working-day" ? workingDaySetup() : null;
 
   const find = (id: string): JobDetail => {
     const job = jobs.find((j) => j.id === id);
@@ -215,10 +221,25 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
 
   return {
     calls,
-    getCapabilities: async () => capabilities(scenario, jobs, true),
+    getCapabilities: async () => capabilities(jobs, setup),
     listJobs: async () => jobs.map(summary),
     getJob: async (id) => find(id),
-    getDeviceSetup: async () => workingDaySetup(),
+    getDeviceSetup: async () => setup,
+    createDeviceSetup: async (name) => {
+      setup = newSetup(name);
+      return setup;
+    },
+    recordChannelTest: async (logicalInk: string, result: ChannelTestResult) => {
+      if (!setup) throw new Error("Create a device setup first.");
+      const channels = setup.channels.map((c) =>
+        c.logicalInk === logicalInk ? { ...c, evidence: result } : c,
+      );
+      if (!channels.some((c) => c.logicalInk === logicalInk)) {
+        throw new Error(`Unknown channel ${logicalInk}`);
+      }
+      setup = { ...setup, channels, verified: channels.every((c) => c.evidence === "matched") };
+      return setup;
+    },
     listRecipes: async () => [
       {
         id: "RCP-fixture-01",
@@ -294,7 +315,7 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
           attempts: j.attempts.map((a) => (a.id === attemptId ? { ...a, outcome: m.attempt } : a)),
         }));
       }
-      return capabilities(scenario, jobs, true);
+      return capabilities(jobs, setup);
     },
     exportDiagnosticReport: async (request) => {
       calls.exportDiagnosticReport.push(request);
