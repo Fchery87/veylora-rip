@@ -1,0 +1,2168 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Three variants of the Veylora RIP desktop shell,
+  switchable via ?variant=A|B|C|D|E on this single static page.
+  All data is fixture data; previews are SVG-filter simulations, never printer output.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veylora UI Prototypes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: system-ui, sans-serif; background: #222; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid #4da3ff; outline-offset: 2px; }
+  .variant { display: none; min-height: 100vh; }
+  .variant.on { display: block; }
+  .ink-c { --ink: #00a0c6; } .ink-m { --ink: #d4307a; } .ink-y { --ink: #e8c200; } .ink-k { --ink: #2a2a2a; } .ink-w { --ink: #f4f4ef; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  /* ---------- Prototype switcher (not part of any design) ---------- */
+  .proto-bar { position: fixed; right: 18px; bottom: 18px; z-index: 1000;
+    display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 999px;
+    background: #ff2bd6; color: #000; font: 600 13px/1 system-ui, sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+  .proto-bar button { border: 0; background: #000; color: #ff2bd6; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; }
+  .proto-bar span { padding: 0 12px; white-space: nowrap; }
+
+  /* =====================================================================
+     VARIANT A — Pipeline rail
+     ===================================================================== */
+  .va { --bg: #1b2027; --panel: #232a33; --line: #323b47; --text: #e7e3d9; --dim: #98a1ad;
+        --amber: #e3a33a; --red: #ec5a5f; --green: #45b886; --blue: #6aa8ff;
+        background: var(--bg); color: var(--text); font: 14px/1.5 "IBM Plex Sans", sans-serif;
+        display: none; grid-template-columns: 248px 1fr 300px; grid-template-rows: auto 1fr; min-height: 100vh; }
+  .va.on { display: grid; }
+  .va .mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .va header { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+  .va .brand { font-weight: 600; font-size: 15px; letter-spacing: .01em; }
+  .va .brand small { color: var(--dim); font-weight: 400; margin-left: 6px; }
+  .va .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 4px; font-size: 12.5px; color: var(--dim); }
+  .va .chip b { color: var(--text); font-weight: 500; }
+  .va .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex: none; }
+  .va .fixture { margin-left: auto; font-size: 12px; color: var(--amber); border: 1px dashed var(--amber); padding: 3px 10px; border-radius: 4px; }
+
+  .va nav { border-right: 1px solid var(--line); padding: 18px 0; }
+  .va nav ol { list-style: none; margin: 0; padding: 0; position: relative; }
+  .va nav ol::before { content: ""; position: absolute; left: 33px; top: 14px; bottom: 14px; width: 2px; background: var(--line); }
+  .va nav li button { position: relative; width: 100%; display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start;
+        text-align: left; padding: 10px 18px 10px 20px; border: 0; background: none; }
+  .va nav li button[aria-current="step"] { background: var(--panel); box-shadow: inset 3px 0 0 var(--blue); }
+  .va .num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 500 12px "IBM Plex Mono", monospace;
+        background: var(--bg); border: 2px solid var(--line); z-index: 1; }
+  .va .num.ok { border-color: var(--green); color: var(--green); }
+  .va .num.warn { border-color: var(--amber); color: var(--amber); }
+  .va .num.block { border-color: var(--red); color: var(--red); }
+  .va .step-name { font-weight: 500; }
+  .va .step-sub { display: block; font-size: 12px; color: var(--dim); }
+  .va .gate { margin: 22px 20px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 12.5px; color: var(--dim); }
+  .va .gate strong { color: var(--text); display: block; margin-bottom: 4px; font-weight: 500; }
+  .va .bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; }
+  .va .bar i { display: block; height: 100%; width: 35%; background: var(--amber); border-radius: 2px; }
+
+  .va main { padding: 28px 36px 90px; overflow: auto; }
+  .va .stage { display: none; max-width: 860px; }
+  .va .stage.on { display: block; }
+  .va h1 { font-size: 24px; font-weight: 600; margin: 0 0 4px; }
+  .va .lede { color: var(--dim); margin: 0 0 24px; max-width: 64ch; }
+  .va h2 { font-size: 14px; font-weight: 600; margin: 28px 0 10px; }
+  .va table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .va th { text-align: left; font-weight: 500; color: var(--dim); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .va td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .va .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: var(--ink); vertical-align: -2px; margin-right: 8px; border: 1px solid rgba(255,255,255,.25); }
+  .va .tag { font-size: 12px; padding: 2px 8px; border-radius: 3px; white-space: nowrap; }
+  .va .tag.warn { background: rgba(227,163,58,.14); color: var(--amber); }
+  .va .tag.ok { background: rgba(69,184,134,.14); color: var(--green); }
+  .va .tag.block { background: rgba(236,90,95,.14); color: var(--red); }
+  .va .btn { border: 1px solid var(--line); background: var(--panel); padding: 8px 14px; border-radius: 5px; font-weight: 500; }
+  .va .btn.primary { background: var(--blue); border-color: var(--blue); color: #0d1726; }
+  .va .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .va .actions { display: flex; gap: 10px; margin-top: 20px; align-items: center; }
+  .va .actions .why { color: var(--dim); font-size: 12.5px; }
+
+  .va .chain { display: flex; flex-wrap: wrap; gap: 0; margin: 6px 0 4px; }
+  .va .chain span { font-size: 12px; padding: 6px 12px 6px 18px; background: var(--panel); border: 1px solid var(--line); margin-left: -1px;
+        clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%); }
+  .va .chain span:first-child { padding-left: 12px; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%); }
+  .va .chain span.here { background: #2c3a52; color: #fff; }
+  .va .form { display: grid; grid-template-columns: 180px 1fr; gap: 12px 16px; align-items: center; font-size: 13px; }
+  .va .form label { color: var(--dim); }
+  .va select, .va input[type=number] { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font: inherit; }
+  .va .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+  .va .seg button { border: 0; background: none; padding: 6px 12px; font-size: 12.5px; color: var(--dim); }
+  .va .seg button[aria-pressed="true"] { background: var(--blue); color: #0d1726; font-weight: 500; }
+  .va .previews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 8px; }
+  .va figure { margin: 0; }
+  .va figure .pv { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 6px; display: grid; place-items: center; overflow: hidden; }
+  .va figcaption { font-size: 12px; color: var(--dim); margin-top: 6px; }
+  .va .stagebox { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--panel); }
+  .va .bigpv { height: 420px; border-radius: 6px; display: grid; place-items: center; background: #0f1216; position: relative; }
+  .va .bigpv .lbl { position: absolute; top: 10px; left: 10px; font-size: 11.5px; color: var(--amber); border: 1px dashed var(--amber); padding: 2px 8px; border-radius: 3px; }
+  .va .finding { display: grid; grid-template-columns: 96px 1fr; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .va .finding p { margin: 2px 0 0; color: var(--dim); }
+  .va .finding .fix { color: var(--text); margin-top: 6px; }
+  .va .finding .fix::before { content: "Fix: "; color: var(--blue); font-weight: 500; }
+
+  .va aside { border-left: 1px solid var(--line); padding: 20px; font-size: 13px; overflow: auto; }
+  .va aside h3 { font-size: 13px; font-weight: 600; margin: 0 0 12px; }
+  .va aside dl { margin: 0; display: grid; grid-template-columns: 1fr; gap: 0; }
+  .va aside dt { color: var(--dim); font-size: 12px; margin-top: 12px; }
+  .va aside dd { margin: 2px 0 0; }
+  .va aside .note { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12.5px; }
+
+  /* =====================================================================
+     VARIANT B — Light table workbench
+     ===================================================================== */
+  .vb { --chrome: #e9e8e4; --chrome2: #dcdad5; --line: #c6c3bc; --text: #1f2125; --dim: #64666b; --table: #3b3f45; --acc: #2457d6;
+        --warn: #b26b00; --bad: #c22f36;
+        background: var(--table); color: var(--text); font: 13px/1.45 "Archivo", sans-serif;
+        display: none; grid-template-columns: 236px 1fr 288px; grid-template-rows: 44px 1fr 132px; height: 100vh; overflow: hidden; }
+  .vb.on { display: grid; }
+  .vb .mono { font-family: "JetBrains Mono", monospace; font-size: 11.5px; }
+  .vb .top { grid-column: 1 / -1; background: var(--chrome); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 6px; padding: 0 12px; }
+  .vb .logo { font-weight: 800; font-size: 14px; margin-right: 14px; letter-spacing: -.01em; }
+  .vb .pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--line); background: #f6f5f2; border-radius: 14px; font-size: 12px; }
+  .vb .pill .k { color: var(--dim); }
+  .vb .pill.warn { border-color: #e2b56b; background: #fbf0dc; }
+  .vb .tools { display: flex; gap: 2px; margin-left: 12px; }
+  .vb .tools button { border: 1px solid transparent; background: none; height: 28px; padding: 0 9px; border-radius: 5px; font-size: 12px; }
+  .vb .tools button:hover { border-color: var(--line); background: #f6f5f2; }
+  .vb .go { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .vb .go .btn { height: 30px; border-radius: 6px; padding: 0 12px; border: 1px solid var(--line); background: #f6f5f2; font-weight: 600; font-size: 12.5px; }
+  .vb .go .btn.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  .vb .go .count { color: var(--bad); font-weight: 600; font-size: 12px; }
+
+  .vb .left, .vb .right { background: var(--chrome); overflow: auto; }
+  .vb .left { border-right: 1px solid var(--line); }
+  .vb .right { border-left: 1px solid var(--line); }
+  .vb .sec { padding: 12px; border-bottom: 1px solid var(--line); }
+  .vb .sec h4 { margin: 0 0 8px; font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; }
+  .vb .sec h4 span { color: var(--dim); font-weight: 400; }
+  .vb .item { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; padding: 6px; border-radius: 6px; width: 100%; border: 0; background: none; text-align: left; }
+  .vb .item:hover { background: var(--chrome2); }
+  .vb .item[aria-pressed="true"] { background: #fff; box-shadow: inset 0 0 0 1px var(--acc); }
+  .vb .thumb { width: 34px; height: 34px; border-radius: 4px; background: repeating-conic-gradient(#cfcdc8 0 25%, #f3f2ef 0 50%) 0 0/10px 10px; display: grid; place-items: center; }
+  .vb .item small { display: block; color: var(--dim); font-size: 11px; }
+  .vb .item .bad { color: var(--bad); }
+  .vb .item .warn { color: var(--warn); }
+
+  .vb .table { position: relative; overflow: hidden; display: grid; place-items: center; }
+  .vb .table .tag { position: absolute; top: 12px; left: 14px; font-size: 11.5px; color: #ffd28a; border: 1px dashed #ffd28a; padding: 2px 8px; border-radius: 3px; }
+  .vb .table .zoom { position: absolute; top: 12px; right: 14px; color: #d8d8d8; font-size: 11.5px; }
+  .vb .sheet-wrap { position: relative; padding: 22px 0 0 22px; margin-top: 30px; }
+  .vb .ruler-x { position: absolute; left: 22px; right: 0; top: 0; height: 18px;
+        background: repeating-linear-gradient(90deg, #888 0 1px, transparent 1px 20px) bottom/100% 8px no-repeat; color: #bbb; font-size: 9px; }
+  .vb .ruler-y { position: absolute; top: 22px; bottom: 0; left: 0; width: 18px;
+        background: repeating-linear-gradient(180deg, #888 0 1px, transparent 1px 20px) right/8px 100% no-repeat; }
+  .vb .sheet { position: relative; height: calc(100vh - 44px - 132px - 100px); aspect-ratio: 297 / 420; box-shadow: 0 10px 40px rgba(0,0,0,.4); transition: background .2s; }
+  .vb .sheet.film { background: repeating-conic-gradient(#d9dbde 0 25%, #f4f5f6 0 50%) 0 0/16px 16px; }
+  .vb .sheet.garment { background: radial-gradient(ellipse at 50% 35%, #3b4250, #252a33); }
+  .vb .sheet.dark { background: #0d0f12; }
+  .vb .sheet.paper { background: #fff; }
+  .vb .printable { position: absolute; inset: 14px 14px 30px 14px; border: 1px dashed rgba(36,87,214,.7); pointer-events: none; }
+  .vb .pl { position: absolute; border: 0; padding: 0; background: none; }
+  .vb .pl svg { width: 100%; height: 100%; display: block; }
+  .vb .pl[aria-pressed="true"] { outline: 1.5px solid var(--acc); outline-offset: 2px; }
+  .vb .pl .h { position: absolute; width: 7px; height: 7px; background: #fff; border: 1.5px solid var(--acc); display: none; }
+  .vb .pl[aria-pressed="true"] .h { display: block; }
+  .vb .pl.clip::after { content: ""; position: absolute; top: 0; bottom: 0; right: -1px; width: 22%; background: repeating-linear-gradient(45deg, rgba(194,47,54,.55) 0 4px, transparent 4px 8px); }
+  .vb .mirror { transform: scaleX(-1); }
+
+  .vb .strip { grid-column: 1 / -1; background: var(--chrome); border-top: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr auto; gap: 18px; padding: 12px 14px; align-items: start; }
+  .vb .stages { display: flex; gap: 8px; }
+  .vb .st { width: 112px; border: 1px solid var(--line); background: #f6f5f2; border-radius: 6px; padding: 6px; text-align: left; }
+  .vb .st[aria-pressed="true"] { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc); background: #fff; }
+  .vb .st .mini { height: 54px; border-radius: 3px; margin-bottom: 5px; display: grid; place-items: center; overflow: hidden; }
+  .vb .st b { font-size: 11.5px; font-weight: 600; display: block; }
+  .vb .st small { font-size: 10.5px; color: var(--dim); }
+  .vb .planes { display: flex; flex-direction: column; gap: 8px; }
+  .vb .planes .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .vb .planes .row > span { width: 92px; color: var(--dim); font-size: 11.5px; }
+  .vb .pt { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border: 1px solid var(--line); border-radius: 13px; background: #f6f5f2; font-size: 11.5px; }
+  .vb .pt i { width: 12px; height: 12px; border-radius: 50%; background: var(--ink); border: 1px solid rgba(0,0,0,.25); }
+  .vb .pt[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
+  .vb .pt[disabled] { cursor: not-allowed; }
+  .vb .meta { font-size: 11px; color: var(--dim); text-align: right; line-height: 1.6; }
+  .vb .meta b { color: var(--text); font-weight: 500; }
+
+  .vb .field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; margin: 7px 0; font-size: 12px; }
+  .vb .field label { color: var(--dim); }
+  .vb .field select, .vb .field input { font: inherit; font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 4px; padding: 4px 6px; width: 132px; }
+  .vb .field input[type=range] { padding: 0; }
+  .vb .xy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .vb .xy label { font-size: 11px; color: var(--dim); display: grid; gap: 2px; }
+  .vb .xy input { font: inherit; font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 4px; padding: 4px 6px; width: 100%; }
+  .vb .curve { background: #fff; border: 1px solid var(--line); border-radius: 4px; }
+  .vb .note { font-size: 11.5px; color: var(--dim); margin: 6px 0 0; }
+  .vb .alert { font-size: 11.5px; padding: 8px; border-radius: 5px; background: #fbe4e4; color: #7d1a1f; margin-top: 8px; }
+
+  /* =====================================================================
+     VARIANT C — Job ledger
+     ===================================================================== */
+  .vc { --bg: #f5f6f8; --card: #ffffff; --line: #dde1e7; --text: #18213a; --dim: #5d6680; --navy: #18213a;
+        --amb: #a86400; --ambbg: #fff3df; --red: #b4232c; --redbg: #fde8e9; --grn: #1d7a4f; --grnbg: #e3f5ec; --blu: #2350c8; --blubg: #e7edfc;
+        background: var(--bg); color: var(--text); font: 14px/1.5 "Public Sans", sans-serif; }
+  .vc .mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .vc .topbar { display: flex; align-items: baseline; gap: 24px; padding: 18px 32px 14px; border-bottom: 1px solid var(--line); background: var(--card); }
+  .vc .topbar h1 { font: 600 22px/1 "Source Serif 4", serif; margin: 0; }
+  .vc .topbar nav { display: flex; gap: 18px; font-size: 13.5px; }
+  .vc .topbar nav a { color: var(--dim); text-decoration: none; padding-bottom: 4px; }
+  .vc .topbar nav a.cur { color: var(--text); font-weight: 600; box-shadow: 0 2px 0 var(--navy); }
+  .vc .device { margin-left: auto; font-size: 13px; color: var(--dim); text-align: right; }
+  .vc .device b { color: var(--amb); font-weight: 600; }
+  .vc .banner { padding: 8px 32px; background: var(--ambbg); color: #6b4000; font-size: 13px; border-bottom: 1px solid #f0d9b0; }
+  .vc .wrap { display: grid; grid-template-columns: minmax(520px, 1.1fr) 1fr; gap: 0; min-height: calc(100vh - 100px); }
+  .vc .ledger { padding: 20px 24px 90px 32px; border-right: 1px solid var(--line); }
+  .vc .ledger-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .vc .ledger-head h2 { font: 600 17px "Source Serif 4", serif; margin: 0; }
+  .vc .ledger-head .sp { flex: 1; }
+  .vc .btn { border: 1px solid var(--line); background: var(--card); padding: 7px 13px; border-radius: 6px; font-weight: 600; font-size: 13px; }
+  .vc .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .vc .btn.danger { color: var(--red); }
+  .vc .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .vc .filters { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .vc .filters button { border: 1px solid var(--line); background: var(--card); border-radius: 14px; padding: 3px 11px; font-size: 12.5px; color: var(--dim); }
+  .vc .filters button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .vc table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 13px; }
+  .vc th { text-align: left; font-weight: 600; color: var(--dim); font-size: 12px; padding: 9px 12px; border-bottom: 1px solid var(--line); background: #fafbfc; }
+  .vc td { padding: 11px 12px; border-bottom: 1px solid var(--line); }
+  .vc tbody tr { cursor: pointer; }
+  .vc tbody tr:hover { background: #f8f9fb; }
+  .vc tbody tr[aria-selected="true"] { background: var(--blubg); }
+  .vc tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--blu); }
+  .vc .st { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px; white-space: nowrap; }
+  .vc .st.amb { background: var(--ambbg); color: var(--amb); }
+  .vc .st.red { background: var(--redbg); color: var(--red); }
+  .vc .st.grn { background: var(--grnbg); color: var(--grn); }
+  .vc .st.blu { background: var(--blubg); color: var(--blu); }
+  .vc .st.gry { background: #eceef2; color: var(--dim); }
+  .vc .sub { color: var(--dim); font-size: 12px; }
+
+  .vc .detail { padding: 20px 32px 90px 28px; }
+  .vc .detail h2 { font: 600 24px/1.2 "Source Serif 4", serif; margin: 2px 0 2px; }
+  .vc .lifecycle { display: flex; margin: 18px 0 22px; }
+  .vc .lifecycle span { flex: 1; font-size: 11.5px; color: var(--dim); padding-top: 10px; border-top: 3px solid var(--line); margin-right: 3px; }
+  .vc .lifecycle span.done { border-color: var(--navy); color: var(--text); }
+  .vc .lifecycle span.now { border-color: var(--amb); color: var(--amb); font-weight: 600; }
+  .vc .review { background: var(--card); border: 1px solid #ecc98c; border-left: 4px solid var(--amb); border-radius: 8px; padding: 16px 18px; }
+  .vc .review h3 { margin: 0 0 6px; font-size: 15px; }
+  .vc .review p { margin: 0 0 12px; color: var(--dim); max-width: 62ch; }
+  .vc .review .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .vc .review .facts div { background: #fafbfc; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: var(--dim); }
+  .vc .review .facts b { display: block; color: var(--text); font-size: 14px; }
+  .vc .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .vc .confirm { margin-top: 12px; padding: 10px 12px; background: #fafbfc; border: 1px dashed var(--line); border-radius: 6px; font-size: 13px; display: none; }
+  .vc .confirm.on { display: block; }
+  .vc h3.h { font: 600 15px "Source Serif 4", serif; margin: 26px 0 10px; }
+  .vc .timeline { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--line); margin-left: 6px; }
+  .vc .timeline li { position: relative; padding: 0 0 14px 18px; font-size: 13px; }
+  .vc .timeline li::before { content: ""; position: absolute; left: -7px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--card); border: 2px solid var(--navy); }
+  .vc .timeline li.amb::before { border-color: var(--amb); background: var(--ambbg); }
+  .vc .timeline li.new { animation: vcin .4s ease-out; }
+  @keyframes vcin { from { background: var(--ambbg); } to { background: transparent; } }
+  .vc .timeline .when { color: var(--dim); font-size: 12px; }
+  .vc .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .vc .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .vc dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 12.5px; }
+  .vc dl.kv dt { color: var(--dim); }
+  .vc dl.kv dd { margin: 0; }
+  .vc .stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .vc .stages figure { margin: 0; }
+  .vc .stages .pv { aspect-ratio: 3/4; border-radius: 6px; border: 1px solid var(--line); display: grid; place-items: center; overflow: hidden; }
+  .vc .stages figcaption { font-size: 12px; margin-top: 4px; }
+  .vc .stages figcaption small { display: block; color: var(--dim); }
+  .vc .findings li { margin-bottom: 10px; }
+  .vc .findings { padding-left: 18px; margin: 0; font-size: 13px; }
+  .vc .findings .fix { color: var(--dim); display: block; }
+  .vc .empty { color: var(--dim); padding: 40px 0; }
+
+  /* Narrow screens: stack everything */
+  @media (max-width: 900px) {
+    .va.on, .vb.on { display: block; height: auto; overflow: visible; }
+    .va nav, .va aside, .vb .left, .vb .right { border: 0; }
+    .va main { padding: 20px 16px 90px; }
+    .va .previews { grid-template-columns: 1fr; }
+    .va .form { grid-template-columns: 1fr; }
+    .vb .table { padding: 20px 0; }
+    .vb .sheet { width: 300px; height: 392px; }
+    .vb .strip { display: block; }
+    .vb .stages { overflow-x: auto; }
+    .vc .wrap { grid-template-columns: 1fr; }
+    .vc .ledger, .vc .detail { padding: 16px; }
+    .vc .topbar { flex-wrap: wrap; padding: 14px 16px; }
+    .vc .grid2, .vc .stages { grid-template-columns: 1fr 1fr; }
+    .vc .review .facts { grid-template-columns: 1fr; }
+  }
+
+  /* =====================================================================
+     VARIANT D — Ledger + sheet (C's ledger hosting B's light table), new palette
+     ===================================================================== */
+  .vd { --bg: #f6f7f9; --surface: #ffffff; --subtle: #f2f4f7; --line: #e4e7ec; --line2: #d0d5dd;
+        --text: #101828; --text2: #344054; --muted: #667085;
+        --accent: #2e6be6; --accent-hover: #2459c9; --accent-soft: #eef4ff; --accent-text: #1d4fb8;
+        --ok: #067647; --ok-bg: #ecfdf3; --warn: #b54708; --warn-bg: #fffaeb; --bad: #b42318; --bad-bg: #fef3f2; --neutral-bg: #f2f4f7;
+        --canvas: #eceef2; --canvas-dot: #d3d8e0; --film-a: #e3e6eb; --film-b: #f7f8fa;
+        --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.07);
+        --sheet-shadow: 0 1px 2px rgba(16,24,40,.06), 0 12px 32px -8px rgba(16,24,40,.18);
+        --r: 8px;
+        background: var(--bg); color: var(--text); font: 14px/1.5 "Geist", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased; }
+  .vd[data-theme="dark"] { --bg: #0b0f17; --surface: #121826; --subtle: #182031; --line: #232b3b; --line2: #2f3a4f;
+        --text: #eef1f6; --text2: #c7cdd8; --muted: #8a94a7;
+        --accent: #5b8cff; --accent-hover: #7aa2ff; --accent-soft: rgba(91,140,255,.13); --accent-text: #a9c2ff;
+        --ok: #47cd89; --ok-bg: rgba(71,205,137,.12); --warn: #fdb022; --warn-bg: rgba(253,176,34,.12); --bad: #f97066; --bad-bg: rgba(249,112,102,.12); --neutral-bg: #1b2333;
+        --canvas: #080b12; --canvas-dot: #1a2130; --film-a: #2a3140; --film-b: #353d4d;
+        --shadow: 0 1px 2px rgba(0,0,0,.4); --sheet-shadow: 0 16px 40px -10px rgba(0,0,0,.7); }
+  .vd .mono { font-family: "Geist Mono", ui-monospace, monospace; font-size: 12px; }
+  .vd .muted { color: var(--muted); }
+
+  .vd .top { height: 56px; display: flex; align-items: center; gap: 28px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .vd .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+  .vd .mark { width: 24px; height: 24px; border-radius: 6px; background: conic-gradient(from 200deg, #00a0c6, #d4307a, #e8c200, #2a2a2a, #00a0c6); position: relative; }
+  .vd .mark::after { content: ""; position: absolute; inset: 6px; border-radius: 3px; background: var(--surface); }
+  .vd .top nav { display: flex; gap: 4px; }
+  .vd .top nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-weight: 500; font-size: 13.5px; }
+  .vd .top nav a:hover { color: var(--text); background: var(--subtle); }
+  .vd .top nav a.cur { color: var(--text); background: var(--subtle); }
+  .vd .top .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .vd .device { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; }
+  .vd .theme { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--subtle); }
+  .vd .theme button { border: 0; background: none; padding: 4px 10px; border-radius: 6px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
+  .vd .theme button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+  .vd .fixture { display: flex; align-items: center; gap: 8px; padding: 7px 20px; font-size: 12.5px; color: var(--muted); background: var(--surface); border-bottom: 1px solid var(--line); }
+  .vd .fixture b { color: var(--warn); font-weight: 600; }
+
+  .vd .badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; background: var(--neutral-bg); color: var(--text2); }
+  .vd .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .9; }
+  .vd .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .vd .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .vd .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .vd .badge.info { background: var(--accent-soft); color: var(--accent-text); }
+  .vd .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+
+  .vd .btn { height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: var(--r); border: 1px solid var(--line2); background: var(--surface); color: var(--text2); font-weight: 500; font-size: 13.5px; box-shadow: var(--shadow); }
+  .vd .btn:hover { background: var(--subtle); }
+  .vd .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .vd .btn.primary:hover { background: var(--accent-hover); }
+  .vd .btn.danger { color: var(--bad); }
+  .vd .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .vd .btn.sm { height: 30px; padding: 0 10px; font-size: 12.5px; }
+
+  .vd.on { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .vd .shell { display: grid; grid-template-columns: 340px 1fr; flex: 1; min-height: 0; }
+
+  /* Ledger */
+  .vd .ledger { border-right: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+  .vd .ledger-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 10px; }
+  .vd .ledger-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .vd .search { margin: 0 16px 10px; height: 34px; border: 1px solid var(--line2); border-radius: var(--r); background: var(--surface); color: var(--text); padding: 0 10px; font: inherit; font-size: 13px; }
+  .vd .search::placeholder { color: var(--muted); }
+  .vd .filters { display: flex; gap: 4px; padding: 0 16px 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+  .vd .filters button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; height: 26px; padding: 0 10px; font-size: 12px; color: var(--muted); font-weight: 500; }
+  .vd .filters button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--surface); }
+  .vd .filters .n { margin-left: 4px; opacity: .7; }
+  .vd .jobs { list-style: none; margin: 0; padding: 6px 8px 90px; overflow: auto; flex: 1; min-height: 0; }
+  .vd .job { width: 100%; text-align: left; border: 0; background: none; padding: 10px 10px; border-radius: var(--r); display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+  .vd .job:hover { background: var(--subtle); }
+  .vd .job[aria-selected="true"] { background: var(--accent-soft); }
+  .vd .job .name { font-weight: 500; font-size: 13.5px; }
+  .vd .job .meta { grid-column: 1 / -1; font-size: 12px; color: var(--muted); display: flex; gap: 10px; }
+  .vd .job .attention { grid-column: 1 / -1; font-size: 12px; color: var(--warn); }
+
+  /* Job workspace */
+  .vd .work { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .vd .job-head { padding: 18px 24px 0; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .vd .job-title { display: flex; align-items: flex-start; gap: 16px; }
+  .vd .job-title h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.015em; line-height: 1.3; }
+  .vd .job-title .ids { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .vd .job-title .acts { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .vd .acts .why { font-size: 12px; color: var(--muted); }
+  .vd .life { display: flex; gap: 4px; margin: 16px 0 0; }
+  .vd .life span { flex: 1; font-size: 11.5px; color: var(--muted); padding-top: 7px; border-top: 2px solid var(--line); }
+  .vd .life span.done { border-color: var(--accent); color: var(--text2); }
+  .vd .life span.now { border-color: var(--warn); color: var(--warn); font-weight: 500; }
+  .vd .life span.now.bad { border-color: var(--bad); color: var(--bad); }
+  .vd .tabs { display: flex; gap: 20px; margin-top: 14px; }
+  .vd .tabs button { border: 0; background: none; padding: 10px 0 11px; font-size: 13.5px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; gap: 6px; align-items: center; }
+  .vd .tabs button[aria-selected="true"] { color: var(--text); border-color: var(--text); }
+  .vd .tabs .count { font-size: 11px; background: var(--neutral-bg); color: var(--text2); padding: 0 6px; border-radius: 999px; line-height: 18px; }
+  .vd .tabs .count.bad { background: var(--bad-bg); color: var(--bad); }
+  .vd .tabs .count.warn { background: var(--warn-bg); color: var(--warn); }
+  .vd .pane { flex: 1; min-height: 0; overflow: auto; }
+
+  /* Sheet tab */
+  .vd .sheetpane { display: grid; grid-template-columns: 1fr 300px; height: 100%; }
+  .vd .canvas-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .vd .canvas { position: relative; flex: 1; min-height: 320px; background: var(--canvas); background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px); background-size: 16px 16px; display: grid; place-items: center; overflow: hidden; }
+  .vd .canvas .label { position: absolute; top: 12px; left: 14px; display: flex; gap: 6px; align-items: center; }
+  .vd .chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; color: var(--text2); box-shadow: var(--shadow); }
+  .vd .chip.warn { color: var(--warn); }
+  .vd .canvas .zoom { position: absolute; top: 12px; right: 14px; }
+  .vd .canvas .lock { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); }
+  .vd .sheet { position: relative; height: calc(100% - 100px); max-height: 760px; box-shadow: var(--sheet-shadow); border-radius: 2px; transition: background-color .2s; }
+  .vd .sheet.a3 { aspect-ratio: 297 / 420; } .vd .sheet.a4 { aspect-ratio: 210 / 297; }
+  .vd .sheet.film { background: repeating-conic-gradient(var(--film-a) 0 25%, var(--film-b) 0 50%) 0 0 / 14px 14px; }
+  .vd .sheet.garment { background: radial-gradient(ellipse at 50% 35%, #3b4250, #22272f); }
+  .vd .sheet.dark { background: #0b0d10; }
+  .vd .sheet.paper { background: #fff; }
+  .vd .sheet.mirror { transform: scaleX(-1); }
+  .vd .printable { position: absolute; inset: 3.3% 3.3% 5% 3.3%; border: 1px dashed rgba(46,107,230,.75); pointer-events: none; }
+  .vd .pl { position: absolute; border: 0; padding: 0; background: none; }
+  .vd .pl svg { width: 100%; height: 100%; display: block; }
+  .vd .pl[aria-pressed="true"] { outline: 1.5px solid var(--accent); outline-offset: 2px; }
+  .vd .pl.clip::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 18%; background: repeating-linear-gradient(45deg, rgba(220,38,38,.55) 0 4px, transparent 4px 8px); }
+  .vd .strip { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+  .vd .seg { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: var(--r); background: var(--subtle); }
+  .vd .seg button { border: 0; background: none; height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12.5px; color: var(--muted); font-weight: 500; display: inline-flex; flex-direction: column; justify-content: center; line-height: 1.1; }
+  .vd .seg button small { font-size: 10.5px; font-weight: 400; color: var(--muted); }
+  .vd .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .vd .planes { display: flex; gap: 4px; align-items: center; }
+  .vd .planes > span { font-size: 12px; color: var(--muted); margin-right: 4px; }
+  .vd .pt { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; font-weight: 600; display: grid; place-items: center; position: relative; color: var(--text2); }
+  .vd .pt::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 4px; height: 3px; border-radius: 2px; background: var(--ink); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+  .vd .pt[aria-pressed="false"] { opacity: .4; }
+
+  .vd .insp { border-left: 1px solid var(--line); background: var(--surface); overflow: auto; min-height: 0; }
+  .vd .sec { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .vd .sec h4 { margin: 0 0 10px; font-size: 12.5px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; color: var(--text); }
+  .vd .sec h4 span { font-weight: 400; color: var(--muted); }
+  .vd .plitem { width: 100%; display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: center; padding: 6px; border: 0; border-radius: 6px; background: none; text-align: left; }
+  .vd .plitem:hover { background: var(--subtle); }
+  .vd .plitem[aria-pressed="true"] { background: var(--accent-soft); }
+  .vd .thumb { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--line); background: repeating-conic-gradient(var(--film-a) 0 25%, var(--film-b) 0 50%) 0 0 / 8px 8px; display: grid; place-items: center; overflow: hidden; }
+  .vd .plitem b { font-weight: 500; font-size: 13px; display: block; }
+  .vd .plitem small { font-size: 11.5px; color: var(--muted); }
+  .vd .plitem small.bad { color: var(--bad); }
+  .vd .grid4 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .vd .grid4 label, .vd .field label { font-size: 11.5px; color: var(--muted); display: grid; gap: 4px; }
+  .vd input, .vd select { font: inherit; font-size: 13px; height: 32px; border: 1px solid var(--line2); border-radius: 6px; background: var(--surface); color: var(--text); padding: 0 8px; width: 100%; }
+  .vd input:disabled, .vd select:disabled { background: var(--subtle); color: var(--muted); }
+  .vd .field { margin-bottom: 10px; }
+  .vd .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .vd .curve { width: 100%; height: 84px; border: 1px solid var(--line); border-radius: 6px; background: var(--subtle); }
+  .vd .note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  .vd .callout { font-size: 12.5px; padding: 10px 12px; border-radius: var(--r); margin-top: 10px; }
+  .vd .callout.bad { background: var(--bad-bg); color: var(--bad); }
+  .vd .callout.warn { background: var(--warn-bg); color: var(--warn); }
+  .vd .slot { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: var(--text2); }
+
+  /* Other tabs */
+  .vd .page { padding: 24px; max-width: 920px; }
+  .vd .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .vd .card + .card { margin-top: 16px; }
+  .vd .card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+  .vd .card p { margin: 0 0 14px; color: var(--muted); max-width: 64ch; }
+  .vd .review { border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+  .vd .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .vd .facts div { background: var(--subtle); border-radius: var(--r); padding: 10px 12px; font-size: 12px; color: var(--muted); }
+  .vd .facts b { display: block; color: var(--text); font-size: 15px; font-weight: 600; margin-top: 2px; }
+  .vd .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .vd .confirm { margin-top: 14px; padding: 12px 14px; background: var(--subtle); border-radius: var(--r); font-size: 13px; color: var(--text2); }
+  .vd .finding { display: grid; grid-template-columns: 100px 1fr; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .vd .finding:last-child { border-bottom: 0; }
+  .vd .finding b { font-weight: 500; }
+  .vd .finding p { margin: 2px 0 0; color: var(--muted); }
+  .vd .finding .fix { color: var(--text2); }
+  .vd .timeline { list-style: none; margin: 0; padding: 0; }
+  .vd .timeline li { display: grid; grid-template-columns: 76px 16px 1fr; gap: 10px; font-size: 13px; padding-bottom: 14px; position: relative; }
+  .vd .timeline li::before { content: ""; grid-column: 2; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent); background: var(--surface); margin-top: 4px; }
+  .vd .timeline li.amb::before { border-color: var(--warn); background: var(--warn-bg); }
+  .vd .timeline li.new { animation: vdin .5s ease-out; }
+  @keyframes vdin { from { background: var(--warn-bg); } to { background: transparent; } }
+  .vd .timeline .t { color: var(--muted); font-family: "Geist Mono", monospace; font-size: 12px; }
+  .vd dl.kv { display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; margin: 0; font-size: 13px; }
+  .vd dl.kv dt { color: var(--muted); }
+  .vd dl.kv dd { margin: 0; }
+
+  @media (max-width: 1100px) {
+    .vd.on { height: auto; overflow: visible; }
+    .vd .shell { grid-template-columns: 1fr; }
+    .vd .ledger { border-right: 0; border-bottom: 1px solid var(--line); max-height: 320px; }
+    .vd .sheetpane { grid-template-columns: 1fr; }
+    .vd .insp { height: auto; min-height: 0; border-left: 0; }
+    .vd .canvas { height: 520px; }
+    .vd .top nav { display: none; }
+    .vd .job-title { flex-wrap: wrap; }
+    .vd .facts { grid-template-columns: 1fr; }
+  }
+
+  /* =====================================================================
+     VARIANT E — Approved shell per docs/design.md (extends .vd tokens and components)
+     ===================================================================== */
+  .ve { --review: #6927da; --review-bg: #f4f3ff; --on-accent: #ffffff; --on-review: #ffffff; }
+  .ve[data-theme="dark"] { --review: #a48afb; --review-bg: rgb(164 138 251 / .14); --on-accent: #0b0f17; --on-review: #0b0f17; }
+  .vd.ve.on { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: 1fr 28px; height: 100vh; overflow: hidden; }
+  .ve .btn.primary { color: var(--on-accent); }
+  .ve .badge.review { background: var(--review-bg); color: var(--review); }
+  .ve .life span.now.review { border-color: var(--review); color: var(--review); }
+  .ve .life span.now.ok { border-color: var(--ok); color: var(--ok); }
+
+  /* Rail */
+  .ve .rail { grid-row: 1; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; }
+  .ve .rail .logo { width: 28px; height: 28px; border-radius: 7px; background: conic-gradient(from 200deg, #00a0c6, #d4307a, #e8c200, #2a2a2a, #00a0c6); position: relative; margin-bottom: 10px; }
+  .ve .rail .logo::after { content: ""; position: absolute; inset: 7px; border-radius: 3px; background: var(--surface); }
+  .ve .rail .sp { flex: 1; }
+  .ve .rb { position: relative; width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; color: var(--muted); display: grid; place-items: center; }
+  .ve .rb:hover { background: var(--subtle); color: var(--text); }
+  .ve .rb[aria-current="page"] { background: var(--accent-soft); color: var(--accent-text); }
+  .ve .rb[aria-current="page"]::before { content: ""; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 2px; border-radius: 2px; background: var(--accent); }
+  .ve .rb svg { width: 20px; height: 20px; }
+  .ve .rb .rdot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
+  .ve .rb .rdot.review { background: var(--review); } .ve .rb .rdot.warn { background: var(--warn); }
+  .ve [data-tip]:hover::after { content: attr(data-tip); position: absolute; left: 48px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: var(--text); color: var(--surface); font-size: 12px; padding: 4px 8px; border-radius: 6px; z-index: 30; pointer-events: none; }
+
+  /* Main column */
+  .ve .main { grid-row: 1; grid-column: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .ve .rbanner { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 16px; background: var(--review-bg); border-left: 3px solid var(--review); border-bottom: 1px solid var(--line); font-size: 13px; color: var(--text); flex: none; }
+  .ve .rbanner svg { width: 16px; height: 16px; color: var(--review); flex: none; }
+  .ve .rbanner b { color: var(--review); }
+  .ve .rbanner .btn { margin-left: auto; }
+  .ve .rbanner.slim { min-height: 30px; font-size: 12.5px; }
+  .ve .ejobs { display: grid; grid-template-columns: 320px 1fr; flex: 1; min-height: 0; }
+  .ve .ejobs .ledger { min-height: 0; }
+  .ve .jobs .grp { font-size: 11.5px; color: var(--muted); padding: 10px 10px 4px; font-weight: 500; }
+  .ve .acts .pfchip { height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 500; border: 0; }
+  .ve .pfchip.bad { background: var(--bad-bg); color: var(--bad); } .ve .pfchip.warn { background: var(--warn-bg); color: var(--warn); }
+  .ve .pfchip.ok { background: var(--ok-bg); color: var(--ok); } .ve .pfchip.neutral { background: var(--neutral-bg); color: var(--text2); }
+  .ve .acts .why a, .ve .why-link { color: var(--accent-text); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0; font: inherit; }
+  .ve .relconf { margin-top: 12px; padding: 12px 14px; border-radius: var(--r); background: var(--subtle); display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+  .ve .relconf span { flex: 1; min-width: 240px; }
+
+  /* Focus mode, collapsed panels */
+  .ve.focus .ejobs { grid-template-columns: 1fr; } .ve.focus .ejobs .ledger { display: none; }
+  .ve.focus .life, .ve.focus .tabs { display: none; }
+  .ve.focus .job-head { padding: 6px 16px; }
+  .ve.focus .job-title { align-items: center; }
+  .ve.focus .job-title h1 { font-size: 15px; }
+  .ve.focus .ids > span:not(#e-badge) { display: none; }
+  .ve.focus .ids { margin-top: 0; }
+  .ve.noledger .ejobs { grid-template-columns: 1fr; } .ve.noledger .ejobs .ledger { display: none; }
+  .ve.nopanel .sheetpane, .ve.nopanel .iwrap { grid-template-columns: 1fr; } .ve.nopanel .insp { display: none; }
+
+  /* Canvas per design 5.3 */
+  .ve .canvas { background: #7f7f7f; background-image: none; }
+  .ve .sheet { height: calc(100% - 72px); }
+  .ve .sheet.film { background: repeating-conic-gradient(#d9d9d9 0 25%, #f2f2f2 0 50%) 0 0 / 14px 14px; }
+  .ve .printable { border: 1px dashed #101828; box-shadow: 0 0 0 1px rgb(255 255 255 / .7); }
+  .ve .pl[aria-pressed="true"] { outline: 1px solid #101828; outline-offset: 2px; box-shadow: 0 0 0 2px #ffffff; }
+  .ve .pl.bad { box-shadow: inset 0 0 0 1.5px #dc2626; }
+  .ve .pl.bad[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px #dc2626, 0 0 0 2px #fff; }
+  .ve .hatch { position: absolute; background: repeating-linear-gradient(45deg, rgb(220 38 38 / .55) 0 4px, transparent 4px 8px); pointer-events: none; }
+  .ve .mk { position: absolute; top: -10px; right: -10px; width: 20px; height: 20px; border-radius: 50%; background: #dc2626; color: #fff; font: 700 12px/16px "Geist", sans-serif; border: 2px solid #fff; text-align: center; cursor: pointer; z-index: 2; }
+  .ve .sheet.mirror .mk { transform: scaleX(-1); }
+  .ve .swatches { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  .ve .sw { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgb(0 0 0 / .2); padding: 0; }
+  .ve .sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+  .ve .swatches .btn { height: 26px; }
+
+  /* Inspect */
+  .ve .iwrap { display: grid; grid-template-columns: 1fr 300px; height: 100%; }
+  .ve .icol { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .ve .itool { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+  .ve .vpw { position: relative; flex: 1; min-height: 0; display: flex; }
+  .ve .vp { flex: 1; overflow: auto; background: #7f7f7f; position: relative; }
+  .ve .vpi { padding: 24px; width: max-content; min-width: 100%; min-height: 100%; display: grid; place-items: center; }
+  .ve .cvwrap { position: relative; box-shadow: var(--sheet-shadow); background: #fff; }
+  .ve .cvwrap canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; cursor: crosshair; }
+  .ve .vp .stagechip { position: sticky; top: 10px; left: 10px; z-index: 3; float: left; margin: 10px 0 0 10px; }
+  .ve .navi { position: absolute; right: 14px; bottom: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px; box-shadow: var(--shadow); }
+  .ve .navi canvas { display: block; image-rendering: pixelated; }
+  .ve .navi .vr { position: absolute; border: 1.5px solid var(--accent); background: rgb(46 107 230 / .12); pointer-events: none; }
+  .ve .loading { color: #f2f2f2; font-size: 13px; }
+  .ve .covrow { display: grid; grid-template-columns: 96px 1fr 48px; gap: 8px; align-items: center; font-size: 12.5px; padding: 3px 0; }
+  .ve .covbar { height: 6px; background: var(--subtle); border-radius: 3px; overflow: hidden; }
+  .ve .covbar i { display: block; height: 100%; background: var(--ink); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .15); }
+  .ve .loupe { font-size: 12.5px; }
+  .ve .loupe table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  .ve .loupe td { padding: 3px 0; border-bottom: 1px solid var(--line); }
+  .ve .loupe td:last-child { text-align: right; font-family: "Geist Mono", monospace; font-size: 12px; }
+
+  /* Devices */
+  .ve .dev { display: grid; grid-template-columns: 260px 1fr; flex: 1; min-height: 0; }
+  .ve .revs { border-right: 1px solid var(--line); background: var(--surface); overflow: auto; }
+  .ve .revs .setupcard { margin: 0 8px; padding: 10px; border-radius: var(--r); background: var(--accent-soft); }
+  .ve .revs .setupcard b { display: block; font-weight: 500; }
+  .ve .revs h5 { font-size: 11.5px; color: var(--muted); font-weight: 500; margin: 16px 18px 6px; }
+  .ve .revs ol { list-style: none; margin: 0; padding: 0 8px 80px; }
+  .ve .revs li { padding: 8px 10px; border-radius: 6px; font-size: 12.5px; color: var(--text2); }
+  .ve .revs li.cur { background: var(--subtle); }
+  .ve .revs li small { display: block; color: var(--muted); font-size: 11.5px; }
+  .ve .dmain { overflow: auto; padding: 22px 28px 90px; }
+  .ve .dhead { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+  .ve .dhead h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.015em; }
+  .ve .dhead .ids { font-size: 12.5px; color: var(--muted); margin-top: 3px; display: flex; gap: 10px; align-items: center; }
+  .ve .dhead .acts { margin-left: auto; display: flex; gap: 8px; }
+  .ve .dmain .card { max-width: 980px; }
+  .ve .steps { list-style: none; margin: 4px 0 0; padding: 0; }
+  .ve .step { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .ve .step:first-child { border-top: 0; }
+  .ve .step .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; border: 1.5px solid var(--line2); color: var(--muted); background: var(--surface); }
+  .ve .step.cur .n { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+  .ve .step.done .n { border-color: var(--ok); background: var(--ok); color: var(--surface); }
+  .ve .step .t { font-weight: 500; line-height: 26px; }
+  .ve .step.locked .t { color: var(--muted); }
+  .ve .step .b { grid-column: 2; font-size: 13px; color: var(--text2); }
+  .ve .step .b p { margin: 2px 0 10px; color: var(--muted); }
+  .ve .patches { display: grid; grid-template-columns: 220px 1fr; gap: 18px; align-items: start; margin-top: 6px; }
+  .ve .patches .tgt { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+  .ve .prow { display: grid; grid-template-columns: 150px 1fr 96px; gap: 10px; align-items: center; padding: 5px 0; font-size: 12.5px; }
+  .ve .prow small { display: block; color: var(--muted); font-size: 11.5px; }
+  .ve .proto-link { border: 0; background: none; color: #c3149f; font: 500 12px "Geist", sans-serif; padding: 0; margin-top: 8px; text-decoration: underline; }
+  .ve table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ve .tbl th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .ve .tbl td { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  .ve .tbl tr:last-child td { border-bottom: 0; }
+  .ve .sw-ink { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--ink); border: 1px solid var(--line2); vertical-align: -1px; margin-right: 8px; }
+  .ve .grid2c { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 980px; margin-top: 16px; }
+  .ve .grid2c .card + .card { margin-top: 0; }
+  .ve .switch { width: 40px; height: 22px; border-radius: 999px; border: 0; background: var(--line2); position: relative; padding: 0; flex: none; }
+  .ve .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: var(--shadow); }
+  .ve .switch[aria-checked="true"] { background: var(--warn); } .ve .switch[aria-checked="true"]::after { left: 21px; }
+  .ve .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin: 6px 0 18px; }
+  .ve .formgrid label { font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+
+  /* Empty states, placeholder pages */
+  .ve .empty { flex: 1; display: grid; place-items: center; padding: 40px; }
+  .ve .empty > div { max-width: 460px; text-align: center; }
+  .ve .empty .ic { width: 48px; height: 48px; margin: 0 auto 16px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; }
+  .ve .empty .ic svg { width: 24px; height: 24px; }
+  .ve .empty h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+  .ve .empty p { margin: 0 0 18px; color: var(--muted); }
+  .ve .empty .choices { justify-content: center; }
+
+  /* Status bar */
+  .ve .status { grid-row: 2; grid-column: 1 / -1; display: flex; align-items: stretch; background: var(--surface); border-top: 1px solid var(--line); font-size: 12px; overflow: hidden; }
+  .ve .ss { display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; border-right: 1px solid var(--line); background: none; color: var(--text2); white-space: nowrap; font-size: 12px; }
+  .ve button.ss:hover { background: var(--subtle); }
+  .ve .ss i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .ve .ss.ok { color: var(--ok); } .ve .ss.warn { color: var(--warn); } .ve .ss.bad { color: var(--bad); }
+  .ve .ss.warn-fill { background: var(--warn-bg); color: var(--warn); font-weight: 500; }
+  .ve .ss.review-fill { background: var(--review); color: var(--on-review); font-weight: 500; }
+  .ve .ss.muted { color: var(--muted); }
+  .ve .ss.right { margin-left: auto; border-left: 1px solid var(--line); }
+
+  /* Modal */
+  .ve .modal-bg { position: fixed; inset: 0; background: rgb(16 24 40 / .45); display: grid; place-items: center; z-index: 50; }
+  .ve .modal { background: var(--surface); color: var(--text); border-radius: 12px; padding: 20px 22px; width: min(460px, 92vw); box-shadow: 0 20px 50px rgb(0 0 0 / .3); }
+  .ve .modal h3 { margin: 0 0 8px; font-size: 16px; }
+  .ve .modal p { margin: 0 0 18px; color: var(--muted); }
+  .ve .modal .choices { justify-content: flex-end; }
+
+  /* Prototype-only scenario switcher */
+  .ve-scen { position: fixed; right: 18px; bottom: 70px; z-index: 1000; display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 999px; background: #ff2bd6; color: #000; font: 600 12px system-ui, sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  .ve-scen span { padding: 0 8px; }
+  .ve-scen button { border: 0; background: rgba(0,0,0,.12); color: #000; border-radius: 999px; padding: 5px 10px; font: inherit; }
+  .ve-scen button[aria-pressed="true"] { background: #000; color: #ff2bd6; }
+</style>
+</head>
+<body>
+
+<!-- ======================= Shared fixture artwork + simulation filters ======================= -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g-sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff5a36"/></linearGradient>
+    <symbol id="art-badge" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="96" fill="#1d2a44"/>
+      <circle cx="100" cy="100" r="87" fill="none" stroke="#f3efe6" stroke-width="3"/>
+      <circle cx="100" cy="94" r="42" fill="url(#g-sun)"/>
+      <path d="M24 140 L70 84 L95 110 L126 70 L178 140 Z" fill="#2f8f8a"/>
+      <path d="M70 84 L81 97 L72 94 L63 101 Z M126 70 L139 87 L128 84 L117 91 Z" fill="#f3efe6"/>
+      <rect x="24" y="140" width="154" height="4" fill="#f3efe6"/>
+      <text x="100" y="166" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="18" letter-spacing="3" fill="#f3efe6">NORTH RIDGE</text>
+      <text x="100" y="182" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="500" font-size="9" letter-spacing="3" fill="#f3efe6">EST 2026</text>
+    </symbol>
+    <symbol id="art-bolt" viewBox="0 0 120 120">
+      <path d="M68 6 L22 68 L54 68 L44 114 L98 46 L64 46 Z" fill="#d4307a"/>
+      <path d="M63 24 L36 60 L60 60 L54 92 L84 54 L58 54 Z" fill="#ffffff"/>
+    </symbol>
+    <symbol id="art-target" viewBox="0 0 200 140">
+      <rect x="0" y="0" width="200" height="140" fill="#ffffff"/>
+      <g font-family="Geist, sans-serif" font-size="9" fill="#333">
+        <rect x="10" y="12" width="28" height="60" fill="#00a0c6"/><text x="24" y="86" text-anchor="middle">C</text>
+        <rect x="42" y="12" width="28" height="60" fill="#d4307a"/><text x="56" y="86" text-anchor="middle">M</text>
+        <rect x="74" y="12" width="28" height="60" fill="#e8c200"/><text x="88" y="86" text-anchor="middle">Y</text>
+        <rect x="106" y="12" width="28" height="60" fill="#1a1a1a"/><text x="120" y="86" text-anchor="middle">K</text>
+        <rect x="138" y="12" width="24" height="60" fill="#c9ccd2" stroke="#888" stroke-dasharray="2 2"/><text x="150" y="86" text-anchor="middle">W1</text>
+        <rect x="166" y="12" width="24" height="60" fill="#c9ccd2" stroke="#888" stroke-dasharray="2 2"/><text x="178" y="86" text-anchor="middle">W2</text>
+        <path d="M10 104 H190 M10 100 V108 M55 102 V106 M100 100 V108 M145 102 V106 M190 100 V108" stroke="#333" stroke-width="1"/>
+        <text x="10" y="126">Channel identity target · asymmetric marker ▲</text>
+      </g>
+    </symbol>
+    <linearGradient id="g-ramp" x1="0" x2="1"><stop offset="0" stop-color="#1d2a44"/><stop offset=".5" stop-color="#2f8f8a"/><stop offset="1" stop-color="#ffd23f"/></linearGradient>
+    <symbol id="art-ramp" viewBox="0 0 300 60"><rect x="0" y="0" width="300" height="60" fill="url(#g-ramp)"/></symbol>
+    <symbol id="art-type" viewBox="0 0 300 70">
+      <text x="150" y="52" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="50" letter-spacing="2" fill="#ffffff">STAY WILD</text>
+    </symbol>
+
+    <!-- Simulated separations. Display-only approximations of each stage. -->
+    <filter id="f-c" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0"/></filter>
+    <filter id="f-m" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1  0 1 0 0 0  0 0 0 0 1  0 0 0 1 0"/></filter>
+    <filter id="f-y" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 1 0 0  0 0 0 1 0"/></filter>
+    <filter id="f-k" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values=".5 .3 .2 0 .25  .5 .3 .2 0 .25  .5 .3 .2 0 .25  0 0 0 1 0"/></filter>
+    <filter id="f-w" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1"/></filter>
+    <filter id="f-wchoke" color-interpolation-filters="sRGB"><feMorphology operator="erode" radius="1.4"/><feColorMatrix type="matrix" values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1"/></filter>
+    <filter id="f-screen" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+      <feColorMatrix in="SourceGraphic" type="matrix" values=".3 .59 .11 0 0  .3 .59 .11 0 0  .3 .59 .11 0 0  0 0 0 1 0" result="g"/>
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="7" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0" result="ng"/>
+      <feComposite in="g" in2="ng" operator="arithmetic" k1="0" k2="1" k3="1" k4="-0.5" result="s"/>
+      <feComponentTransfer in="s" result="t"><feFuncR type="discrete" tableValues="0 1"/><feFuncG type="discrete" tableValues="0 1"/><feFuncB type="discrete" tableValues="0 1"/></feComponentTransfer>
+      <feComposite in="t" in2="SourceAlpha" operator="in"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- ======================================================================
+     VARIANT A — Pipeline rail
+     ====================================================================== -->
+<div class="variant va" data-variant="A" data-name="Pipeline rail">
+  <header>
+    <span class="brand">Veylora RIP <small>Job J-0143 · North Ridge tee run</small></span>
+    <span class="chip"><span class="dot"></span>Setup <b>ET-8550 · Home bench rev 3</b> unverified</span>
+    <span class="chip">Mode <b>PM-exp-01</b> experimental</span>
+    <span class="fixture">Fixture data. Not physical output.</span>
+  </header>
+
+  <nav aria-label="Job pipeline">
+    <ol id="va-steps">
+      <li><button data-stage="setup"><span class="num warn">1</span><span><span class="step-name">Device setup</span><span class="step-sub">Channel test not recorded</span></span></button></li>
+      <li><button data-stage="artwork"><span class="num ok">2</span><span><span class="step-name">Artwork</span><span class="step-sub">3 assets, 1 warning</span></span></button></li>
+      <li><button data-stage="layout"><span class="num block">3</span><span><span class="step-name">Layout</span><span class="step-sub">1 placement clipped</span></span></button></li>
+      <li><button data-stage="white" aria-current="step"><span class="num ok">4</span><span><span class="step-name">White</span><span class="step-sub">Underbase + highlight</span></span></button></li>
+      <li><button data-stage="inspect"><span class="num">5</span><span><span class="step-name">Inspect output</span><span class="step-sub">Not rendered yet</span></span></button></li>
+      <li><button data-stage="preflight"><span class="num block">6</span><span><span class="step-name">Preflight</span><span class="step-sub">2 blocking, 1 to confirm</span></span></button></li>
+      <li><button data-stage="submit"><span class="num">7</span><span><span class="step-name">Submit and review</span><span class="step-sub">Blocked by preflight</span></span></button></li>
+    </ol>
+    <div class="gate"><strong>Gate 1: native device proof</strong>Channel mapping and independent K/W tests are still open. Production submission stays locked until they pass.<div class="bar"><i></i></div></div>
+  </nav>
+
+  <main>
+    <!-- Setup -->
+    <section class="stage" data-stage="setup">
+      <h1>Device setup</h1>
+      <p class="lede">Each logical ink is mapped to the tank that physically holds it, and to the channel the printer stream addresses. The mapping stays unverified until you print the channel identity target and record what came out.</p>
+      <table>
+        <thead><tr><th>Logical ink</th><th>Physical slot (tank label)</th><th>Protocol channel</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr><td><span class="swatch ink-c" style="--ink:#00a0c6"></span>C</td><td>Cyan tank</td><td class="mono">ch 2 (inferred)</td><td><span class="tag warn">Not tested</span></td></tr>
+          <tr><td><span class="swatch" style="--ink:#d4307a"></span>M</td><td>Magenta tank</td><td class="mono">ch 1 (inferred)</td><td><span class="tag warn">Not tested</span></td></tr>
+          <tr><td><span class="swatch" style="--ink:#e8c200"></span>Y</td><td>Yellow tank</td><td class="mono">ch 4 (inferred)</td><td><span class="tag warn">Not tested</span></td></tr>
+          <tr><td><span class="swatch" style="--ink:#2a2a2a"></span>K</td><td>Black tank</td><td class="mono">ch 0 (inferred)</td><td><span class="tag warn">Not tested</span></td></tr>
+          <tr><td><span class="swatch" style="--ink:#f4f4ef"></span>W</td><td>Photo black tank, refilled white (W1)</td><td class="mono">ch 5 (inferred)</td><td><span class="tag warn">Not tested</span></td></tr>
+          <tr><td><span class="swatch" style="--ink:#f4f4ef"></span>W</td><td>Gray tank, refilled white (W2)</td><td class="mono">ch 6 (inferred)</td><td><span class="tag warn">Not tested</span></td></tr>
+        </tbody>
+      </table>
+      <h2>White slot allocation</h2>
+      <div class="form">
+        <label for="va-alloc">Policy</label>
+        <select id="va-alloc"><option>Split 50 / 50 across W1 and W2</option><option>W1 only, W2 idle</option><option>Calibrated split (needs measurement)</option></select>
+        <label>Duplicate coverage</label><span>Blocked. The logical W plane is divided between slots, never copied to both.</span>
+      </div>
+      <div class="actions"><button class="btn primary">Generate channel identity target</button><button class="btn">Record test result</button><span class="why">Saving a change creates setup rev 4. Old jobs keep rev 3.</span></div>
+    </section>
+
+    <!-- Artwork -->
+    <section class="stage" data-stage="artwork">
+      <h1>Artwork</h1>
+      <p class="lede">SDR PNG with transparency, plus optional grayscale white masks. Anything the importer can't interpret exactly is reported here instead of being guessed.</p>
+      <table>
+        <thead><tr><th>Asset</th><th>Pixels</th><th>Color</th><th>Alpha</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>north-ridge-badge.png</td><td class="mono">3600 × 3600</td><td>Embedded ICC, Display P3</td><td>Yes</td><td><span class="tag ok">Ready</span></td></tr>
+          <tr><td>bolt.png</td><td class="mono">1800 × 1800</td><td>Untagged, assumed sRGB</td><td>Yes</td><td><span class="tag warn">Assumption</span></td></tr>
+          <tr><td>stay-wild-white.png</td><td class="mono">4200 × 980</td><td>Grayscale mask</td><td>n/a</td><td><span class="tag ok">White mask</span></td></tr>
+        </tbody>
+      </table>
+      <div class="actions"><button class="btn primary">Import PNG</button><button class="btn">Import white mask</button></div>
+    </section>
+
+    <!-- Layout -->
+    <section class="stage" data-stage="layout">
+      <h1>Layout</h1>
+      <p class="lede">Positions and sizes are in millimetres on the film. The sheet is A3 cut film, rear feed. Mirroring happens once, at output, and is shown here only as a state.</p>
+      <div class="stagebox" style="display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start">
+        <div style="aspect-ratio:297/420;background:repeating-conic-gradient(#2b323c 0 25%,#313944 0 50%) 0 0/14px 14px;border-radius:4px;position:relative">
+          <div style="position:absolute;inset:6% 6% 9% 6%;border:1px dashed var(--blue)"></div>
+          <svg style="position:absolute;left:12%;top:9%;width:58%"><use href="#art-badge"/></svg>
+          <svg style="position:absolute;left:70%;top:48%;width:38%" viewBox="0 0 120 120"><use href="#art-bolt"/></svg>
+          <svg style="position:absolute;left:10%;top:72%;width:80%" viewBox="0 0 300 70"><use href="#art-type"/></svg>
+        </div>
+        <div class="form">
+          <label>Selected</label><span>Bolt, copy 1 of 1</span>
+          <label for="va-x">X / Y (mm)</label><span><input id="va-x" type="number" value="208" style="width:80px"> <input type="number" value="196" style="width:80px"></span>
+          <label>Width (mm)</label><span><input type="number" value="96" style="width:80px"> <span class="tag block">Extends 4.2 mm past printable edge</span></span>
+          <label>Rotation</label><span><input type="number" value="0" style="width:80px"> °</span>
+          <label>Film output</label><span>Mirrored at encode (one owner: device mode)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- White -->
+    <section class="stage on" data-stage="white">
+      <h1>White</h1>
+      <p class="lede">White is built in a fixed order. Each control below belongs to one step in this chain, so you always know where a change takes effect.</p>
+      <div class="chain" aria-label="White precedence">
+        <span>Source</span><span>Combine</span><span class="here">Tonal response</span><span>Choke / spread</span><span>Clear mask</span><span>Slot allocation</span><span>Screening</span>
+      </div>
+      <h2>Policy</h2>
+      <div class="form">
+        <label>White source</label>
+        <div class="seg" data-group="src"><button aria-pressed="true">Alpha</button><button aria-pressed="false">Tonal</button><button aria-pressed="false">Supplied mask</button><button aria-pressed="false">Off (diagnostic)</button></div>
+        <label for="va-pol">Named policy</label>
+        <select id="va-pol"><option>Underbase + highlight</option><option>Opaque underbase</option><option>Tonal underbase</option><option>Highlight only</option><option>Coverage only</option></select>
+        <label for="va-curve">Response curve</label>
+        <select id="va-curve"><option>wc-soft-shoulder v2 (0–100% in → 0–92% out)</option><option>wc-linear v1</option></select>
+        <label for="va-choke">Choke</label>
+        <span><input id="va-choke" type="number" value="0.12" step="0.02" style="width:80px"> mm <span class="why" style="color:var(--dim);font-size:12px">≈ 3 px at 720 dpi grid</span></span>
+        <label>Mask "stay-wild-white"</label>
+        <div class="seg" data-group="comb"><button aria-pressed="false">Replace</button><button aria-pressed="true">Union (max)</button><button aria-pressed="false">Intersect (min)</button><button aria-pressed="false">Blend</button></div>
+        <label>Process alpha</label><span>Unchanged by this mask</span>
+      </div>
+      <h2>Simulated white plane</h2>
+      <div class="previews">
+        <figure><div class="pv" style="background:#0f1216"><svg viewBox="0 0 200 200" width="80%" filter="url(#f-w)"><use href="#art-badge"/></svg></div><figcaption>Source white (alpha)</figcaption></figure>
+        <figure><div class="pv" style="background:#0f1216"><svg viewBox="0 0 200 200" width="80%" filter="url(#f-wchoke)"><use href="#art-badge"/></svg></div><figcaption>After choke 0.12 mm</figcaption></figure>
+        <figure><div class="pv" style="background:#fff"><svg viewBox="0 0 200 200" width="80%" filter="url(#f-screen)"><use href="#art-badge"/></svg></div><figcaption>Screened W1 (simulation)</figcaption></figure>
+      </div>
+      <div class="actions"><button class="btn primary" data-go="inspect">Continue to inspection</button><span class="why">Changes here never alter C, M, Y or K coverage.</span></div>
+    </section>
+
+    <!-- Inspect -->
+    <section class="stage" data-stage="inspect">
+      <h1>Inspect output</h1>
+      <p class="lede">Pick the stage you want to see. Every view says which stage it is. Only the screened device raster is what the printer receives.</p>
+      <div class="actions" style="margin:0 0 14px">
+        <div class="seg" id="va-insp"><button aria-pressed="false" data-v="garment">Garment simulation</button><button aria-pressed="true" data-v="logical">Logical planes</button><button aria-pressed="false" data-v="slot">Physical slots</button><button aria-pressed="false" data-v="screen">Screened raster</button></div>
+      </div>
+      <div class="stagebox">
+        <div class="bigpv" id="va-bigpv"></div>
+      </div>
+    </section>
+
+    <!-- Preflight -->
+    <section class="stage" data-stage="preflight">
+      <h1>Preflight</h1>
+      <p class="lede">Two problems block this job. Each one says what to change.</p>
+      <div class="finding"><span class="tag block">Blocking</span><div><b>Setup rev 3 is unverified</b><p>No channel identity test is recorded, so the mapping is inferred.</p><p class="fix">Print the channel identity target and record which tank printed each patch. Or switch this job to experimental mode.</p></div></div>
+      <div class="finding"><span class="tag block">Blocking</span><div><b>Bolt extends 4.2 mm past the printable right edge</b><p>That part would be clipped on the film.</p><p class="fix">Move it left by at least 4.2 mm, or reduce its width to 91 mm.</p></div></div>
+      <div class="finding"><span class="tag warn">Confirm</span><div><b>Combined ink load reaches 312% in 0.8% of the sheet</b><p>The recipe limit is 280%. Expect pooling where the badge sun overlaps highlight white.</p><p class="fix">Lower highlight white, or confirm to print as an experiment.</p></div></div>
+      <div class="finding"><span class="tag ok">Info</span><div><b>bolt.png is untagged</b><p>Interpreted as sRGB IEC 61966-2.1, per the recipe's untagged-source policy.</p></div></div>
+    </section>
+
+    <!-- Submit -->
+    <section class="stage" data-stage="submit">
+      <h1>Submit and review</h1>
+      <p class="lede">A job is rendered, held for inspection, then released. If a submission's result is uncertain, it stops here for your review. It is never resent automatically.</p>
+      <table>
+        <thead><tr><th>Attempt</th><th>Started</th><th>Bytes written</th><th>Result</th></tr></thead>
+        <tbody><tr><td class="mono">A-0143-1</td><td>Not started</td><td class="mono">—</td><td><span class="tag block">Blocked by preflight</span></td></tr></tbody>
+      </table>
+      <div class="actions"><button class="btn" disabled>Render and hold</button><button class="btn primary" disabled>Release to printer</button><span class="why">Fix the 2 blocking findings first.</span></div>
+    </section>
+  </main>
+
+  <aside aria-label="Job snapshot">
+    <h3>Job snapshot</h3>
+    <dl>
+      <dt>Device setup</dt><dd>ET-8550 · Home bench rev 3<br><span class="mono" style="color:var(--dim)">b3:7f2c…e91a</span></dd>
+      <dt>Print mode</dt><dd>PM-exp-01 · 720 × 720 grid, rear feed<br><span class="mono" style="color:var(--dim)">b3:19d0…4c27</span></dd>
+      <dt>Recipe</dt><dd>Hot-peel PET, Ink set A v0<br><span class="mono" style="color:var(--dim)">b3:a83e…0f55</span></dd>
+      <dt>Film</dt><dd>A3 cut sheet, matte PET</dd>
+      <dt>Assets</dt><dd>3 · <span class="mono" style="color:var(--dim)">b3:c4e1…77b0</span></dd>
+      <dt>Software</dt><dd>veylora 0.0.0-prototype</dd>
+    </dl>
+    <p class="note">The snapshot freezes when rendering starts. Edits after that create a new job.</p>
+  </aside>
+</div>
+
+<!-- ======================================================================
+     VARIANT B — Light table workbench
+     ====================================================================== -->
+<div class="variant vb" data-variant="B" data-name="Light table">
+  <div class="top">
+    <span class="logo">Veylora</span>
+    <span class="pill warn"><span class="k">Setup</span> ET-8550 Home bench r3 · unverified</span>
+    <span class="pill"><span class="k">Mode</span> PM-exp-01</span>
+    <span class="pill"><span class="k">Recipe</span> Hot-peel PET v0</span>
+    <span class="pill"><span class="k">Film</span> A3 cut sheet</span>
+    <div class="tools" role="toolbar" aria-label="Layout tools">
+      <button>Import</button><button>Duplicate</button><button>Align</button><button>Nest</button><button>Undo</button>
+    </div>
+    <div class="go">
+      <span class="count">2 blocking</span>
+      <button class="btn">Preflight</button>
+      <button class="btn primary">Render and hold</button>
+    </div>
+  </div>
+
+  <div class="left">
+    <div class="sec">
+      <h4>Placements <span>3</span></h4>
+      <button class="item" data-pl="badge" aria-pressed="true"><span class="thumb"><svg viewBox="0 0 200 200" width="28"><use href="#art-badge"/></svg></span><span>North Ridge badge<small>140 × 140 mm · ICC P3</small></span></button>
+      <button class="item" data-pl="bolt" aria-pressed="false"><span class="thumb"><svg viewBox="0 0 120 120" width="26"><use href="#art-bolt"/></svg></span><span>Bolt<small class="bad">Clipped 4.2 mm right</small></span></button>
+      <button class="item" data-pl="type" aria-pressed="false"><span class="thumb" style="background:#2b2f35"><svg viewBox="0 0 300 70" width="30"><use href="#art-type"/></svg></span><span>Stay Wild (white only)<small>White mask · CMYK 0%</small></span></button>
+    </div>
+    <div class="sec">
+      <h4>Assets <span>3 files</span></h4>
+      <div class="item" style="cursor:default"><span class="thumb"></span><span>north-ridge-badge.png<small>3600² · embedded ICC</small></span></div>
+      <div class="item" style="cursor:default"><span class="thumb"></span><span>bolt.png<small class="warn">Untagged, assumed sRGB</small></span></div>
+      <div class="item" style="cursor:default"><span class="thumb"></span><span>stay-wild-white.png<small>Grayscale white mask</small></span></div>
+    </div>
+  </div>
+
+  <div class="table">
+    <span class="tag" id="vb-tag">Film view · simulation · fixture data</span>
+    <span class="zoom">Sheet 297 × 420 mm · 33%</span>
+    <div class="sheet-wrap">
+      <div class="ruler-x"></div><div class="ruler-y"></div>
+      <div class="sheet film" id="vb-sheet">
+        <div class="printable"></div>
+        <button class="pl" data-pl="badge" aria-pressed="true" style="left:10.4%;top:6.7%;width:56.5%;height:40%"><svg viewBox="0 0 200 200"><use href="#art-badge"/></svg>
+          <i class="h" style="left:-4px;top:-4px"></i><i class="h" style="right:-4px;top:-4px"></i><i class="h" style="left:-4px;bottom:-4px"></i><i class="h" style="right:-4px;bottom:-4px"></i></button>
+        <button class="pl clip" data-pl="bolt" aria-pressed="false" style="left:65.2%;top:46.7%;width:39.1%;height:27.6%"><svg viewBox="0 0 120 120"><use href="#art-bolt"/></svg>
+          <i class="h" style="left:-4px;top:-4px"></i><i class="h" style="right:-4px;bottom:-4px"></i></button>
+        <button class="pl" data-pl="type" aria-pressed="false" style="left:8.7%;top:78.3%;width:82.6%;height:14.7%"><svg viewBox="0 0 300 70"><use href="#art-type"/></svg>
+          <i class="h" style="left:-4px;top:-4px"></i><i class="h" style="right:-4px;bottom:-4px"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="sec" id="vb-props">
+      <h4>North Ridge badge <span>placement 1</span></h4>
+      <div class="xy"><label>X mm<input value="27.0"></label><label>Y mm<input value="22.5"></label><label>W mm<input value="140.0"></label><label>H mm<input value="140.0"></label></div>
+    </div>
+    <div class="sec">
+      <h4>White policy <span>job-wide</span></h4>
+      <div class="field"><label for="vb-src">Source</label><select id="vb-src"><option>Alpha</option><option>Tonal</option><option>Supplied mask</option><option>Off (diagnostic)</option></select></div>
+      <div class="field"><label for="vb-pol">Policy</label><select id="vb-pol"><option>Underbase + highlight</option><option>Opaque underbase</option><option>Tonal underbase</option><option>Highlight only</option></select></div>
+      <div class="field"><label for="vb-choke">Choke</label><span><input id="vb-choke" type="number" value="0.12" step="0.02" style="width:64px"> mm</span></div>
+      <div class="field"><label>Curve</label><span class="mono">wc-soft-shoulder v2</span></div>
+      <svg class="curve" viewBox="0 0 100 60" width="100%" height="90" aria-label="White response curve">
+        <path d="M10 50 H92 M10 50 V6" stroke="#c6c3bc" fill="none"/>
+        <path d="M10 50 C 40 26, 60 12, 92 10" stroke="#2457d6" stroke-width="1.6" fill="none"/>
+        <circle cx="10" cy="50" r="2.2" fill="#2457d6"/><circle cx="52" cy="20" r="2.2" fill="#2457d6"/><circle cx="92" cy="10" r="2.2" fill="#2457d6"/>
+        <text x="12" y="58" font-size="5" fill="#64666b">0% in</text><text x="80" y="58" font-size="5" fill="#64666b">100%</text><text x="12" y="10" font-size="5" fill="#64666b">92% out</text>
+      </svg>
+      <p class="note">Applied after mask combine, before choke. Never changes C, M, Y, K.</p>
+    </div>
+    <div class="sec">
+      <h4>White slots <span>logical W → 2 tanks</span></h4>
+      <div class="field"><label>W1 · photo black tank</label><span class="mono">50%</span></div>
+      <div class="field"><label>W2 · gray tank</label><span class="mono">50%</span></div>
+      <div class="alert">Slot map is inferred. Print the channel identity target to verify before production.</div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="stages" id="vb-stages" role="group" aria-label="Output stage">
+      <button class="st" data-st="garment" aria-pressed="false"><div class="mini" style="background:#2c323c"><svg viewBox="0 0 200 200" width="44"><use href="#art-badge"/></svg></div><b>Garment</b><small>Approximate</small></button>
+      <button class="st" data-st="film" aria-pressed="true"><div class="mini" style="background:repeating-conic-gradient(#d9dbde 0 25%,#f4f5f6 0 50%) 0 0/8px 8px"><svg viewBox="0 0 200 200" width="44" class="mirror"><use href="#art-badge"/></svg></div><b>Film</b><small>Mirrored</small></button>
+      <button class="st" data-st="logical" aria-pressed="false"><div class="mini" style="background:#fff"><svg viewBox="0 0 200 200" width="44" filter="url(#f-m)"><use href="#art-badge"/></svg></div><b>Logical planes</b><small>CMYK + W</small></button>
+      <button class="st" data-st="slot" aria-pressed="false"><div class="mini" style="background:#0d0f12"><svg viewBox="0 0 200 200" width="44" filter="url(#f-w)"><use href="#art-badge"/></svg></div><b>Physical slots</b><small>6 tanks</small></button>
+      <button class="st" data-st="screen" aria-pressed="false"><div class="mini" style="background:#fff"><svg viewBox="0 0 200 200" width="44" filter="url(#f-screen)"><use href="#art-badge"/></svg></div><b>Screened</b><small>Device truth</small></button>
+    </div>
+    <div class="planes" id="vb-planes">
+      <div class="row"><span>Logical planes</span>
+        <button class="pt" data-p="c" aria-pressed="true" style="--ink:#00a0c6"><i></i>C</button>
+        <button class="pt" data-p="m" aria-pressed="true" style="--ink:#d4307a"><i></i>M</button>
+        <button class="pt" data-p="y" aria-pressed="true" style="--ink:#e8c200"><i></i>Y</button>
+        <button class="pt" data-p="k" aria-pressed="true" style="--ink:#2a2a2a"><i></i>K</button>
+        <button class="pt" data-p="w" aria-pressed="true" style="--ink:#f4f4ef"><i></i>W</button>
+      </div>
+      <div class="row"><span>Physical slots</span>
+        <button class="pt" disabled style="--ink:#00a0c6"><i></i>Cyan</button><button class="pt" disabled style="--ink:#d4307a"><i></i>Magenta</button>
+        <button class="pt" disabled style="--ink:#e8c200"><i></i>Yellow</button><button class="pt" disabled style="--ink:#2a2a2a"><i></i>Black</button>
+        <button class="pt" disabled style="--ink:#f4f4ef"><i></i>W1</button><button class="pt" disabled style="--ink:#f4f4ef"><i></i>W2</button>
+      </div>
+      <div class="row"><span>Overlays</span><button class="pt" data-o="clear" aria-pressed="false" style="--ink:#c22f36"><i></i>Clear mask</button><button class="pt" data-o="bounds" aria-pressed="true" style="--ink:#2457d6"><i></i>Printable box</button></div>
+    </div>
+    <div class="meta">
+      Job <b>J-0143</b> · not rendered<br>
+      Setup <span class="mono">b3:7f2c…e91a</span><br>
+      Mode <span class="mono">b3:19d0…4c27</span><br>
+      Recipe <span class="mono">b3:a83e…0f55</span>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     VARIANT C — Job ledger
+     ====================================================================== -->
+<div class="variant vc" data-variant="C" data-name="Job ledger">
+  <div class="topbar">
+    <h1>Veylora RIP</h1>
+    <nav aria-label="Sections"><a class="cur" href="#">Jobs</a><a href="#">Devices</a><a href="#">Recipes</a><a href="#">Targets</a><a href="#">Reports</a></nav>
+    <div class="device">ET-8550 · Home bench rev 3 · <b>Unverified</b><br>Sender idle · 1 attempt needs review</div>
+  </div>
+  <div class="banner">Showing fixture data. Nothing on this screen came from a printer.</div>
+
+  <div class="wrap">
+    <section class="ledger">
+      <div class="ledger-head"><h2>Jobs</h2><span class="sp"></span><button class="btn">Generate target</button><button class="btn primary">New job</button></div>
+      <div class="filters" id="vc-filters">
+        <button aria-pressed="true" data-f="all">All</button><button aria-pressed="false" data-f="review">Needs review</button><button aria-pressed="false" data-f="held">Held</button><button aria-pressed="false" data-f="blocked">Preflight failed</button><button aria-pressed="false" data-f="done">Finished</button>
+      </div>
+      <table>
+        <thead><tr><th>Job</th><th>State</th><th>Sheet</th><th>Last attempt</th></tr></thead>
+        <tbody id="vc-rows"></tbody>
+      </table>
+    </section>
+
+    <section class="detail" id="vc-detail" aria-live="polite"></section>
+  </div>
+</div>
+
+
+<!-- ======================================================================
+     VARIANT D — Ledger + sheet
+     ====================================================================== -->
+<div class="variant vd" data-variant="D" data-name="Ledger + sheet" data-theme="light">
+  <div class="top">
+    <span class="brand"><span class="mark" aria-hidden="true"></span>Veylora RIP</span>
+    <nav aria-label="Sections"><a class="cur" href="#">Jobs</a><a href="#">Devices</a><a href="#">Recipes</a><a href="#">Targets</a><a href="#">Reports</a></nav>
+    <div class="right">
+      <span class="device"><span class="dot"></span>ET-8550 · Home bench rev 3 · unverified</span>
+      <div class="theme" role="group" aria-label="Theme"><button data-theme="light" aria-pressed="true">Light</button><button data-theme="dark" aria-pressed="false">Dark</button></div>
+    </div>
+  </div>
+  <div class="fixture"><b>Fixture data.</b> Nothing on this screen came from a printer. Previews are simulations.</div>
+
+  <div class="shell">
+    <aside class="ledger" aria-label="Jobs">
+      <div class="ledger-head"><h2>Jobs</h2><button class="btn primary sm">New job</button></div>
+      <input class="search" type="search" placeholder="Search jobs" aria-label="Search jobs">
+      <div class="filters" id="vd-filters"></div>
+      <ul class="jobs" id="vd-jobs" role="listbox" aria-label="Job list"></ul>
+    </aside>
+    <section class="work" id="vd-work" aria-live="polite"></section>
+  </div>
+</div>
+
+
+<!-- ======================================================================
+     VARIANT E — Approved shell (docs/design.md): rail, status bar, review banner,
+     focus mode, live preflight, Inspect, Devices verification, first run
+     ====================================================================== -->
+<div class="variant vd ve" data-variant="E" data-name="Approved shell" data-theme="light">
+  <nav class="rail" id="e-rail" aria-label="Sections"></nav>
+  <div class="main" id="e-main"></div>
+  <footer class="status" id="e-status" aria-label="Device status"></footer>
+  <div class="ve-scen" id="e-scen" role="group" aria-label="Prototype scenario"></div>
+  <div id="e-modal"></div>
+</div>
+
+<!-- ======================= Prototype switcher ======================= -->
+<div class="proto-bar" role="navigation" aria-label="Prototype variant switcher">
+  <button id="pb-prev" aria-label="Previous variant">‹</button>
+  <span id="pb-label">A</span>
+  <button id="pb-next" aria-label="Next variant">›</button>
+</div>
+
+<script>
+/* ---------- Switcher ---------- */
+const variants = [...document.querySelectorAll('.variant')];
+const keys = variants.map(v => v.dataset.variant);
+function show(key) {
+  if (!keys.includes(key)) key = 'E';
+  variants.forEach(v => v.classList.toggle('on', v.dataset.variant === key));
+  const v = variants.find(v => v.dataset.variant === key);
+  document.getElementById('pb-label').textContent = `${key} (${v.dataset.name})  ·  ${keys.indexOf(key) + 1} of ${keys.length}`;
+  const u = new URL(location.href); u.searchParams.set('variant', key); history.replaceState(null, '', u);
+  current = key;
+}
+let current = new URLSearchParams(location.search).get('variant') || 'E';
+const step = d => show(keys[(keys.indexOf(current) + d + keys.length) % keys.length]);
+document.getElementById('pb-prev').onclick = () => step(-1);
+document.getElementById('pb-next').onclick = () => step(1);
+addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') step(-1);
+  if (e.key === 'ArrowRight') step(1);
+});
+show(current);
+
+const art = (id, vb, filter, w = '70%', extra = '') =>
+  `<svg viewBox="${vb}" width="${w}" ${filter ? `filter="url(#${filter})"` : ''} ${extra}><use href="#${id}"/></svg>`;
+
+/* ---------- Variant A ---------- */
+(() => {
+  const root = document.querySelector('.va');
+  const go = name => {
+    root.querySelectorAll('#va-steps button').forEach(b => b.dataset.stage === name ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current'));
+    root.querySelectorAll('.stage').forEach(s => s.classList.toggle('on', s.dataset.stage === name));
+  };
+  root.querySelectorAll('#va-steps button').forEach(b => b.onclick = () => go(b.dataset.stage));
+  root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+  root.querySelectorAll('.seg[data-group] button').forEach(b => b.onclick = () => {
+    b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+
+  const views = {
+    garment: { bg: 'radial-gradient(ellipse at 50% 30%,#3b4250,#20242b)', lbl: 'Garment simulation · approximate, not a color proof',
+      html: art('art-badge', '0 0 200 200', '', '46%') },
+    logical: { bg: '#ffffff', lbl: 'Logical planes C, M, Y, K, W · continuous tone · simulation',
+      html: `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;width:94%">${['c','m','y','k'].map(p => `<div style="text-align:center;font-size:12px;color:#555">${art('art-badge','0 0 200 200','f-'+p,'100%')}<div>${p.toUpperCase()}</div></div>`).join('')}<div style="text-align:center;font-size:12px;color:#555;background:#0f1216;border-radius:4px;padding-bottom:4px">${art('art-badge','0 0 200 200','f-w','100%')}<div style="color:#bbb">W</div></div></div>` },
+    slot: { bg: '#0f1216', lbl: 'Physical-slot rasters · W split to W1 and W2 · simulation',
+      html: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;width:60%;color:#bbb;font-size:12px;text-align:center"><div>${art('art-badge','0 0 200 200','f-w','100%','opacity=".55"')}W1 · photo black tank · 50%</div><div>${art('art-badge','0 0 200 200','f-w','100%','opacity=".55"')}W2 · gray tank · 50%</div></div>` },
+    screen: { bg: '#ffffff', lbl: 'Screened device raster · would be retained artifact once rendered · simulation',
+      html: art('art-badge', '0 0 200 200', 'f-screen', '46%', 'style="image-rendering:pixelated"') },
+  };
+  const box = root.querySelector('#va-bigpv');
+  const set = k => {
+    const v = views[k];
+    box.style.background = v.bg;
+    box.innerHTML = `<span class="lbl">${v.lbl}</span>${v.html}`;
+    root.querySelectorAll('#va-insp button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === k));
+  };
+  root.querySelectorAll('#va-insp button').forEach(b => b.onclick = () => set(b.dataset.v));
+  set('logical');
+})();
+
+/* ---------- Variant B ---------- */
+(() => {
+  const root = document.querySelector('.vb');
+  const props = {
+    badge: ['North Ridge badge', 'placement 1', ['27.0', '22.5', '140.0', '140.0']],
+    bolt: ['Bolt', 'placement 2 · clipped', ['208.0', '196.0', '96.0', '96.0']],
+    type: ['Stay Wild', 'placement 3 · white only', ['21.0', '250.5', '200.0', '46.7']],
+  };
+  const select = id => {
+    root.querySelectorAll('[data-pl]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pl === id));
+    const [n, s, v] = props[id];
+    root.querySelector('#vb-props').innerHTML = `<h4>${n} <span>${s}</span></h4><div class="xy">${['X mm','Y mm','W mm','H mm'].map((l,i) => `<label>${l}<input value="${v[i]}"></label>`).join('')}</div>` +
+      (id === 'bolt' ? '<div class="alert">Extends 4.2 mm past the printable right edge. Move it left or reduce the width to 91 mm.</div>' : '');
+  };
+  root.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => select(b.dataset.pl));
+
+  const sheet = root.querySelector('#vb-sheet');
+  const tag = root.querySelector('#vb-tag');
+  const planesOn = { c: true, m: true, y: true, k: true, w: true };
+  let stage = 'film';
+  const stageCfg = {
+    garment: { cls: 'garment', tag: 'Garment simulation · approximate · fixture data', filter: null, mirror: false },
+    film: { cls: 'film', tag: 'Film view · mirrored for transfer · simulation', filter: null, mirror: true },
+    logical: { cls: 'paper', tag: 'Logical planes · continuous tone · simulation', filter: 'logical', mirror: false },
+    slot: { cls: 'dark', tag: 'Physical-slot raster · W1 + W2 · simulation', filter: 'f-w', mirror: true },
+    screen: { cls: 'paper', tag: 'Screened device raster · simulation until rendered', filter: 'f-screen', mirror: true },
+  };
+  function logicalFilter() {
+    const on = Object.keys(planesOn).filter(p => planesOn[p] && p !== 'w');
+    if (on.length === 1) return 'f-' + on[0];
+    return on.length === 0 ? (planesOn.w ? 'f-w' : null) : null;
+  }
+  function paint() {
+    const cfg = stageCfg[stage];
+    sheet.className = 'sheet ' + cfg.cls + (cfg.mirror ? ' mirror' : '');
+    let f = cfg.filter;
+    if (f === 'logical') {
+      f = logicalFilter();
+      const onlyW = planesOn.w && !['c','m','y','k'].some(p => planesOn[p]);
+      sheet.className = 'sheet ' + (onlyW ? 'dark' : 'paper');
+      const shown = Object.keys(planesOn).filter(p => planesOn[p]).map(p => p.toUpperCase()).join(' ') || 'none';
+      tag.textContent = `Logical planes: ${shown} · continuous tone · simulation`;
+    } else tag.textContent = cfg.tag;
+    sheet.querySelectorAll('.pl svg').forEach(s => {
+      f ? s.setAttribute('filter', `url(#${f})`) : s.removeAttribute('filter');
+      s.style.opacity = (stage === 'logical' && !Object.values(planesOn).some(Boolean)) ? 0 : 1;
+    });
+    root.querySelectorAll('#vb-stages .st').forEach(b => b.setAttribute('aria-pressed', b.dataset.st === stage));
+  }
+  root.querySelectorAll('#vb-stages .st').forEach(b => b.onclick = () => { stage = b.dataset.st; paint(); });
+  root.querySelectorAll('.pt[data-p]').forEach(b => b.onclick = () => {
+    planesOn[b.dataset.p] = !planesOn[b.dataset.p]; b.setAttribute('aria-pressed', planesOn[b.dataset.p]);
+    stage = 'logical'; paint();
+  });
+  root.querySelectorAll('.pt[data-o]').forEach(b => b.onclick = () => {
+    const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on);
+    if (b.dataset.o === 'bounds') root.querySelector('.printable').style.display = on ? '' : 'none';
+    if (b.dataset.o === 'clear') sheet.querySelectorAll('.pl svg').forEach(s => s.style.mask = on ? 'radial-gradient(circle at 50% 50%, #000 0 30%, transparent 31% 34%, #000 35%)' : '');
+  });
+  paint();
+})();
+
+/* ---------- Variant C ---------- */
+(() => {
+  const root = document.querySelector('.vc');
+  const jobs = [
+    { id: 'J-0142', name: 'North Ridge tee run', state: 'Ambiguous', cls: 'amb', f: 'review', sheet: 'A3 · 3 placements', last: 'A-0142-1 · timed out after final write',
+      attempts: [
+        { cls: '', t: '14:02:11', txt: 'Snapshot frozen · <span class="mono">b3:5e09…a1c4</span>' },
+        { cls: '', t: '14:02:58', txt: 'Rendered and held · artifact 18.4 MB retained' },
+        { cls: '', t: '14:05:20', txt: 'Released by operator · attempt A-0142-1 created' },
+        { cls: 'amb', t: '14:05:47', txt: 'All 18.4 MB written, then the spooler stopped responding. Physical result unknown.' },
+      ] },
+    { id: 'J-0143', name: 'North Ridge, second sheet', state: 'Preflight failed', cls: 'red', f: 'blocked', sheet: 'A3 · 3 placements', last: 'None' },
+    { id: 'J-0141', name: 'Bolt sticker sheet', state: 'Held', cls: 'blu', f: 'held', sheet: 'A4 · 12 copies', last: 'None' },
+    { id: 'T-0007', name: 'Channel identity target', state: 'Rendering 62%', cls: 'gry', f: 'held', sheet: 'A4 · diagnostic', last: 'None' },
+    { id: 'J-0139', name: 'Stay Wild, white only', state: 'Finished', cls: 'grn', f: 'done', sheet: 'A4 · 2 placements', last: 'A-0139-1 · confirmed by operator' },
+    { id: 'J-0138', name: 'Badge test, 60 mm', state: 'Submitted', cls: 'blu', f: 'done', sheet: 'A4 · 4 copies', last: 'A-0138-1 · spooled, awaiting your check' },
+    { id: 'J-0136', name: 'Gradient ramp check', state: 'Cancelled', cls: 'gry', f: 'done', sheet: 'A4 · 1 placement', last: 'Cancelled at band 14 of 40' },
+  ];
+  let sel = 'J-0142', filt = 'all';
+  const rows = root.querySelector('#vc-rows'), det = root.querySelector('#vc-detail');
+
+  function renderRows() {
+    rows.innerHTML = jobs.filter(j => filt === 'all' || j.f === filt).map(j =>
+      `<tr data-id="${j.id}" aria-selected="${j.id === sel}" tabindex="0"><td><b>${j.name}</b><div class="sub mono">${j.id}</div></td><td><span class="st ${j.cls}">${j.state}</span></td><td class="sub">${j.sheet}</td><td class="sub">${j.last}</td></tr>`).join('');
+    rows.querySelectorAll('tr').forEach(r => { r.onclick = () => { sel = r.dataset.id; renderRows(); renderDetail(); };
+      r.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); r.click(); } }; });
+  }
+
+  const stagesHtml = () => `<div class="stages">
+      <figure><div class="pv" style="background:radial-gradient(ellipse at 50% 30%,#3b4250,#20242b)">${art('art-badge','0 0 200 200','', '80%')}</div><figcaption>Garment<small>Approximate</small></figcaption></figure>
+      <figure><div class="pv" style="background:#fff">${art('art-badge','0 0 200 200','f-c','80%')}</div><figcaption>Logical C<small>1 of 5 planes</small></figcaption></figure>
+      <figure><div class="pv" style="background:#0f1216">${art('art-badge','0 0 200 200','f-w','80%','opacity=".6"')}</div><figcaption>Slot W1<small>50% of logical W</small></figcaption></figure>
+      <figure><div class="pv" style="background:#fff">${art('art-badge','0 0 200 200','f-screen','80%')}</div><figcaption>Screened<small>Retained artifact</small></figcaption></figure>
+    </div>`;
+
+  const provenance = `<div class="card"><dl class="kv">
+      <dt>Setup</dt><dd>ET-8550 Home bench r3 <span class="mono">b3:7f2c…e91a</span></dd>
+      <dt>Mode</dt><dd>PM-exp-01 <span class="mono">b3:19d0…4c27</span></dd>
+      <dt>Recipe</dt><dd>Hot-peel PET v0 <span class="mono">b3:a83e…0f55</span></dd>
+      <dt>Artifact</dt><dd><span class="mono">b3:e4b2…9d13</span> · 18.4 MB</dd>
+      <dt>Software</dt><dd>veylora 0.0.0-prototype</dd></dl></div>`;
+
+  function renderDetail() {
+    const j = jobs.find(x => x.id === sel);
+    let body = '';
+    if (j.id === 'J-0142') {
+      body = `
+        <div class="lifecycle"><span class="done">Snapshot</span><span class="done">Rendered</span><span class="done">Held</span><span class="done">Submitting</span><span class="now">Ambiguous</span><span>Finished</span></div>
+        <div class="review" id="vc-review">
+          <h3>Check the printer before doing anything else</h3>
+          <p>Every byte was written, but the spooler went silent before confirming. The sheet may have printed, partly printed, or not printed. Veylora will not resend it on its own.</p>
+          <div class="facts"><div>Bytes written<b>18.4 of 18.4 MB</b></div><div>Spool job<b class="mono" style="font-size:13px">#2291</b></div><div>Last signal<b>14:05:47</b></div></div>
+          <div class="choices">
+            <button class="btn primary" data-c="printed">It printed correctly</button>
+            <button class="btn" data-c="none">Nothing printed, reprint</button>
+            <button class="btn danger" data-c="bad">Printed badly, reprint</button>
+            <button class="btn" data-c="later">Decide later</button>
+          </div>
+          <div class="confirm" id="vc-confirm"></div>
+        </div>
+        <h3 class="h">Attempts</h3>
+        <ol class="timeline" id="vc-tl">${j.attempts.map(a => `<li class="${a.cls}"><span class="when">${a.t}</span><br>${a.txt}</li>`).join('')}</ol>
+        <h3 class="h">Stages retained for this attempt</h3>${stagesHtml()}
+        <h3 class="h">Provenance</h3>${provenance}`;
+    } else if (j.id === 'J-0143') {
+      body = `
+        <div class="lifecycle"><span class="done">Draft</span><span class="now" style="border-color:var(--red);color:var(--red)">Preflight failed</span><span>Rendered</span><span>Held</span><span>Submitted</span><span>Finished</span></div>
+        <div class="grid2"><div class="card"><h3 style="margin:0 0 10px;font-size:14px">Blocking (2)</h3><ul class="findings">
+          <li><b>Setup rev 3 is unverified</b><span class="fix">Print the channel identity target (T-0007) and record which tank printed each patch.</span></li>
+          <li><b>Bolt extends 4.2 mm past the printable right edge</b><span class="fix">Move it left by at least 4.2 mm, or reduce its width to 91 mm.</span></li></ul></div>
+          <div class="card"><h3 style="margin:0 0 10px;font-size:14px">Confirm before printing (1)</h3><ul class="findings">
+          <li><b>Combined ink load reaches 312% in 0.8% of the sheet</b><span class="fix">Recipe limit is 280%. Lower highlight white, or confirm to print as an experiment.</span></li></ul></div></div>
+        <div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary">Open layout</button><button class="btn">Run preflight again</button></div>
+        <h3 class="h">Provenance</h3>${provenance}`;
+    } else {
+      body = `<div class="lifecycle"><span class="done">Snapshot</span><span class="${j.f === 'done' ? 'done' : 'now'}">${j.state}</span><span></span><span></span><span></span><span></span></div>
+        <p class="empty">${j.last === 'None' ? 'No attempts yet. Inspect the retained stages, then release it to the printer.' : j.last}</p>${stagesHtml()}<h3 class="h">Provenance</h3>${provenance}`;
+    }
+    det.innerHTML = `<span class="sub mono">${j.id}</span><h2>${j.name}</h2><span class="st ${j.cls}">${j.state}</span>${body}`;
+    det.querySelectorAll('[data-c]').forEach(b => b.onclick = () => choose(b.dataset.c));
+  }
+
+  const outcomes = {
+    printed: ['Mark J-0142 finished? This records that you checked the sheet. No new attempt is created.', 'Confirm finished', 'Operator confirmed the sheet printed correctly. Job finished.', 'Finished', 'grn'],
+    none: ['Create attempt A-0142-2 from the same retained artifact? The first attempt stays in history as "nothing printed".', 'Create reprint attempt', 'Operator recorded no output. Attempt A-0142-2 created and held for release.', 'Held', 'blu'],
+    bad: ['Create attempt A-0142-2 and record the first sheet as spoiled? Add a note so the diagnostic report explains it.', 'Create reprint attempt', 'Operator recorded a spoiled sheet. Attempt A-0142-2 created and held for release.', 'Held', 'blu'],
+    later: ['Keep J-0142 in review? It stays at the top of the ledger and the sender will not take new work for this device until you decide.', 'Keep in review', 'Review postponed by operator.', 'Ambiguous', 'amb'],
+  };
+  function choose(c) {
+    const [q, label, log, state, cls] = outcomes[c];
+    const box = det.querySelector('#vc-confirm');
+    box.classList.add('on');
+    box.innerHTML = `${q}<div style="display:flex;gap:8px;margin-top:10px"><button class="btn primary" id="vc-yes">${label}</button><button class="btn" id="vc-no">Go back</button></div>`;
+    box.querySelector('#vc-no').onclick = () => box.classList.remove('on');
+    box.querySelector('#vc-yes').onclick = () => {
+      const j = jobs[0];
+      j.attempts.push({ cls: 'new', t: new Date().toTimeString().slice(0, 8), txt: log });
+      j.state = state; j.cls = cls; j.f = state === 'Ambiguous' ? 'review' : state === 'Held' ? 'held' : 'done';
+      renderRows(); renderDetail();
+      if (state !== 'Ambiguous') det.querySelector('#vc-review').outerHTML = `<div class="card">Review closed. ${log}</div>`;
+    };
+  }
+
+  root.querySelectorAll('#vc-filters button').forEach(b => b.onclick = () => {
+    filt = b.dataset.f; root.querySelectorAll('#vc-filters button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderRows();
+  });
+  renderRows(); renderDetail();
+})();
+
+/* ---------- Variant D: ledger + sheet ---------- */
+(() => {
+  const root = document.querySelector('.vd');
+  const VB = { badge: '0 0 200 200', bolt: '0 0 120 120', type: '0 0 300 70', target: '0 0 200 140', ramp: '0 0 300 60' };
+  const P = (id, name, sym, x, y, w, h, meta, extra = {}) => ({ id, name, sym, x, y, w, h, meta, ...extra });
+  const northRidge = clip => [
+    P('p1', 'North Ridge badge', 'badge', 10.4, 6.7, 56.5, 40, '140 × 140 mm · ICC P3', { mm: ['27.0', '22.5', '140.0', '140.0'] }),
+    P('p2', 'Bolt', 'bolt', clip ? 65.2 : 58, 46.7, clip ? 39.1 : 34.8, clip ? 27.6 : 24.6, clip ? 'Clipped 4.2 mm right' : '86 × 86 mm', { clip, mm: clip ? ['208.0', '196.0', '96.0', '96.0'] : ['186.0', '196.0', '86.0', '86.0'] }),
+    P('p3', 'Stay Wild', 'type', 8.7, 78.3, 82.6, 14.7, 'White mask · CMYK 0%', { mm: ['21.0', '250.5', '200.0', '46.7'], dark: true }),
+  ];
+  const bolts = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++)
+    bolts.push(P('b' + (r * 3 + c + 1), 'Bolt copy ' + (r * 3 + c + 1), 'bolt', 7 + c * 30, 5 + r * 23, 26, 19, '60 × 60 mm · clone', { mm: [String(15 + c * 63), String(15 + r * 68), '60.0', '60.0'] }));
+  const badges = [0, 1, 2, 3].map(i => P('g' + i, 'Badge copy ' + (i + 1), 'badge', 10 + (i % 2) * 44, 10 + Math.floor(i / 2) * 32, 36, 25.5, '60 × 60 mm', { mm: [String(20 + (i % 2) * 92), String(30 + Math.floor(i / 2) * 95), '60.0', '60.0'] }));
+
+  const provenance = { setup: 'b3:7f2c…e91a', mode: 'b3:19d0…4c27', recipe: 'b3:a83e…0f55' };
+  const jobs = [
+    { id: 'J-0143', name: 'North Ridge, second sheet', state: 'Preflight failed', tone: 'bad', group: 'draft', size: 'a3', editable: true,
+      life: [['Draft', 'done'], ['Preflight', 'now bad'], ['Rendered', ''], ['Held', ''], ['Submitted', ''], ['Finished', '']],
+      pls: northRidge(true), findings: 'full', attempts: [], when: 'Edited 3 min ago' },
+    { id: 'J-0142', name: 'North Ridge tee run', state: 'Ambiguous', tone: 'warn', group: 'review', size: 'a3', review: true, artifact: 'b3:e4b2…9d13 · 18.4 MB',
+      life: [['Draft', 'done'], ['Preflight', 'done'], ['Rendered', 'done'], ['Held', 'done'], ['Ambiguous', 'now'], ['Finished', '']],
+      pls: northRidge(false), findings: 'pass', when: 'Today 14:05', attention: 'Printer result unknown. Review before printing anything else.',
+      attempts: [
+        { t: '14:02:11', txt: 'Snapshot frozen <span class="mono muted">b3:5e09…a1c4</span>' },
+        { t: '14:02:58', txt: 'Rendered and held. Artifact 18.4 MB retained.' },
+        { t: '14:05:20', txt: 'Released by operator. Attempt A-0142-1 created.' },
+        { t: '14:05:47', txt: 'All 18.4 MB written, then the spooler stopped responding. Physical result unknown.', cls: 'amb' },
+      ] },
+    { id: 'J-0141', name: 'Bolt sticker sheet', state: 'Held', tone: 'info', group: 'held', size: 'a4', artifact: 'b3:0c71…55e2 · 9.1 MB',
+      life: [['Draft', 'done'], ['Preflight', 'done'], ['Rendered', 'done'], ['Held', 'now'], ['Submitted', ''], ['Finished', '']],
+      pls: bolts, findings: 'pass', when: 'Today 11:40', attempts: [{ t: '11:40:02', txt: 'Rendered and held. Artifact 9.1 MB retained.' }] },
+    { id: 'T-0007', name: 'Channel identity target', state: 'Rendering 62%', tone: '', group: 'held', size: 'a4',
+      life: [['Draft', 'done'], ['Preflight', 'done'], ['Rendering', 'now'], ['Held', ''], ['Submitted', ''], ['Finished', '']],
+      pls: [P('t1', 'Channel identity target', 'target', 8, 8, 84, 42, '180 × 126 mm · diagnostic', { mm: ['15.0', '20.0', '180.0', '126.0'] })], findings: 'pass', when: 'Band 25 of 40', attempts: [] },
+    { id: 'J-0139', name: 'Stay Wild, white only', state: 'Finished', tone: 'ok', group: 'done', size: 'a4', artifact: 'b3:9a10…c3f8 · 6.0 MB',
+      life: [['Draft', 'done'], ['Preflight', 'done'], ['Rendered', 'done'], ['Held', 'done'], ['Submitted', 'done'], ['Finished', 'done']],
+      pls: [P('s1', 'Stay Wild', 'type', 7, 20, 86, 18, 'White mask · CMYK 0%', { mm: ['15.0', '60.0', '180.0', '42.0'], dark: true }), P('s2', 'Bolt', 'bolt', 32, 52, 36, 26, '76 × 76 mm', { mm: ['67.0', '150.0', '76.0', '76.0'] })],
+      findings: 'pass', when: 'Yesterday', attempts: [{ t: 'Nov 6 16:20', txt: 'Attempt A-0139-1 spooled.' }, { t: 'Nov 6 16:31', txt: 'Operator confirmed the sheet printed correctly.' }] },
+    { id: 'J-0138', name: 'Badge test, 60 mm', state: 'Submitted', tone: 'info', group: 'review', size: 'a4', artifact: 'b3:41dd…07aa · 7.7 MB',
+      life: [['Draft', 'done'], ['Preflight', 'done'], ['Rendered', 'done'], ['Held', 'done'], ['Submitted', 'now'], ['Finished', '']],
+      pls: badges, findings: 'pass', when: 'Yesterday', attention: 'Spooled. Confirm what came out of the printer.', attempts: [{ t: 'Nov 6 15:02', txt: 'Attempt A-0138-1 spooled. Waiting for your check.' }] },
+    { id: 'J-0136', name: 'Gradient ramp check', state: 'Cancelled', tone: '', group: 'done', size: 'a4',
+      life: [['Draft', 'done'], ['Preflight', 'done'], ['Rendering', 'done'], ['Cancelled', 'now'], ['', ''], ['', '']],
+      pls: [P('r1', 'Ramp', 'ramp', 8, 40, 84, 16, '180 × 36 mm', { mm: ['15.0', '120.0', '180.0', '36.0'] })], findings: 'pass', when: 'Nov 4', attempts: [{ t: 'Nov 4 09:12', txt: 'Rendering cancelled by operator at band 14 of 40. No bytes sent.' }] },
+  ];
+  const filters = [['all', 'All'], ['review', 'Needs review'], ['draft', 'Drafts'], ['held', 'Held'], ['done', 'Done']];
+  const S = { sel: 'J-0143', filter: 'all', tab: 'sheet', stage: 'film', planes: { c: true, m: true, y: true, k: true, w: true }, pl: 'p2', bounds: true };
+  const job = () => jobs.find(j => j.id === S.sel);
+  const $ = s => root.querySelector(s);
+
+  /* Ledger */
+  function renderLedger() {
+    $('#vd-filters').innerHTML = filters.map(([k, l]) => {
+      const n = k === 'all' ? jobs.length : jobs.filter(j => j.group === k).length;
+      return `<button data-f="${k}" aria-pressed="${S.filter === k}">${l}<span class="n">${n}</span></button>`;
+    }).join('');
+    $('#vd-filters').querySelectorAll('button').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderLedger(); });
+    $('#vd-jobs').innerHTML = jobs.filter(j => S.filter === 'all' || j.group === S.filter).map(j => `
+      <li><button class="job" role="option" data-id="${j.id}" aria-selected="${j.id === S.sel}">
+        <span class="name">${j.name}</span><span class="badge ${j.tone}">${j.state}</span>
+        <span class="meta"><span class="mono">${j.id}</span><span>${j.size.toUpperCase()} · ${j.pls.length} placement${j.pls.length > 1 ? 's' : ''}</span><span>${j.when}</span></span>
+        ${j.attention ? `<span class="attention">${j.attention}</span>` : ''}
+      </button></li>`).join('');
+    $('#vd-jobs').querySelectorAll('.job').forEach(b => b.onclick = () => {
+      S.sel = b.dataset.id; const j = job();
+      S.tab = j.review ? 'review' : 'sheet'; S.pl = j.pls.find(p => p.clip)?.id || j.pls[0].id;
+      renderLedger(); renderWork();
+    });
+  }
+
+  /* Workspace */
+  function actions(j) {
+    switch (j.state) {
+      case 'Preflight failed': return `<span class="why">Fix 2 blocking findings to render</span><button class="btn" data-a="preflight">Run preflight</button><button class="btn primary" disabled>Render and hold</button>`;
+      case 'Ambiguous': return `<button class="btn" data-a="dup">Duplicate as new job</button><button class="btn primary" data-a="review">Review attempt</button>`;
+      case 'Held': return `<button class="btn">Cancel job</button><button class="btn primary">Release to printer</button>`;
+      case 'Submitted': return `<button class="btn">Printed badly, reprint</button><button class="btn primary">Confirm it printed</button>`;
+      case 'Finished': return `<button class="btn">Reprint selected placements</button><button class="btn">Duplicate as new job</button>`;
+      default: return j.state.startsWith('Rendering') ? `<span class="why">${j.when}</span><button class="btn">Cancel render</button>` : `<button class="btn">Duplicate as new job</button>`;
+    }
+  }
+  function tabs(j) {
+    const t = [];
+    if (j.review) t.push(['review', 'Review', '<span class="count warn">1</span>']);
+    t.push(['sheet', 'Sheet', '']);
+    t.push(['preflight', 'Preflight', j.findings === 'full' ? '<span class="count bad">2</span>' : '']);
+    t.push(['attempts', 'Attempts', j.attempts.length ? `<span class="count">${j.attempts.length}</span>` : '']);
+    t.push(['prov', 'Provenance', '']);
+    return t.map(([k, l, c]) => `<button role="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}${c}</button>`).join('');
+  }
+  function renderWork() {
+    const j = job();
+    $('#vd-work').innerHTML = `
+      <div class="job-head">
+        <div class="job-title">
+          <div><h1>${j.name}</h1><div class="ids"><span class="mono">${j.id}</span><span class="badge ${j.tone}">${j.state}</span><span>${j.size === 'a3' ? 'A3 cut film, 297 × 420 mm' : 'A4 cut film, 210 × 297 mm'}</span><span>Mode PM-exp-01</span></div></div>
+          <div class="acts">${actions(j)}</div>
+        </div>
+        <div class="life">${j.life.map(([l, c]) => `<span class="${c}">${l}</span>`).join('')}</div>
+        <div class="tabs" role="tablist">${tabs(j)}</div>
+      </div>
+      <div class="pane" id="vd-pane"></div>`;
+    $('#vd-work').querySelectorAll('[role=tab]').forEach(b => b.onclick = () => { S.tab = b.dataset.t; renderWork(); });
+    $('#vd-work').querySelectorAll('[data-a=review]').forEach(b => b.onclick = () => { S.tab = 'review'; renderWork(); });
+    ({ sheet: paneSheet, review: paneReview, preflight: panePreflight, attempts: paneAttempts, prov: paneProv })[S.tab](j);
+  }
+
+  /* Sheet tab (B's light table) */
+  const stageCfg = {
+    garment: ['Garment', 'Approximate', 'garment', null, false, 'Garment simulation · approximate, not a color proof'],
+    film: ['Film', 'Mirrored', 'film', null, true, 'Film view · mirrored for transfer · simulation'],
+    logical: ['Logical planes', 'CMYK + W', 'paper', 'logical', false, ''],
+    slot: ['Physical slots', 'W1 + W2', 'dark', 'f-w', true, 'Physical-slot raster · logical W split to W1 and W2 · simulation'],
+    screen: ['Screened', 'Device truth', 'paper', 'f-screen', true, 'Screened device raster · simulation until rendered'],
+  };
+  function paneSheet(j) {
+    const ro = !j.editable;
+    const sel = j.pls.find(p => p.id === S.pl) || j.pls[0];
+    $('#vd-pane').innerHTML = `
+      <div class="sheetpane">
+        <div class="canvas-col">
+          <div class="canvas">
+            <div class="label"><span class="chip warn" id="vd-stagelbl"></span></div>
+            <div class="zoom"><span class="chip">${j.size === 'a3' ? '297 × 420 mm' : '210 × 297 mm'} · fit</span></div>
+            <div class="sheet ${j.size}" id="vd-sheet">
+              <div class="printable" ${S.bounds ? '' : 'style="display:none"'}></div>
+              ${j.pls.map(p => `<button class="pl ${p.clip ? 'clip' : ''}" data-pl="${p.id}" aria-pressed="${p.id === sel.id}" aria-label="${p.name}" style="left:${p.x}%;top:${p.y}%;width:${p.w}%;height:${p.h}%"><svg viewBox="${VB[p.sym]}"><use href="#art-${p.sym}"/></svg></button>`).join('')}
+            </div>
+            ${ro ? '<div class="lock"><span class="chip">Snapshot frozen. Read-only. Duplicate to edit.</span></div>' : ''}
+          </div>
+          <div class="strip">
+            <div class="seg" role="group" aria-label="Output stage">${Object.entries(stageCfg).map(([k, c]) => `<button data-st="${k}" aria-pressed="${S.stage === k}">${c[0]}<small>${c[1]}</small></button>`).join('')}</div>
+            <div class="planes"><span>Planes</span>${[['c', '#00a0c6'], ['m', '#d4307a'], ['y', '#e8c200'], ['k', '#2a2a2a'], ['w', '#f4f4ef']].map(([p, ink]) => `<button class="pt" data-p="${p}" aria-pressed="${S.planes[p]}" style="--ink:${ink}" aria-label="Toggle ${p.toUpperCase()} plane">${p.toUpperCase()}</button>`).join('')}
+              <button class="btn sm" data-bounds aria-pressed="${S.bounds}" style="margin-left:8px">${S.bounds ? 'Hide' : 'Show'} printable box</button></div>
+          </div>
+        </div>
+        <div class="insp">
+          <div class="sec"><h4>Placements <span>${j.pls.length}</span></h4>
+            ${j.pls.slice(0, 6).map(p => `<button class="plitem" data-pl="${p.id}" aria-pressed="${p.id === sel.id}"><span class="thumb" ${p.dark ? 'style="background:#22272f"' : ''}><svg viewBox="${VB[p.sym]}" width="24"><use href="#art-${p.sym}"/></svg></span><span><b>${p.name}</b><small class="${p.clip ? 'bad' : ''}">${p.meta}</small></span></button>`).join('')}
+            ${j.pls.length > 6 ? `<p class="note">and ${j.pls.length - 6} more clones</p>` : ''}
+          </div>
+          <div class="sec"><h4>${sel.name} <span>mm</span></h4>
+            <div class="grid4">${['X', 'Y', 'Width', 'Height'].map((l, i) => `<label>${l}<input value="${sel.mm[i]}" ${ro ? 'disabled' : ''}></label>`).join('')}</div>
+            ${sel.clip ? '<div class="callout bad">Extends 4.2 mm past the printable right edge. Move it left, or reduce the width to 91 mm.</div>' : ''}
+          </div>
+          <div class="sec"><h4>White <span>job-wide</span></h4>
+            <div class="row2"><label class="field">Source<select ${ro ? 'disabled' : ''}><option>Alpha</option><option>Tonal</option><option>Supplied mask</option><option>Off (diagnostic)</option></select></label>
+            <label class="field">Choke (mm)<input type="number" value="0.12" step="0.02" ${ro ? 'disabled' : ''}></label></div>
+            <label class="field">Policy<select ${ro ? 'disabled' : ''}><option>Underbase + highlight</option><option>Opaque underbase</option><option>Tonal underbase</option><option>Highlight only</option></select></label>
+            <label class="field">Response curve<select ${ro ? 'disabled' : ''}><option>wc-soft-shoulder v2 · 0–100% in, 0–92% out</option><option>wc-linear v1</option></select></label>
+            <svg class="curve" viewBox="0 0 100 50" preserveAspectRatio="none" aria-label="White response curve"><path d="M6 44 C 36 22, 58 10, 94 8" stroke="var(--accent)" stroke-width="1.6" fill="none" vector-effect="non-scaling-stroke"/></svg>
+            <p class="note">Applied after mask combine, before choke. Never changes C, M, Y or K.</p>
+          </div>
+          <div class="sec"><h4>White slots <span>logical W → 2 tanks</span></h4>
+            <div class="slot"><span>W1 · photo black tank</span><span class="mono">50%</span></div>
+            <div class="slot"><span>W2 · gray tank</span><span class="mono">50%</span></div>
+            <div class="callout warn">Slot map is inferred. Print the channel identity target to verify it.</div>
+          </div>
+        </div>
+      </div>`;
+    const pane = $('#vd-pane');
+    pane.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { S.pl = b.dataset.pl; paneSheet(j); });
+    pane.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { S.stage = b.dataset.st; paneSheet(j); });
+    pane.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { S.planes[b.dataset.p] = !S.planes[b.dataset.p]; S.stage = 'logical'; paneSheet(j); });
+    pane.querySelector('[data-bounds]').onclick = () => { S.bounds = !S.bounds; paneSheet(j); };
+    paintSheet();
+  }
+  function paintSheet() {
+    const sheet = $('#vd-sheet'), lbl = $('#vd-stagelbl');
+    const [, , cls, filt, mirror, text] = stageCfg[S.stage];
+    let f = filt, c = cls, t = text;
+    if (filt === 'logical') {
+      const proc = ['c', 'm', 'y', 'k'].filter(p => S.planes[p]);
+      f = proc.length === 1 ? 'f-' + proc[0] : (proc.length === 0 && S.planes.w ? 'f-w' : null);
+      c = proc.length === 0 && S.planes.w ? 'dark' : 'paper';
+      const on = Object.keys(S.planes).filter(p => S.planes[p]).map(p => p.toUpperCase());
+      t = `Logical planes: ${on.join(' ') || 'none'} · continuous tone · simulation`;
+    }
+    sheet.className = `sheet ${job().size} ${c}${mirror ? ' mirror' : ''}`;
+    lbl.textContent = t;
+    const none = S.stage === 'logical' && !Object.values(S.planes).some(Boolean);
+    sheet.querySelectorAll('.pl svg').forEach(s => { f ? s.setAttribute('filter', `url(#${f})`) : s.removeAttribute('filter'); s.style.opacity = none ? 0 : 1; });
+  }
+
+  /* Review tab */
+  const outcomes = {
+    printed: ['Mark this job finished? This records that you checked the sheet. No new attempt is created.', 'Mark finished', 'Operator confirmed the sheet printed correctly.', 'Finished', 'ok', 'done'],
+    none: ['Create attempt A-0142-2 from the same retained artifact? Attempt A-0142-1 stays in history as "nothing printed".', 'Create reprint attempt', 'Operator recorded no output. Attempt A-0142-2 created and held.', 'Held', 'info', 'held'],
+    bad: ['Create attempt A-0142-2 and record the first sheet as spoiled?', 'Create reprint attempt', 'Operator recorded a spoiled sheet. Attempt A-0142-2 created and held.', 'Held', 'info', 'held'],
+    later: ['Keep this job in review? It stays pinned under Needs review, and the printer takes no new work until you decide.', 'Keep in review', 'Review postponed by operator.', 'Ambiguous', 'warn', 'review'],
+  };
+  function paneReview(j) {
+    $('#vd-pane').innerHTML = `<div class="page">
+      <div class="card review">
+        <h3>Check the printer before printing anything else</h3>
+        <p>Every byte was written, but the spooler went silent before confirming. The sheet may have printed, partly printed, or not printed at all. Veylora won't resend it on its own.</p>
+        <div class="facts"><div>Bytes written<b>18.4 of 18.4 MB</b></div><div>Spool job<b class="mono" style="font-size:14px">#2291</b></div><div>Last signal<b>14:05:47</b></div></div>
+        <div class="choices"><button class="btn primary" data-c="printed">It printed correctly</button><button class="btn" data-c="none">Nothing printed, reprint</button><button class="btn danger" data-c="bad">Printed badly, reprint</button><button class="btn" data-c="later">Decide later</button></div>
+        <div id="vd-confirm"></div>
+      </div>
+      <div class="card"><h3>What was sent</h3><p>The retained artifact for attempt A-0142-1. Open the Sheet tab to inspect each stage.</p>
+        <dl class="kv"><dt>Artifact</dt><dd class="mono">${j.artifact}</dd><dt>Snapshot</dt><dd class="mono">b3:5e09…a1c4</dd><dt>Placements</dt><dd>${j.pls.map(p => p.name).join(', ')}</dd></dl></div>
+    </div>`;
+    $('#vd-pane').querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
+      const [q, label, log, state, tone, group] = outcomes[b.dataset.c];
+      const box = $('#vd-confirm');
+      box.innerHTML = `<div class="confirm">${q}<div class="choices" style="margin-top:10px"><button class="btn primary sm" id="vd-yes">${label}</button><button class="btn sm" id="vd-no">Go back</button></div></div>`;
+      $('#vd-no').onclick = () => box.innerHTML = '';
+      $('#vd-yes').onclick = () => {
+        j.attempts.push({ t: new Date().toTimeString().slice(0, 8), txt: log, cls: 'new' });
+        if (state !== 'Ambiguous') {
+          Object.assign(j, { state, tone, group, review: false, attention: '' });
+          j.life[4] = state === 'Finished' ? ['Submitted', 'done'] : ['Ambiguous', 'done'];
+          j.life[5] = state === 'Finished' ? ['Finished', 'done'] : ['Reprint held', 'now'];
+          S.tab = 'attempts';
+        }
+        renderLedger(); renderWork();
+      };
+    });
+  }
+
+  function panePreflight(j) {
+    const full = j.findings === 'full';
+    const f = (tone, tag, title, why, fix) => `<div class="finding"><span><span class="badge ${tone}">${tag}</span></span><div><b>${title}</b><p>${why}</p>${fix ? `<p class="fix">${fix}</p>` : ''}</div></div>`;
+    $('#vd-pane').innerHTML = `<div class="page"><div class="card">${full ? [
+      f('bad', 'Blocking', 'Setup rev 3 is unverified', 'No channel identity test is recorded, so the ink-to-tank mapping is inferred.', 'Print the channel identity target (T-0007) and record which tank printed each patch, or switch this job to experimental mode.'),
+      f('bad', 'Blocking', 'Bolt extends 4.2 mm past the printable right edge', 'That part would be clipped on the film.', 'Move it left by at least 4.2 mm, or reduce its width to 91 mm.'),
+      f('warn', 'Confirm', 'Combined ink load reaches 312% in 0.8% of the sheet', 'The recipe limit is 280%. Expect pooling where the badge sun overlaps highlight white.', 'Lower highlight white, or confirm to print as an experiment.'),
+      f('', 'Info', 'bolt.png is untagged', 'Interpreted as sRGB IEC 61966-2.1, per the recipe’s untagged-source policy.', ''),
+    ].join('') : f('ok', 'Passed', 'No blocking findings', 'Preflight passed against setup rev 3 and mode PM-exp-01 in experimental mode.', '')}</div></div>`;
+  }
+  function paneAttempts(j) {
+    $('#vd-pane').innerHTML = `<div class="page"><div class="card"><h3>Attempt history</h3><p>Append-only. Reprints add a new attempt; nothing here is ever overwritten.</p>
+      ${j.attempts.length ? `<ol class="timeline">${j.attempts.map(a => `<li class="${a.cls || ''}"><span class="t">${a.t}</span><span></span><span>${a.txt}</span></li>`).join('')}</ol>` : '<p>No attempts yet. Render and hold the job, inspect it, then release it to the printer.</p>'}</div></div>`;
+  }
+  function paneProv(j) {
+    $('#vd-pane').innerHTML = `<div class="page"><div class="card"><h3>Provenance</h3><p>Everything that affects output, frozen with the job snapshot.</p><dl class="kv">
+      <dt>Device setup</dt><dd>ET-8550 · Home bench rev 3 <span class="mono muted">${provenance.setup}</span></dd>
+      <dt>Print mode</dt><dd>PM-exp-01 · 720 × 720 grid, rear feed <span class="mono muted">${provenance.mode}</span></dd>
+      <dt>Recipe</dt><dd>Hot-peel PET, Ink set A v0 <span class="mono muted">${provenance.recipe}</span></dd>
+      <dt>Artifact</dt><dd class="mono">${j.artifact || 'Not rendered'}</dd>
+      <dt>Software</dt><dd>veylora 0.0.0-prototype</dd></dl></div></div>`;
+  }
+
+  root.querySelectorAll('.theme button').forEach(b => b.onclick = () => {
+    root.dataset.theme = b.dataset.theme;
+    root.querySelectorAll('.theme button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+  renderLedger(); renderWork();
+})();
+
+/* ---------- Variant E: approved shell ---------- */
+(() => {
+  const root = document.querySelector('.ve');
+  const $ = s => root.querySelector(s);
+  const now = () => new Date().toTimeString().slice(0, 8);
+  const VB = { badge: '0 0 200 200', bolt: '0 0 120 120', type: '0 0 300 70', target: '0 0 200 140', ramp: '0 0 300 60' };
+  const ASPECT = k => { const [, , w, h] = VB[k].split(' ').map(Number); return h / w; };
+  const SIZE = { a3: { w: 297, h: 420, box: [10, 10, 287, 400], label: 'A3 cut film, 297 × 420 mm', dev: '8419 × 11906' },
+                 a4: { w: 210, h: 297, box: [10, 10, 200, 287], label: 'A4 cut film, 210 × 297 mm', dev: '5953 × 8419' } };
+  const INK = { c: '#00a0c6', m: '#d4307a', y: '#e8c200', k: '#2a2a2a', w: '#f4f4ef', cyan: '#00a0c6', magenta: '#d4307a', yellow: '#e8c200', black: '#2a2a2a', w1: '#f4f4ef', w2: '#f4f4ef' };
+  const PLANE_LABEL = { c: 'C', m: 'M', y: 'Y', k: 'K', w: 'W', cyan: 'Cyan tank', magenta: 'Magenta tank', yellow: 'Yellow tank', black: 'Black tank', w1: 'W1 · photo black tank', w2: 'W2 · gray tank' };
+  const LPL = ['c', 'm', 'y', 'k', 'w'], PPL = ['cyan', 'magenta', 'yellow', 'black', 'w1', 'w2'];
+  const CHANNELS = [
+    { ch: 0, logical: 'K', ink: '#2a2a2a', expect: 'Black tank' }, { ch: 1, logical: 'M', ink: '#d4307a', expect: 'Magenta tank' },
+    { ch: 2, logical: 'C', ink: '#00a0c6', expect: 'Cyan tank' }, { ch: 3, logical: 'Y', ink: '#e8c200', expect: 'Yellow tank' },
+    { ch: 4, logical: 'W', ink: '#f4f4ef', expect: 'Photo black tank (W1)' }, { ch: 5, logical: 'W', ink: '#f4f4ef', expect: 'Gray tank (W2)' } ];
+  const TANK_OPTIONS = ['Black tank', 'Magenta tank', 'Cyan tank', 'Yellow tank', 'Photo black tank (W1)', 'Gray tank (W2)', 'Nothing printed'];
+  const GARMENTS = [['Black', '#1c1c1e'], ['White', '#f7f7f5'], ['Heather grey', '#9a9da3'], ['Navy', '#1f2a44'], ['Red', '#b3202c'], ['Royal blue', '#2b4fa8'], ['Forest green', '#24452f'], ['Natural', '#e8dcc4']];
+  const I = { // Lucide-style icons (ISC), simplified
+    jobs: '<path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+    devices: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+    recipes: '<path d="M9 3h6"/><path d="M10 3v6L4 20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1L14 9V3"/>',
+    targets: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    reports: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+    settings: '<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>',
+    moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
+    focus: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>',
+  };
+  const icon = (k, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${I[k]}</svg>`;
+
+  const P = (id, name, sym, x, y, w, meta, extra = {}) => ({ id, name, sym, x, y, w, h: +(w * ASPECT(sym)).toFixed(1), meta, ...extra });
+  const northRidge = boltX => [P('p1', 'North Ridge badge', 'badge', 27, 22.5, 140, 'Embedded ICC, Display P3'),
+    P('p2', 'Bolt', 'bolt', boltX, 196, 96, 'Untagged, assumed sRGB'), P('p3', 'Stay Wild', 'type', 21, 322, 255, 'White mask · CMYK 0%', { dark: true })];
+  const bolts = () => { const a = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) a.push(P('b' + (r * 3 + c + 1), 'Bolt copy ' + (r * 3 + c + 1), 'bolt', 12 + c * 63, 14 + r * 68, 60, 'Clone of bolt.png')); return a; };
+
+  const E = {};
+  function setupFixture(verified) {
+    return { name: 'Home bench', rev: verified ? 4 : 1, verified, experimental: false, generated: verified, printing: false, printed: verified, map: {},
+      answers: verified ? Object.fromEntries(CHANNELS.map(c => [c.ch, c.expect])) : {}, verifiedOn: verified ? 'Nov 5, 2026' : null,
+      history: verified ? [[4, 'Verified from test record T-0001', 'Nov 5'], [3, 'White allocation set to 50 / 50', 'Nov 4'], [2, 'Firmware observation recorded', 'Nov 3'], [1, 'Created', 'Nov 2']] : [[1, 'Created', 'Today']] };
+  }
+  function workingJobs() {
+    return [
+      { id: 'J-0142', name: 'North Ridge tee run', status: 'ambiguous', size: 'a3', rendered: true, pls: northRidge(180), when: 'Today 14:05', artifact: 'b3:e4b2…9d13 · 18.4 MB',
+        attempts: [{ t: '14:02:11', txt: 'Snapshot frozen <span class="mono muted">b3:5e09…a1c4</span>' }, { t: '14:02:58', txt: 'Rendered and held. Artifact 18.4 MB retained.' },
+          { t: '14:05:20', txt: 'Released by operator. Attempt A-0142-1 created.' }, { t: '14:05:47', txt: 'All 18.4 MB written, then the spooler stopped responding. Physical result unknown.', cls: 'amb' }] },
+      { id: 'J-0143', name: 'North Ridge, second sheet', status: 'draft', size: 'a3', pls: northRidge(195.2), when: 'Edited 3 min ago', attempts: [] },
+      { id: 'J-0141', name: 'Bolt sticker sheet', status: 'held', size: 'a4', rendered: true, pls: bolts(), when: 'Today 11:40', artifact: 'b3:0c71…55e2 · 9.1 MB', attempts: [{ t: '11:40:02', txt: 'Rendered and held. Artifact 9.1 MB retained.' }] },
+      { id: 'J-0139', name: 'Stay Wild, white only', status: 'finished', size: 'a4', rendered: true, when: 'Yesterday', artifact: 'b3:9a10…c3f8 · 6.0 MB',
+        pls: [P('s1', 'Stay Wild', 'type', 15, 60, 180, 'White mask · CMYK 0%', { dark: true }), P('s2', 'Bolt', 'bolt', 67, 150, 76, 'Untagged, assumed sRGB')],
+        attempts: [{ t: 'Nov 6 16:20', txt: 'Attempt A-0139-1 spooled.' }, { t: 'Nov 6 16:31', txt: 'Operator confirmed the sheet printed correctly.' }] },
+    ];
+  }
+  function setScenario(v) {
+    clearInterval(E.timer);
+    Object.assign(E, { scenario: v, section: 'jobs', filter: 'all', tab: 'sheet', stage: 'film', planes: { c: true, m: true, y: true, k: true, w: true },
+      pl: null, focus: false, noledger: false, nopanel: false, bounds: true, garment: '#1c1c1e', confirmRelease: false, reviewChoice: null, reviewLater: false,
+      render: null, send: null, istage: 'screen', iplane: 'cyan', zoom: 'fit', ibounds: true, modal: null, timer: null });
+    if (v === 'fresh') { E.setup = null; E.jobs = []; E.sel = null; }
+    if (v === 'unverified') { E.setup = setupFixture(false); E.jobs = []; E.sel = null; }
+    if (v === 'working') { E.setup = setupFixture(true); E.jobs = workingJobs(); E.sel = 'J-0143'; E.pl = 'p2'; }
+    renderAll();
+  }
+
+  const job = () => E.jobs.find(j => j.id === E.sel);
+  const ambiguousJob = () => E.jobs.find(j => j.status === 'ambiguous');
+  const reviewOpen = () => !!ambiguousJob();
+  const nextId = () => 'J-' + String(Math.max(143, ...E.jobs.map(j => +j.id.slice(2) || 0)) + 1).padStart(4, '0');
+
+  /* ----- Live preflight ----- */
+  function findings(j) {
+    if (j.rendered || j.status !== 'draft') return [];
+    const f = [], b = SIZE[j.size].box;
+    j.pls.forEach(p => {
+      [['right', p.x + p.w - b[2]], ['left', b[0] - p.x], ['bottom', p.y + p.h - b[3]], ['top', b[1] - p.y]].filter(e => e[1] > 0.05).forEach(([edge, mm]) => {
+        const n = mm.toFixed(1);
+        const fix = { right: `Move it left by at least ${n} mm, or reduce its width to ${(b[2] - p.x).toFixed(1)} mm.`, left: `Move it right by at least ${n} mm.`,
+          bottom: `Move it up by at least ${n} mm, or reduce its size.`, top: `Move it down by at least ${n} mm.` }[edge];
+        f.push({ sev: 'block', pl: p.id, edge, mm, title: `${p.name} extends ${n} mm past the printable ${edge} edge`, why: 'That part would be clipped on the film.', fix });
+      });
+    });
+    if (j.pls.some(p => p.sym === 'badge') && !j.ack) f.push({ sev: 'confirm', title: 'Combined ink load reaches 312% in 0.8% of the sheet', why: 'The recipe limit is 280%. Expect pooling where the badge sun overlaps highlight white.', fix: 'Lower highlight white, or confirm to print this as an experiment.' });
+    if (E.setup && !E.setup.verified) f.push({ sev: 'info', title: `Setup rev ${E.setup.rev} is unverified`, why: 'This job can render, but it can only be released in experimental mode until the setup is verified.' });
+    if (j.pls.some(p => p.sym === 'bolt')) f.push({ sev: 'info', title: 'bolt.png is untagged', why: 'Interpreted as sRGB IEC 61966-2.1, per the recipe’s untagged-source policy.' });
+    return f;
+  }
+  const counts = j => { const f = findings(j); return { block: f.filter(x => x.sev === 'block').length, confirm: f.filter(x => x.sev === 'confirm').length }; };
+  function status(j) { return j.status === 'draft' && counts(j).block ? 'pffail' : j.status; }
+  const ST = { draft: ['Draft', 'neutral'], pffail: ['Preflight failed', 'bad'], rendering: ['Rendering', 'neutral'], held: ['Held', 'info'], sending: ['Sending', 'info'],
+    submitted: ['Submitted', 'info'], ambiguous: ['Ambiguous', 'review'], finished: ['Finished', 'ok'] };
+  function badge(j) {
+    const s = status(j); let [t, tone] = ST[s];
+    if (s === 'rendering' && E.render) t += ` ${Math.round(E.render.band / E.render.total * 100)}%`;
+    if (s === 'sending' && E.send) t += ` ${E.send.pct}%`;
+    return `<span class="badge ${tone === 'neutral' ? '' : tone}">${t}</span>`;
+  }
+  function pfchip(j) {
+    if (j.rendered || j.status !== 'draft') return j.rendered ? '<span class="pfchip neutral" id="e-pfchip">Passed at render</span>' : '';
+    const { block, confirm } = counts(j);
+    const [txt, tone] = block ? [`${block} blocking${confirm ? ` · ${confirm} to confirm` : ''}`, 'bad'] : confirm ? [`${confirm} to confirm`, 'warn'] : ['Ready to render', 'ok'];
+    return `<button class="pfchip ${tone}" id="e-pfchip" data-act="tab" data-t="preflight">${txt}</button>`;
+  }
+
+  /* ----- Rail, status bar, scenario pill ----- */
+  function stepInfo() {
+    const s = E.setup; if (!s) return null;
+    const recorded = CHANNELS.filter(c => s.answers[c.ch]).length;
+    const steps = [['Generate the target', s.generated], ['Print it', s.printed], ['Record test results', recorded === 6], ['Review mismatches', recorded === 6 && !mismatches().length], ['Mark verified', s.verified]];
+    const idx = steps.findIndex(x => !x[1]);
+    return { steps, idx, recorded };
+  }
+  function renderRail() {
+    const si = stepInfo();
+    const devTip = !E.setup ? 'Devices · no setup yet' : E.setup.verified ? 'Devices' : `Devices · step ${si.idx + 1} of 5: ${si.steps[si.idx][0].toLowerCase()}`;
+    const items = [['jobs', 'Jobs', reviewOpen() ? 'review' : ''], ['devices', devTip, !E.setup || !E.setup.verified ? 'warn' : ''], ['recipes', 'Recipes', ''], ['targets', 'Targets', ''], ['reports', 'Reports', '']];
+    const btn = ([k, tip, dot]) => `<button class="rb" data-act="nav" data-s="${k}" data-tip="${tip}" aria-label="${tip}" ${E.section === k ? 'aria-current="page"' : ''}>${icon(k)}${dot ? `<span class="rdot ${dot}"></span>` : ''}</button>`;
+    const dark = root.dataset.theme === 'dark';
+    $('#e-rail').innerHTML = `<span class="logo" aria-hidden="true"></span>${items.map(btn).join('')}<span class="sp"></span>${btn(['settings', 'Settings', ''])}
+      <button class="rb" data-act="theme" data-tip="${dark ? 'Light theme' : 'Dark theme'}" aria-label="Switch to ${dark ? 'light' : 'dark'} theme">${icon(dark ? 'sun' : 'moon')}</button>`;
+  }
+  function renderStatus() {
+    const s = E.setup, a = ambiguousJob();
+    const seg = (cls, html, act = '') => act ? `<button class="ss ${cls}" data-act="${act}">${html}</button>` : `<span class="ss ${cls}">${html}</span>`;
+    let html = '';
+    if (!s) html += seg('warn', '<i></i>No device setup', 'nav-devices');
+    else {
+      html += seg('', `ET-8550 · ${s.name} rev ${s.rev}`, 'nav-devices');
+      html += s.experimental ? seg('warn-fill', 'Experimental mode', 'nav-devices') : s.verified ? seg('ok', '<i></i>Verified', 'nav-devices') : seg('warn', '<i></i>Unverified', 'nav-devices');
+      html += seg('muted', 'Mode PM-exp-01 · experimental');
+      html += a ? seg('review-fill', 'Blocked: review required', 'go-review') : E.send ? seg('', `Sending A-${E.send.job.slice(2)}-${E.send.n} · ${E.send.pct}%`) : seg('muted', 'Sender idle');
+      if (E.render) html += seg('', `Rendering ${E.render.job} · band ${E.render.band} of ${E.render.total}`);
+    }
+    html += `<span class="ss right muted">214 GB free</span>` + seg('warn', 'Fixture data');
+    $('#e-status').innerHTML = html;
+  }
+  function renderScen() {
+    $('#e-scen').innerHTML = `<span>Scenario</span>${[['fresh', 'Fresh install'], ['unverified', 'Unverified setup'], ['working', 'Working day']].map(([k, l]) =>
+      `<button data-act="scen" data-v="${k}" aria-pressed="${E.scenario === k}">${l}</button>`).join('')}`;
+  }
+
+  /* ----- Main ----- */
+  function bannerHtml() {
+    const a = ambiguousJob(); if (!a) return '';
+    return `<div class="rbanner ${E.reviewLater ? 'slim' : ''}" role="alert">${icon('alert')}<span><b>Printer blocked.</b> ${a.id} · ${a.name} may or may not have printed.${E.reviewLater ? '' : ' Check the printer, then record what happened.'}</span><button class="btn sm" data-act="go-review">Review now</button></div>`;
+  }
+  function renderAll() {
+    root.classList.toggle('focus', E.focus && E.section === 'jobs');
+    root.classList.toggle('noledger', E.noledger);
+    root.classList.toggle('nopanel', E.nopanel);
+    renderRail(); renderStatus(); renderScen(); renderModal();
+    const main = $('#e-main');
+    if (E.section === 'jobs') {
+      if (!E.jobs.length) { main.innerHTML = bannerHtml() + emptyJobs(); return; }
+      if (!job()) E.sel = E.jobs[0].id;
+      main.innerHTML = bannerHtml() + `<div class="ejobs"><aside class="ledger" id="e-ledger" aria-label="Jobs"></aside><section class="work" id="e-work" aria-live="polite"></section></div>`;
+      renderLedger(); renderWork();
+    } else if (E.section === 'devices') { main.innerHTML = bannerHtml() + devicesHtml(); }
+    else {
+      const ref = { recipes: '4.2', targets: '4.3', reports: '4.4', settings: '4.7 (Storage)' }[E.section];
+      main.innerHTML = bannerHtml() + `<div class="empty"><div><div class="ic">${icon(E.section)}</div><h2>${E.section[0].toUpperCase() + E.section.slice(1)}</h2><p>Not part of this prototype. Specified in docs/design.md section ${ref}.</p></div></div>`;
+    }
+  }
+  function emptyJobs() {
+    const es = (ic, h, p, btns) => `<div class="empty"><div><div class="ic">${icon(ic)}</div><h2>${h}</h2><p>${p}</p><div class="choices">${btns.map(([l, a, c]) => `<button class="btn ${c}" data-act="${a}">${l}</button>`).join('')}</div></div></div>`;
+    if (!E.setup) return es('devices', 'Set up your printer first', 'Record your converted ET-8550 so Veylora knows which tank holds which ink. It takes about two minutes.', [['Create device setup', 'nav-devices', 'primary']]);
+    if (!E.setup.verified) { const si = stepInfo(); return es('targets', 'Verify your printer before your first job', `Nothing can print for real until each channel is confirmed on a test sheet. You're on step ${si.idx + 1} of 5.`, [['Start verification', 'nav-devices', 'primary'], ['Create a draft job anyway', 'new-job', '']]); }
+    return es('jobs', 'Import artwork to start a sheet', 'Your printer is verified. Drop PNG files here, or start a new job.', [['New job', 'new-job', 'primary']]);
+  }
+
+  /* ----- Ledger ----- */
+  const group = j => ({ ambiguous: 'review', submitted: 'review', draft: 'draft', pffail: 'draft', held: 'held', rendering: 'held', sending: 'held', finished: 'done' })[status(j)];
+  function renderLedger() {
+    const el = $('#e-ledger'); if (!el) return;
+    const filters = [['all', 'All'], ['review', 'Needs review'], ['draft', 'Drafts'], ['held', 'Held'], ['done', 'Done']];
+    const vis = E.jobs.filter(j => E.filter === 'all' || group(j) === E.filter);
+    const attention = j => ({ ambiguous: 'Printer result unknown. Review before printing anything else.', submitted: 'Spooled. Confirm what came out of the printer.' })[j.status]
+      || (j.status === 'held' && reviewOpen() ? 'Waiting: printer blocked by review.' : '');
+    const row = j => `<li><button class="job" role="option" data-act="job" data-id="${j.id}" aria-selected="${j.id === E.sel}"><span class="name">${j.name}</span>${badge(j)}
+      <span class="meta"><span class="mono">${j.id}</span><span>${j.size.toUpperCase()} · ${j.pls.length} placement${j.pls.length > 1 ? 's' : ''}</span><span>${j.when}</span></span>
+      ${attention(j) ? `<span class="attention" ${j.status === 'ambiguous' ? 'style="color:var(--review)"' : ''}>${attention(j)}</span>` : ''}</button></li>`;
+    const pinned = vis.filter(j => group(j) === 'review'), rest = vis.filter(j => group(j) !== 'review');
+    el.innerHTML = `<div class="ledger-head"><h2>Jobs</h2><button class="btn primary sm" data-act="new-job">New job</button></div>
+      <input class="search" type="search" placeholder="Search jobs" aria-label="Search jobs">
+      <div class="filters">${filters.map(([k, l]) => `<button data-act="filter" data-f="${k}" aria-pressed="${E.filter === k}">${l}<span class="n">${k === 'all' ? E.jobs.length : E.jobs.filter(j => group(j) === k).length}</span></button>`).join('')}</div>
+      <ul class="jobs" role="listbox" aria-label="Job list">${pinned.length && E.filter === 'all' ? `<li class="grp">Needs review</li>${pinned.map(row).join('')}<li class="grp">Other jobs</li>${rest.map(row).join('')}` : vis.map(row).join('')}</ul>`;
+  }
+
+  /* ----- Job workspace ----- */
+  function actsHtml(j) {
+    const s = status(j), { block, confirm } = counts(j), a = ambiguousJob();
+    const why = t => `<span class="why">${t}</span>`;
+    switch (s) {
+      case 'draft': case 'pffail':
+        return pfchip(j) + (block ? why(`Fix ${block} blocking finding${block > 1 ? 's' : ''} to render`) : confirm ? why('Confirm 1 finding to render') : '') +
+          `<button class="btn primary" data-act="render" ${block || confirm ? 'disabled' : ''}>Render and hold</button>`;
+      case 'rendering': return why(`Band ${E.render ? E.render.band : 0} of 40`) + `<button class="btn" data-act="cancel-render">Cancel render</button>`;
+      case 'held': {
+        let reason = '';
+        if (a) reason = `Waiting: printer blocked by review of <button class="why-link" data-act="go-review">${a.id}</button>`;
+        else if (E.setup && !E.setup.verified && !E.setup.experimental) reason = 'Verify the setup, or turn on experimental mode in Devices';
+        return pfchip(j) + (reason ? why(reason) : '') + `<button class="btn" data-act="dup">Duplicate as new job</button><button class="btn primary" data-act="release" ${reason ? 'disabled' : ''}>Release to printer</button>`;
+      }
+      case 'sending': return why('Sending to the printer. Cancelling now may leave the result ambiguous.');
+      case 'submitted': return `<button class="btn" data-act="reprint-bad">Printed badly, reprint</button><button class="btn primary" data-act="confirm-printed">Confirm it printed</button>`;
+      case 'ambiguous': return `<button class="btn" data-act="dup">Duplicate as new job</button><button class="btn primary" data-act="tab" data-t="review">Review attempt</button>`;
+      default: return `<button class="btn">Reprint selected placements</button><button class="btn" data-act="dup">Duplicate as new job</button>`;
+    }
+  }
+  function lifeHtml(j) {
+    const s = status(j);
+    const map = { draft: [1, 'Preflight', ''], pffail: [1, 'Preflight', 'bad'], rendering: [2, 'Rendering', ''], held: [3, 'Held', ''], sending: [4, 'Sending', ''], submitted: [4, 'Submitted', ''], ambiguous: [4, 'Ambiguous', 'review'], finished: [6, '', ''] };
+    const [cur, label, tone] = map[s];
+    return ['Draft', 'Preflight', 'Rendered', 'Held', 'Submitted', 'Finished'].map((l, i) => i < cur ? `<span class="done">${l}</span>` : i === cur ? `<span class="now ${tone}">${label || l}</span>` : `<span>${l}</span>`).join('');
+  }
+  function tabsHtml(j) {
+    const { block } = counts(j);
+    const t = [];
+    if (j.status === 'ambiguous') t.push(['review', 'Review', '<span class="count warn" style="background:var(--review-bg);color:var(--review)">1</span>']);
+    t.push(['sheet', 'Sheet', ''], ['inspect', 'Inspect', ''], ['preflight', 'Preflight', block ? `<span class="count bad">${block}</span>` : ''],
+      ['attempts', 'Attempts', j.attempts.length ? `<span class="count">${j.attempts.length}</span>` : ''], ['prov', 'Provenance', '']);
+    return t.map(([k, l, c]) => k === 'inspect' && !j.rendered
+      ? `<button role="tab" aria-selected="false" disabled title="Render the job to inspect its retained output." style="opacity:.45;cursor:not-allowed">${l}</button>`
+      : `<button role="tab" data-act="tab" data-t="${k}" aria-selected="${E.tab === k}">${l}${c}</button>`).join('');
+  }
+  function renderWork() {
+    const j = job(), el = $('#e-work'); if (!j || !el) return;
+    if (E.tab === 'review' && j.status !== 'ambiguous') E.tab = 'sheet';
+    if (E.tab === 'inspect' && !j.rendered) E.tab = 'sheet';
+    el.innerHTML = `<div class="job-head">
+        <div class="job-title"><div><h1>${j.name}</h1><div class="ids"><span class="mono">${j.id}</span><span id="e-badge">${badge(j)}</span><span>${SIZE[j.size].label}</span><span>Mode PM-exp-01</span></div></div>
+          <div class="acts" id="e-acts">${actsHtml(j)}</div></div>
+        ${E.confirmRelease ? `<div class="relconf"><span>Send ${j.id} to ET-8550 · ${E.setup.name} rev ${E.setup.rev}? This creates attempt A-${j.id.slice(2)}-${j.attempts.filter(a => /Attempt A-/.test(a.txt)).length + 1}.</span><button class="btn primary sm" data-act="release-yes">Release to printer</button><button class="btn sm" data-act="release-no">Go back</button></div>` : ''}
+        <div class="life" id="e-life">${lifeHtml(j)}</div>
+        <div class="tabs" role="tablist" id="e-tabs">${tabsHtml(j)}</div>
+      </div><div class="pane" id="e-pane"></div>`;
+    ({ sheet: paneSheet, inspect: paneInspect, review: paneReview, preflight: panePreflight, attempts: paneAttempts, prov: paneProv })[E.tab](j);
+  }
+  function updateLive(j) {
+    renderCanvas(j); renderInspCallout(j); renderLedger();
+    $('#e-acts').innerHTML = actsHtml(j); $('#e-badge').innerHTML = badge(j); $('#e-life').innerHTML = lifeHtml(j); $('#e-tabs').innerHTML = tabsHtml(j);
+  }
+
+  /* ----- Sheet tab ----- */
+  const STAGES = {
+    garment: ['Garment', 'Approximate', 'garment', null, false], film: ['Film', 'Mirrored', 'film', null, true], logical: ['Logical planes', 'CMYK + W', 'paper', 'logical', false],
+    slot: ['Physical slots', 'W1 + W2', 'dark', 'f-w', true], screen: ['Screened', 'Device truth', 'paper', 'f-screen', true] };
+  function paneSheet(j) {
+    $('#e-pane').innerHTML = `<div class="sheetpane"><div class="canvas-col"><div class="canvas" id="e-canvas"></div>
+      <div class="strip"><div class="seg" role="group" aria-label="Output stage">${Object.entries(STAGES).map(([k, c], i) => `<button data-act="stage" data-st="${k}" aria-pressed="${E.stage === k}" title="Shortcut: ${i + 1}">${c[0]}<small>${c[1]}</small></button>`).join('')}</div>
+        <div class="planes"><span>Planes</span>${LPL.map(p => `<button class="pt" data-act="plane" data-p="${p}" aria-pressed="${E.planes[p]}" style="--ink:${INK[p]}" aria-label="Toggle ${p.toUpperCase()} plane">${p.toUpperCase()}</button>`).join('')}
+          <button class="btn sm" data-act="bounds" style="margin-left:8px">${E.bounds ? 'Hide' : 'Show'} printable box</button>
+          <button class="btn sm" data-act="focus" title="Shortcut: F">${icon('focus', 'width="14" height="14"')}${E.focus ? 'Exit focus' : 'Focus'}</button></div></div></div>
+      <div class="insp" id="e-insp"></div></div>`;
+    renderCanvas(j); renderInsp(j);
+  }
+  function renderCanvas(j) {
+    const c = $('#e-canvas'); if (!c) return;
+    const [, , cls0, filt, mirror] = STAGES[E.stage], sz = SIZE[j.size], ro = j.rendered || j.status !== 'draft';
+    let f = filt, cls = cls0, label;
+    const src = j.rendered && E.stage !== 'garment' && E.stage !== 'film' ? 'retained artifact' : 'simulation';
+    if (filt === 'logical') {
+      const proc = ['c', 'm', 'y', 'k'].filter(p => E.planes[p]);
+      f = proc.length === 1 ? 'f-' + proc[0] : (!proc.length && E.planes.w ? 'f-w' : null);
+      cls = !proc.length && E.planes.w ? 'dark' : 'paper';
+      label = `Logical planes: ${Object.keys(E.planes).filter(p => E.planes[p]).map(p => p.toUpperCase()).join(' ') || 'none'} · continuous tone · ${src}`;
+    } else label = { garment: 'Garment simulation · approximate, not a color proof', film: 'Film view · mirrored for transfer · simulation', slot: `Physical-slot raster · W split to W1 and W2 · ${src}`, screen: `Screened device raster · ${src}` }[E.stage];
+    const fs = findings(j);
+    const pl = p => {
+      const pf = fs.filter(x => x.pl === p.id && x.sev === 'block');
+      const hatch = pf.map(x => { const pw = Math.min(100, x.mm / p.w * 100), ph = Math.min(100, x.mm / p.h * 100);
+        return `<i class="hatch" style="${{ right: `right:0;top:0;bottom:0;width:${pw}%`, left: `left:0;top:0;bottom:0;width:${pw}%`, bottom: `bottom:0;left:0;right:0;height:${ph}%`, top: `top:0;left:0;right:0;height:${ph}%` }[x.edge]}"></i>`; }).join('');
+      return `<button class="pl ${pf.length ? 'bad' : ''}" data-act="pl" data-id="${p.id}" aria-pressed="${p.id === E.pl}" aria-label="${p.name}" style="left:${p.x / sz.w * 100}%;top:${p.y / sz.h * 100}%;width:${p.w / sz.w * 100}%;height:${p.h / sz.h * 100}%">
+        <svg viewBox="${VB[p.sym]}" ${f ? `filter="url(#${f})"` : ''} ${E.stage === 'logical' && !Object.values(E.planes).some(Boolean) ? 'style="opacity:0"' : ''}><use href="#art-${p.sym}"/></svg>${hatch}
+        ${pf.length ? `<span class="mk" data-act="marker" data-id="${p.id}" title="${pf[0].title}. ${pf[0].fix}">!</span>` : ''}</button>`;
+    };
+    c.innerHTML = `<div class="label"><span class="chip ${src === 'simulation' ? 'warn' : ''}">${label} · Fixture data</span></div>
+      <div class="zoom"><span class="chip">${sz.w} × ${sz.h} mm · fit</span></div>
+      <div class="sheet ${j.size} ${cls}${mirror ? ' mirror' : ''}" ${E.stage === 'garment' ? `style="background:${E.garment}"` : ''}>
+        <div class="printable" ${E.bounds ? '' : 'style="display:none"'}></div>${j.pls.map(pl).join('')}</div>
+      ${ro ? '<div class="lock"><span class="chip">Snapshot frozen. Read-only. Duplicate to edit.</span></div>' : ''}
+      ${E.stage === 'garment' ? `<div class="swatches" role="group" aria-label="Garment color">${GARMENTS.map(([n, h]) => `<button class="sw" data-act="garment" data-v="${h}" aria-pressed="${E.garment === h}" title="${n}" aria-label="${n}" style="background:${h}"></button>`).join('')}<button class="btn sm">Custom…</button></div>` : ''}`;
+  }
+  function renderInsp(j) {
+    const el = $('#e-insp'); if (!el) return;
+    const ro = j.rendered || j.status !== 'draft';
+    const sel = j.pls.find(p => p.id === E.pl) || j.pls[0]; E.pl = sel.id;
+    const dis = ro ? 'disabled' : '';
+    el.innerHTML = `<div class="sec"><h4>Placements <span>${j.pls.length}</span></h4><div id="e-pllist">${plList(j)}</div></div>
+      <div class="sec"><h4>${sel.name} <span>mm</span></h4>
+        <div class="grid4"><label>X<input id="e-fx" data-field="x" value="${sel.x.toFixed(1)}" inputmode="decimal" ${dis}></label><label>Y<input data-field="y" value="${sel.y.toFixed(1)}" inputmode="decimal" ${dis}></label>
+        <label>Width<input data-field="w" value="${sel.w.toFixed(1)}" inputmode="decimal" ${dis}></label><label>Height<input id="e-fh" value="${sel.h.toFixed(1)}" disabled title="Locked to the artwork's aspect ratio"></label></div>
+        <div id="e-selcall"></div></div>
+      <div class="sec"><h4>White <span>job-wide</span></h4>
+        <div class="row2"><label class="field">Source<select ${dis}><option>Alpha</option><option>Tonal</option><option>Supplied mask</option><option>Off (diagnostic)</option></select></label>
+        <label class="field">Choke (mm)<input type="number" value="0.12" step="0.02" ${dis}></label></div>
+        <label class="field">Policy<select ${dis}><option>Underbase + highlight</option><option>Opaque underbase</option><option>Tonal underbase</option><option>Highlight only</option></select></label>
+        <label class="field">Response curve<select ${dis}><option>wc-soft-shoulder v2 · 0–100% in, 0–92% out</option><option>wc-linear v1</option></select></label>
+        <p class="note">Applied after mask combine, before choke. Never changes C, M, Y or K.</p></div>
+      <div class="sec"><h4>White slots <span>logical W → 2 tanks</span></h4>
+        <div class="slot"><span>W1 · photo black tank</span><span class="mono">50%</span></div><div class="slot"><span>W2 · gray tank</span><span class="mono">50%</span></div>
+        ${E.setup && E.setup.verified ? '<p class="note">Slot map verified on ' + E.setup.verifiedOn + '.</p>' : '<div class="callout warn">Slot map is inferred. Verify the setup in Devices.</div>'}</div>`;
+    renderInspCallout(j);
+  }
+  function plList(j) {
+    const fs = findings(j);
+    return j.pls.slice(0, 6).map(p => { const bad = fs.find(x => x.pl === p.id && x.sev === 'block');
+      return `<button class="plitem" data-act="pl" data-id="${p.id}" aria-pressed="${p.id === E.pl}"><span class="thumb" ${p.dark ? 'style="background:#22272f"' : ''}><svg viewBox="${VB[p.sym]}" width="24"><use href="#art-${p.sym}"/></svg></span><span><b>${p.name}</b><small class="${bad ? 'bad' : ''}">${bad ? `Clipped ${bad.mm.toFixed(1)} mm ${bad.edge}` : p.meta}</small></span></button>`; }).join('')
+      + (j.pls.length > 6 ? `<p class="note">and ${j.pls.length - 6} more clones</p>` : '');
+  }
+  function renderInspCallout(j) {
+    const el = $('#e-selcall'); if (!el) return;
+    const sel = j.pls.find(p => p.id === E.pl);
+    const bad = findings(j).filter(x => x.pl === E.pl && x.sev === 'block');
+    el.innerHTML = bad.map(b => `<div class="callout bad">${b.title}. ${b.fix}</div>`).join('');
+    const h = $('#e-fh'); if (h && sel) h.value = sel.h.toFixed(1);
+    const list = $('#e-pllist'); if (list) list.innerHTML = plList(j);
+  }
+
+  /* ----- Inspect tab: decodes and screens the fixture artwork in the browser ----- */
+  const rasters = {};
+  const B8 = (() => { const m = [[0, 2], [3, 1]]; let b = m; for (let n = 2; n < 8; n *= 2) { const nb = []; for (let y = 0; y < n * 2; y++) { nb[y] = []; for (let x = 0; x < n * 2; x++) nb[y][x] = 4 * b[y % n][x % n] + m[Math.floor(y / n)][Math.floor(x / n)]; } b = nb; } return b; })();
+  function symbolSvg(sym) {
+    const [, , w, h] = VB[sym].split(' ').map(Number);
+    const defs = ['g-sun', 'g-ramp'].map(id => document.getElementById(id)?.outerHTML || '').join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VB[sym]}" width="${w * 4}" height="${h * 4}"><defs>${defs}</defs>${document.getElementById('art-' + sym).innerHTML}</svg>`;
+  }
+  const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  async function buildRaster(j) {
+    const key = j.id + ':' + j.pls.map(p => [p.x, p.y, p.w].join(',')).join(';');
+    if (rasters[key]) return rasters[key];
+    const S = 2, sz = SIZE[j.size], W = sz.w * S, H = sz.h * S, N = W * H;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+    for (const p of j.pls) ctx.drawImage(await loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(symbolSvg(p.sym))), p.x * S, p.y * S, p.w * S, p.h * S);
+    const d = ctx.getImageData(0, 0, W, H).data;
+    const L = Object.fromEntries(LPL.map(k => [k, new Uint8Array(N)]));
+    let maxLoad = 0;
+    for (let i = 0; i < N; i++) {
+      const a = d[i * 4 + 3] / 255; if (!a) continue; // hidden RGB under zero alpha never makes ink
+      const r = d[i * 4] / 255, g = d[i * 4 + 1] / 255, b = d[i * 4 + 2] / 255, k = 1 - Math.max(r, g, b);
+      const c = k >= 1 ? 0 : (1 - r - k) / (1 - k), m = k >= 1 ? 0 : (1 - g - k) / (1 - k), y = k >= 1 ? 0 : (1 - b - k) / (1 - k);
+      L.c[i] = Math.round(c * a * 255); L.m[i] = Math.round(m * a * 255); L.y[i] = Math.round(y * a * 255); L.k[i] = Math.round(k * a * 255); L.w[i] = Math.round(a * 255);
+      maxLoad = Math.max(maxLoad, (L.c[i] + L.m[i] + L.y[i] + L.k[i] + L.w[i]) / 255 * 100);
+    }
+    const half = L.w.map(v => Math.round(v / 2));
+    const Sl = { cyan: L.c, magenta: L.m, yellow: L.y, black: L.k, w1: half, w2: half };
+    const D = {};
+    for (const k of PPL) { const src = Sl[k], out = new Uint8Array(N);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x, v = src[i]; if (v) out[i] = Math.min(3, Math.floor(v / 255 * 3 + (B8[y % 8][x % 8] + .5) / 64)); }
+      D[k] = out; }
+    const mean = (arr, max) => { let s = 0; for (let i = 0; i < N; i++) s += arr[i]; return s / (N * max) * 100; };
+    const cov = { logical: Object.fromEntries(LPL.map(k => [k, mean(L[k], 255)])), slot: Object.fromEntries(PPL.map(k => [k, mean(Sl[k], 255)])), screen: Object.fromEntries(PPL.map(k => [k, mean(D[k], 3)])) };
+    return (rasters[key] = { W, H, S, L, Sl, D, cov, maxLoad });
+  }
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  function paint(r, stage, plane) {
+    const { W, H } = r, img = new ImageData(W, H), o = img.data, white = /^w/.test(plane), ink = rgb(INK[plane]);
+    const src = stage === 'logical' ? r.L[plane] : stage === 'slot' ? r.Sl[plane] : r.D[plane], mirror = stage !== 'logical', LV = [0, .45, .75, 1];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const v = src[y * W + (mirror ? W - 1 - x : x)], s = stage === 'logical' || stage === 'slot' ? v / 255 : LV[v], i = (y * W + x) * 4;
+      if (white) { const g = Math.round(s * 255); o[i] = o[i + 1] = o[i + 2] = g; } else for (let c = 0; c < 3; c++) o[i + c] = Math.round(255 - s * (255 - ink[c]));
+      o[i + 3] = 255;
+    }
+    return img;
+  }
+  function paneInspect(j) {
+    const stages = [['logical', 'Logical plane'], ['slot', 'Physical slots'], ['screen', 'Screened'], ['encoded', 'Encoded']];
+    const planes = E.istage === 'logical' ? LPL : PPL;
+    if (!planes.includes(E.iplane)) E.iplane = planes[0];
+    const zooms = [['fit', 'Fit'], [1, '100%'], [2, '200%'], [4, '400%'], [8, '800%'], [16, '1600%']];
+    $('#e-pane').innerHTML = `<div class="iwrap"><div class="icol">
+      <div class="itool"><div class="seg" role="group" aria-label="Stage">${stages.map(([k, l]) => `<button data-act="istage" data-v="${k}" aria-pressed="${E.istage === k}">${l}</button>`).join('')}</div>
+        <div class="seg" role="group" aria-label="Plane">${planes.map(p => `<button data-act="iplane" data-v="${p}" aria-pressed="${E.iplane === p}">${E.istage === 'logical' ? p.toUpperCase() : PLANE_LABEL[p].split(' · ')[0].replace(' tank', '')}</button>`).join('')}</div>
+        <div class="seg" role="group" aria-label="Zoom">${zooms.map(([k, l]) => `<button data-act="zoom" data-v="${k}" aria-pressed="${String(E.zoom) === String(k)}">${l}</button>`).join('')}</div>
+        <button class="btn sm" data-act="ibounds">${E.ibounds ? 'Hide' : 'Show'} printable box</button>
+        <button class="btn sm" data-act="focus" title="Shortcut: F">${icon('focus', 'width="14" height="14"')}${E.focus ? 'Exit focus' : 'Focus'}</button></div>
+      <div class="vpw"><div class="vp" id="e-vp"><span class="chip stagechip" id="e-ichip"></span><div class="vpi" id="e-vpi"><p class="loading">Loading retained artifact…</p></div></div><div class="navi" id="e-nav" hidden></div></div></div>
+      <div class="insp" id="e-iside"></div></div>`;
+    buildRaster(j).then(r => { if (E.tab === 'inspect' && E.sel === j.id) drawInspect(j, r); });
+  }
+  function drawInspect(j, r) {
+    const stage = E.istage === 'encoded' ? 'screen' : E.istage, plane = E.iplane, vp = $('#e-vp'), vpi = $('#e-vpi'); if (!vp) return;
+    const cv = document.createElement('canvas'); cv.width = r.W; cv.height = r.H; cv.getContext('2d').putImageData(paint(r, stage, plane), 0, 0);
+    const z = E.zoom === 'fit' ? Math.min((vp.clientWidth - 48) / r.W, (vp.clientHeight - 48) / r.H) : +E.zoom;
+    const wrap = document.createElement('div'); wrap.className = 'cvwrap'; wrap.style.width = r.W * z + 'px'; wrap.style.height = r.H * z + 'px'; wrap.append(cv);
+    const b = SIZE[j.size].box, sz = SIZE[j.size];
+    if (E.ibounds) wrap.insertAdjacentHTML('beforeend', `<div class="printable" style="left:${b[0] / sz.w * 100}%;top:${b[1] / sz.h * 100}%;right:${(sz.w - b[2]) / sz.w * 100}%;bottom:${(sz.h - b[3]) / sz.h * 100}%"></div>`);
+    vpi.innerHTML = ''; vpi.append(wrap);
+    const zl = E.zoom === 'fit' ? `fit (${Math.round(z * 100)}%)` : `${E.zoom * 100}%`;
+    const what = E.istage === 'encoded' ? 'Pre-encoding truth · stream not decodable in prototype' : stage === 'logical' ? 'Logical plane' : stage === 'slot' ? 'Physical-slot raster' : 'Screened device raster';
+    $('#e-ichip').textContent = `${what} · ${PLANE_LABEL[plane]} · retained artifact${z < 1 ? ' · downsampled overview' : ''} · ${zl} · Fixture data`;
+    const covKey = stage, planes = stage === 'logical' ? LPL : PPL;
+    $('#e-iside').innerHTML = `<div class="sec"><h4>Artifact</h4><dl class="kv" style="grid-template-columns:96px 1fr;font-size:12.5px;gap:6px 10px">
+        <dt>Stage</dt><dd>${what.split(' · ')[0]}</dd><dt>Plane</dt><dd>${PLANE_LABEL[plane]}</dd>
+        <dt>Raster</dt><dd>${r.W} × ${r.H} px <span class="muted">(prototype, 2 px/mm)</span></dd><dt>Device</dt><dd>${sz.dev} px at 720 dpi</dd>
+        <dt>Orientation</dt><dd>${stage === 'logical' ? 'Artwork (unmirrored)' : 'Film, mirrored by mode PM-exp-01'}</dd>
+        <dt>Screen</dt><dd>Ordered 8 × 8, 4 drop sizes (prototype)</dd><dt>Setup</dt><dd>${E.setup.name} rev ${E.setup.rev}</dd><dt>Artifact</dt><dd class="mono">${(j.artifact || '').split(' · ')[0]}</dd></dl></div>
+      <div class="sec"><h4>Coverage <span>${stage === 'screen' ? 'drop coverage' : 'mean'}</span></h4>${planes.map(p => `<div class="covrow" style="--ink:${INK[p]}"><span>${PLANE_LABEL[p].split(' · ')[0]}</span><span class="covbar"><i style="width:${Math.min(100, r.cov[covKey][p] * 2.5)}%"></i></span><span class="mono" style="text-align:right">${r.cov[covKey][p].toFixed(1)}%</span></div>`).join('')}
+        <p class="note">Max combined load: <b style="color:${r.maxLoad > 280 ? 'var(--bad)' : 'var(--text)'}">${Math.round(r.maxLoad)}%</b> (recipe limit 280%)</p></div>
+      <div class="sec loupe"><h4>Loupe <span>value under cursor</span></h4><div id="e-loupe" class="muted">Hover the raster to read pixel values.</div></div>
+      <div class="sec"><button class="btn sm">Export plane</button> <button class="btn sm">Export all planes</button><p class="note">Exports the retained data with the artifact hash in the filename.</p></div>`;
+    cv.addEventListener('mousemove', e => {
+      const rc = cv.getBoundingClientRect(), x = Math.floor((e.clientX - rc.left) / rc.width * r.W), y = Math.floor((e.clientY - rc.top) / rc.height * r.H);
+      if (x < 0 || y < 0 || x >= r.W || y >= r.H) return;
+      const sx = stage === 'logical' ? x : r.W - 1 - x, i = y * r.W + sx;
+      const rows = planes.map(p => {
+        const v = stage === 'logical' ? r.L[p][i] : stage === 'slot' ? r.Sl[p][i] : r.D[p][i];
+        const txt = stage === 'screen' ? `drop ${v} · ${['none', 'small', 'medium', 'large'][v]}` : `${v} · ${Math.round(v / 2.55)}%`;
+        return `<tr ${p === plane ? 'style="font-weight:600"' : ''}><td>${PLANE_LABEL[p].split(' · ')[0]}</td><td>${txt}</td></tr>`; }).join('');
+      $('#e-loupe').innerHTML = `<div class="mono">x ${x} · y ${y} px &nbsp; ${(x / r.S).toFixed(1)} × ${(y / r.S).toFixed(1)} mm</div><table>${rows}</table>`;
+    });
+    const nav = $('#e-nav'), nw = 120, nh = Math.round(nw * r.H / r.W);
+    nav.hidden = z <= Math.min((vp.clientWidth - 48) / r.W, (vp.clientHeight - 48) / r.H) + 0.001;
+    nav.innerHTML = `<canvas width="${nw}" height="${nh}"></canvas><div class="vr"></div>`;
+    nav.querySelector('canvas').getContext('2d').drawImage(cv, 0, 0, nw, nh);
+    const vr = nav.querySelector('.vr');
+    const upd = () => { const tw = r.W * z + 48, th = r.H * z + 48;
+      Object.assign(vr.style, { left: 6 + vp.scrollLeft / tw * nw + 'px', top: 6 + vp.scrollTop / th * nh + 'px', width: Math.min(nw, vp.clientWidth / tw * nw) + 'px', height: Math.min(nh, vp.clientHeight / th * nh) + 'px' }); };
+    vp.onscroll = upd; upd();
+  }
+
+  /* ----- Review, preflight, attempts, provenance ----- */
+  const OUTCOMES = {
+    printed: ['Mark this job finished? This records that you checked the sheet. No new attempt is created.', 'Mark finished', 'Operator confirmed the sheet printed correctly.', 'finished'],
+    none: ['Create a reprint attempt from the same retained artifact? The first attempt stays in history as "nothing printed".', 'Create reprint attempt', 'Operator recorded no output. Reprint attempt created and held.', 'held'],
+    bad: ['Create a reprint attempt and record the first sheet as spoiled?', 'Create reprint attempt', 'Operator recorded a spoiled sheet. Reprint attempt created and held.', 'held'],
+    later: ['Keep this job in review? Nothing can be sent to this printer until you decide. Layout and rendering keep working.', 'Keep in review', 'Review postponed by operator.', 'ambiguous'],
+  };
+  function paneReview(j) {
+    const c = E.reviewChoice && OUTCOMES[E.reviewChoice];
+    $('#e-pane').innerHTML = `<div class="page"><div class="card review" style="border-color:color-mix(in srgb, var(--review) 45%, var(--line))">
+      <h3>Check the printer before printing anything else</h3><p>Every byte was written, but the spooler went silent before confirming. The sheet may have printed, partly printed, or not printed at all. Veylora won't resend it on its own.</p>
+      <div class="facts"><div>Bytes written<b>18.4 of 18.4 MB</b></div><div>Spool job<b class="mono" style="font-size:14px">#2291</b></div><div>Last signal<b>14:05:47</b></div></div>
+      <div class="choices"><button class="btn primary" data-act="rc" data-v="printed">It printed correctly</button><button class="btn" data-act="rc" data-v="none">Nothing printed, reprint</button><button class="btn danger" data-act="rc" data-v="bad">Printed badly, reprint</button><button class="btn" data-act="rc" data-v="later">Decide later</button></div>
+      ${c ? `<div class="confirm">${c[0]}<div class="choices" style="margin-top:10px"><button class="btn primary sm" data-act="rc-yes">${c[1]}</button><button class="btn sm" data-act="rc-no">Go back</button></div></div>` : ''}</div>
+      <div class="card"><h3>What was sent</h3><p>The retained artifact for attempt A-0142-1. Open Inspect to examine it at true pixel scale.</p><dl class="kv"><dt>Artifact</dt><dd class="mono">${j.artifact}</dd><dt>Placements</dt><dd>${j.pls.map(p => p.name).join(', ')}</dd></dl></div></div>`;
+  }
+  function panePreflight(j) {
+    const fs = findings(j), sev = { block: ['bad', 'Blocking'], confirm: ['warn', 'Confirm'], info: ['', 'Info'] };
+    const row = f => `<div class="finding"><span><span class="badge ${sev[f.sev][0]}">${sev[f.sev][1]}</span></span><div><b>${f.title}</b><p>${f.why}</p>${f.fix ? `<p class="fix">${f.fix}</p>` : ''}
+      <div class="choices" style="margin-top:8px">${f.pl ? `<button class="btn sm" data-act="goto-pl" data-id="${f.pl}">Show on sheet</button>` : ''}${f.sev === 'confirm' ? '<button class="btn sm" data-act="ack">Confirm for this job</button>' : ''}</div></div></div>`;
+    $('#e-pane').innerHTML = `<div class="page"><p class="muted" style="margin:0 0 12px">${j.rendered ? 'Passed when the job rendered. The snapshot is frozen, so these results won’t change.' : `Checked just now against setup rev ${E.setup ? E.setup.rev : '—'}, mode PM-exp-01. Updates as you edit.`}</p>
+      <div class="card">${fs.length ? fs.map(row).join('') : '<div class="finding"><span><span class="badge ok">Passed</span></span><div><b>No findings</b><p>Nothing blocks this job.</p></div></div>'}</div></div>`;
+  }
+  function paneAttempts(j) {
+    $('#e-pane').innerHTML = `<div class="page"><div class="card"><h3>Attempt history</h3><p>Append-only. Reprints add a new attempt; nothing here is ever overwritten.</p>
+      ${j.attempts.length ? `<ol class="timeline">${j.attempts.map(a => `<li class="${a.cls || ''}"><span class="t">${a.t}</span><span></span><span>${a.txt}</span></li>`).join('')}</ol>` : '<p>No attempts yet. Render and hold the job, inspect it, then release it to the printer.</p>'}</div></div>`;
+  }
+  function paneProv(j) {
+    $('#e-pane').innerHTML = `<div class="page"><div class="card"><h3>Provenance</h3><p>Everything that affects output, frozen with the job snapshot.</p><dl class="kv">
+      <dt>Device setup</dt><dd>ET-8550 · ${E.setup ? `${E.setup.name} rev ${E.setup.rev}` : '—'} <span class="mono muted">b3:7f2c…e91a</span></dd><dt>Print mode</dt><dd>PM-exp-01 · 720 × 720 grid, rear feed <span class="mono muted">b3:19d0…4c27</span></dd>
+      <dt>Recipe</dt><dd>Hot-peel PET, Ink set A v0 <span class="mono muted">b3:a83e…0f55</span></dd><dt>Artifact</dt><dd class="mono">${j.artifact || 'Not rendered'}</dd><dt>Software</dt><dd>veylora 0.0.0-prototype</dd></dl></div></div>`;
+  }
+
+  /* ----- Devices ----- */
+  const expected = ch => E.setup.map[ch] || CHANNELS[ch].expect;
+  const mismatches = () => CHANNELS.filter(c => E.setup.answers[c.ch] && E.setup.answers[c.ch] !== expected(c.ch));
+  function devicesHtml() {
+    const s = E.setup;
+    if (!s) return `<div class="dmain"><div class="dhead"><div><h1>Create device setup</h1><div class="ids">Step 1 of first run</div></div></div>
+      <div class="card" style="max-width:720px"><h3>Record the printer as it actually is</h3><p>Veylora treats every ink-to-tank mapping as unverified until you print the channel identity target and record what came out.</p>
+        <div class="formgrid"><label>Setup name<input value="Home bench"></label><label>Printer<select disabled><option>Epson ET-8550, converted for DTF</option></select></label>
+          <label>Firmware observed<input placeholder="From the printer status sheet"></label><label>Connection<select><option>USB</option><option>Network</option></select></label>
+          <label>Conversion supplier<input placeholder="Who converted the printer"></label><label>Ink set<input value="Ink set A (CMYK + white)"></label>
+          <label>Film<select><option>A3 cut sheet, matte PET</option><option>A4 cut sheet, matte PET</option></select></label><label>Feed path<select><option>Rear feed</option></select></label></div>
+        <div class="choices"><button class="btn primary" data-act="dev-create">Create setup</button></div></div></div>`;
+    const si = stepInfo(), mm = mismatches();
+    const stepState = i => si.steps[i][1] ? 'done' : i === si.idx ? 'cur' : 'locked';
+    const patchRows = CHANNELS.map(c => { const a = s.answers[c.ch], ok = a && a === expected(c.ch);
+      return `<div class="prow"><span>Patch ${c.ch + 1}<small>Protocol channel ${c.ch} · map says ${expected(c.ch).replace(' tank', '')}</small></span>
+        <select data-patch="${c.ch}" aria-label="Which tank printed patch ${c.ch + 1}?" ${s.printed ? '' : 'disabled'}><option value="">Which tank printed this?</option>${TANK_OPTIONS.map(o => `<option ${a === o ? 'selected' : ''}>${o}</option>`).join('')}</select>
+        <span>${!a ? '<span class="badge warn">Not tested</span>' : ok ? '<span class="badge ok">Matched</span>' : '<span class="badge bad">Mismatch</span>'}</span></div>`; }).join('');
+    const nothing = mm.filter(c => s.answers[c.ch] === 'Nothing printed'), wrongTank = mm.filter(c => s.answers[c.ch] !== 'Nothing printed');
+    const steps = [
+      ['Generate the channel identity target', s.generated ? '<p>Target T-0001 rendered and retained: six patches, one per protocol channel, with rulers and an asymmetric marker.</p>' : `<p>Six patches, one per protocol channel, with rulers and an asymmetric marker.</p><button class="btn primary sm" data-act="dev-gen">Generate target</button>`],
+      ['Print it', s.printing ? '<p>Sending through the native probe…</p>' : s.printed ? '<p>Sent through the native probe. Check the sheet, then record each patch below.</p>' : `<p>Load one A4 sheet of film, then send the target through the native probe.</p><button class="btn primary sm" data-act="dev-print" ${s.generated ? '' : 'disabled'}>Print target</button>`],
+      ['Record which tank printed each patch', `<p>Look at the printed sheet. For each patch, choose the tank whose ink actually came out. ${si.recorded} of 6 recorded.</p>
+        <div class="patches"><div class="tgt"><svg viewBox="0 0 200 140" width="100%"><use href="#art-target"/></svg></div><div>${patchRows}
+        ${s.printed && si.recorded < 6 ? '<button class="proto-link" data-act="dev-fill">Prototype: fill expected answers</button>' : ''}</div></div>`],
+      ['Review mismatches', si.recorded < 6 ? '<p>Appears once every patch is recorded.</p>' : !mm.length ? '<p>All 6 channels matched the map.</p>' :
+        (wrongTank.length ? `<p>${wrongTank.map(c => `Channel ${c.ch} printed from <b>${s.answers[c.ch]}</b>, but the map says ${expected(c.ch)}.`).join('<br>')}</p><button class="btn primary sm" data-act="dev-fixmap">Update map to match the print (creates rev ${s.rev + 1})</button> ` : '') +
+        (nothing.length ? `<p>${nothing.map(c => `Channel ${c.ch} printed nothing.`).join(' ')} Check that tank's ink and nozzles, then print the target again.</p><button class="btn sm" data-act="dev-reprint">Print target again</button>` : '')],
+      ['Mark verified', `<p>Locks this mapping as evidence for rev ${s.rev}. Changing tanks, ink, or firmware later creates a new revision that needs verifying again.</p><button class="btn primary sm" data-act="dev-verify" ${si.idx === 4 ? '' : 'disabled'}>Mark verified</button>`],
+    ];
+    const checklist = s.verified
+      ? `<div class="card"><h3 style="display:flex;gap:8px;align-items:center">Verified <span class="badge ok">All 6 channels matched</span></h3><p style="margin:0">Verified on ${s.verifiedOn} from test record T-0001. Re-verify after any change to tanks, ink, or firmware.</p></div>`
+      : `<div class="card"><h3>Verify this setup</h3><p>Five steps. Production printing unlocks when every channel is confirmed on a printed sheet.</p><ol class="steps">${steps.map(([t, b], i) =>
+          `<li class="step ${stepState(i)}"><span class="n">${si.steps[i][1] ? '✓' : i + 1}</span><span class="t">${t}</span>${stepState(i) !== 'done' || i === 2 || i === 3 ? `<div class="b">${stepState(i) === 'locked' && i !== 2 ? `<p>${b.match(/<p>(.*?)<\/p>/)?.[1] || ''}</p>` : b}</div>` : ''}</li>`).join('')}</ol></div>`;
+    return `<div class="dev"><aside class="revs"><div class="ledger-head"><h2>Devices</h2></div>
+        <div class="setupcard"><b>ET-8550 · ${s.name}</b><span class="badge ${s.verified ? 'ok' : 'warn'}" style="margin-top:6px">${s.verified ? 'Verified' : 'Unverified'}</span></div>
+        <h5>Revisions</h5><ol>${s.history.map(([r, n, d], i) => `<li class="${i === 0 ? 'cur' : ''}">Rev ${r} · ${n}<small>${d}${i === 0 ? ' · current' : ' · kept for old jobs'}</small></li>`).join('')}</ol></aside>
+      <div class="dmain"><div class="dhead"><div><h1>ET-8550 · ${s.name}</h1><div class="ids"><span>Rev ${s.rev}</span><span class="badge ${s.verified ? 'ok' : 'warn'}">${s.verified ? 'Verified' : 'Unverified'}</span>${s.experimental ? '<span class="badge warn">Experimental mode</span>' : ''}</div></div>
+        <div class="acts"><button class="btn">Create revision</button></div></div>
+        ${checklist}
+        <div class="card"><h3>Channel map</h3><p>Each logical ink, the tank that holds it, and the channel the printer stream addresses.</p>
+          <table class="tbl"><thead><tr><th>Logical ink</th><th>Physical slot</th><th>Protocol channel</th><th>Evidence</th></tr></thead><tbody>${CHANNELS.map(c => { const a = s.answers[c.ch], ok = a && a === expected(c.ch);
+            return `<tr><td><span class="sw-ink" style="--ink:${c.ink}"></span>${c.logical}</td><td>${expected(c.ch)}${ok ? '' : ' <span class="muted">(inferred)</span>'}</td><td class="mono">ch ${c.ch}</td><td>${!a ? '<span class="badge warn">Not tested</span>' : ok ? '<span class="badge ok">Matched · T-0001</span>' : '<span class="badge bad">Mismatch</span>'}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="grid2c"><div class="card"><h3>White allocation</h3><p>Logical W is split between W1 and W2. It is never copied to both at full strength.</p><select style="max-width:320px"><option>Split 50 / 50 across W1 and W2</option><option>W1 only, W2 idle</option></select></div>
+          <div class="card"><h3 style="display:flex;justify-content:space-between;align-items:center">Experimental mode <button class="switch" role="switch" aria-checked="${s.experimental}" data-act="dev-exp" aria-label="Experimental mode"></button></h3><p style="margin:0">Lets jobs on an unverified setup be released. Their attempts and reports are labeled Experimental.</p></div></div>
+        <div class="card"><h3>Identity</h3><dl class="kv"><dt>Printer</dt><dd>Epson ET-8550, converted for DTF</dd><dt>Connection</dt><dd>USB</dd><dt>Ink set</dt><dd>Ink set A (CMYK + white)</dd><dt>Film</dt><dd>A3 cut sheet, matte PET</dd><dt>Feed path</dt><dd>Rear feed</dd></dl></div>
+      </div></div>`;
+  }
+  function renderModal() {
+    $('#e-modal').innerHTML = E.modal === 'exp' ? `<div class="modal-bg"><div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="e-mt"><h3 id="e-mt">Turn on experimental mode?</h3>
+      <p>Jobs on an unverified setup can then be released to the printer. Their attempts and reports are labeled Experimental, and the status bar stays amber until you turn it off.</p>
+      <div class="choices"><button class="btn" data-act="modal-no">Go back</button><button class="btn primary" data-act="modal-yes">Turn on experimental mode</button></div></div></div>` : '';
+    if (E.modal) $('#e-modal [data-act="modal-no"]').focus();
+  }
+
+  /* ----- Simulated long operations ----- */
+  function startRender(j) {
+    j.status = 'rendering'; E.render = { job: j.id, band: 0, total: 40 }; renderAll();
+    E.timer = setInterval(() => {
+      E.render.band++;
+      if (E.render.band >= E.render.total) {
+        clearInterval(E.timer); E.render = null;
+        Object.assign(j, { status: 'held', rendered: true, artifact: `b3:${Math.random().toString(16).slice(2, 6)}…${Math.random().toString(16).slice(2, 6)} · ${(j.size === 'a3' ? 18.2 : 8.9).toFixed(1)} MB` });
+        j.attempts.push({ t: now(), txt: `Rendered and held. Artifact ${j.artifact.split(' · ')[1]} retained.` }); renderAll(); return;
+      }
+      renderStatus(); renderLedger(); if (E.sel === j.id && $('#e-acts')) { $('#e-acts').innerHTML = actsHtml(j); $('#e-badge').innerHTML = badge(j); }
+    }, 70);
+  }
+  function startSend(j) {
+    const n = j.attempts.filter(a => /Attempt A-/.test(a.txt)).length + 1;
+    j.status = 'sending'; E.send = { job: j.id, n, pct: 0 }; E.confirmRelease = false;
+    j.attempts.push({ t: now(), txt: `Released by operator. Attempt A-${j.id.slice(2)}-${n} created.` }); renderAll();
+    E.timer = setInterval(() => {
+      E.send.pct = Math.min(100, E.send.pct + 5);
+      if (E.send.pct >= 100) { clearInterval(E.timer); E.send = null; j.status = 'submitted'; j.attempts.push({ t: now(), txt: `Attempt A-${j.id.slice(2)}-${n} spooled. Waiting for your check.` }); renderAll(); return; }
+      renderStatus(); renderLedger(); if (E.sel === j.id && $('#e-badge')) $('#e-badge').innerHTML = badge(j);
+    }, 90);
+  }
+  function newDraft(from) {
+    const j = { id: nextId(), name: from ? from.name + ' (copy)' : 'North Ridge sheet', status: 'draft', size: from ? from.size : 'a3', when: 'Just now',
+      pls: from ? from.pls.map(p => ({ ...p })) : northRidge(195.2), attempts: [{ t: now(), txt: from ? `Duplicated from ${from.id}.` : 'Draft created.' }] };
+    E.jobs.unshift(j); E.sel = j.id; E.tab = 'sheet'; E.stage = 'film'; E.pl = j.pls.find(p => p.id === 'p2')?.id || j.pls[0].id; E.section = 'jobs'; renderAll();
+  }
+
+  /* ----- Events ----- */
+  const ACT = {
+    nav: t => { E.section = t.dataset.s; E.focus = false; renderAll(); },
+    'nav-devices': () => { E.section = 'devices'; E.focus = false; renderAll(); },
+    theme: () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; renderRail(); },
+    scen: t => setScenario(t.dataset.v),
+    'go-review': () => { const a = ambiguousJob(); if (!a) return; Object.assign(E, { section: 'jobs', sel: a.id, tab: 'review', filter: 'all', focus: false }); renderAll(); },
+    job: t => { const j = E.jobs.find(x => x.id === t.dataset.id); Object.assign(E, { sel: j.id, tab: j.status === 'ambiguous' ? 'review' : E.tab === 'inspect' && j.rendered ? 'inspect' : 'sheet', confirmRelease: false, reviewChoice: null });
+      E.pl = (findings(j).find(f => f.pl) || {}).pl || j.pls[0].id; renderLedger(); renderWork(); },
+    filter: t => { E.filter = t.dataset.f; renderLedger(); },
+    tab: t => { E.tab = t.dataset.t; renderWork(); },
+    'new-job': () => newDraft(null),
+    dup: () => newDraft(job()),
+    render: () => startRender(job()),
+    'cancel-render': () => { clearInterval(E.timer); const j = job(); j.attempts.push({ t: now(), txt: `Rendering cancelled at band ${E.render.band} of 40. No bytes sent.` }); E.render = null; j.status = 'draft'; renderAll(); },
+    release: () => { E.confirmRelease = true; renderWork(); },
+    'release-no': () => { E.confirmRelease = false; renderWork(); },
+    'release-yes': () => startSend(job()),
+    'confirm-printed': () => { const j = job(); j.status = 'finished'; j.attempts.push({ t: now(), txt: 'Operator confirmed the sheet printed correctly.' }); renderAll(); },
+    'reprint-bad': () => { const j = job(); j.status = 'held'; j.attempts.push({ t: now(), txt: 'Operator recorded a spoiled sheet. Reprint attempt created and held.' }); renderAll(); },
+    rc: t => { E.reviewChoice = t.dataset.v; renderWork(); },
+    'rc-no': () => { E.reviewChoice = null; renderWork(); },
+    'rc-yes': () => { const j = job(), [, , log, st] = OUTCOMES[E.reviewChoice]; j.attempts.push({ t: now(), txt: log, cls: 'new' });
+      if (st === 'ambiguous') E.reviewLater = true; else { j.status = st; E.tab = 'attempts'; E.reviewLater = false; }
+      E.reviewChoice = null; renderAll(); },
+    stage: t => { E.stage = t.dataset.st; paneSheet(job()); },
+    plane: t => { E.planes[t.dataset.p] = !E.planes[t.dataset.p]; E.stage = 'logical'; paneSheet(job()); },
+    garment: t => { E.garment = t.dataset.v; renderCanvas(job()); },
+    bounds: () => { E.bounds = !E.bounds; paneSheet(job()); },
+    focus: () => { E.focus = !E.focus; renderAll(); },
+    pl: t => { E.pl = t.dataset.id; renderInsp(job()); renderCanvas(job()); },
+    marker: t => { E.pl = t.dataset.id; renderInsp(job()); renderCanvas(job()); const x = $('#e-fx'); if (x) { x.focus(); x.select(); } },
+    'goto-pl': t => { E.tab = 'sheet'; E.pl = t.dataset.id; renderWork(); $('#e-fx')?.focus(); },
+    ack: () => { job().ack = true; renderWork(); renderLedger(); },
+    istage: t => { E.istage = t.dataset.v; paneInspect(job()); },
+    iplane: t => { E.iplane = t.dataset.v; paneInspect(job()); },
+    zoom: t => { E.zoom = t.dataset.v === 'fit' ? 'fit' : +t.dataset.v; paneInspect(job()); },
+    ibounds: () => { E.ibounds = !E.ibounds; paneInspect(job()); },
+    'dev-create': () => { E.setup = setupFixture(false); renderAll(); },
+    'dev-gen': () => { E.setup.generated = true; renderAll(); },
+    'dev-print': () => { E.setup.printing = true; renderAll(); setTimeout(() => { E.setup.printing = false; E.setup.printed = true; renderAll(); }, 1200); },
+    'dev-fill': () => { CHANNELS.forEach(c => { if (!E.setup.answers[c.ch]) E.setup.answers[c.ch] = expected(c.ch); }); renderAll(); },
+    'dev-fixmap': () => { const s = E.setup; mismatches().filter(c => s.answers[c.ch] !== 'Nothing printed').forEach(c => { s.map[c.ch] = s.answers[c.ch]; });
+      s.rev++; s.history.unshift([s.rev, 'Map updated from test record T-0001', 'Today']); renderAll(); },
+    'dev-reprint': () => { const s = E.setup; mismatches().filter(c => s.answers[c.ch] === 'Nothing printed').forEach(c => delete s.answers[c.ch]); s.printed = false; renderAll(); },
+    'dev-verify': () => { const s = E.setup; s.verified = true; s.experimental = false; s.verifiedOn = 'Nov 7, 2026'; s.history[0][1] += ' · verified'; renderAll(); },
+    'dev-exp': () => { if (E.setup.experimental) { E.setup.experimental = false; renderAll(); } else { E.modal = 'exp'; renderModal(); } },
+    'modal-no': () => { E.modal = null; renderModal(); },
+    'modal-yes': () => { E.modal = null; E.setup.experimental = true; renderAll(); },
+  };
+  root.addEventListener('click', e => { const t = e.target.closest('[data-act]'); if (!t || !root.contains(t) || t.disabled) return; e.stopPropagation(); ACT[t.dataset.act]?.(t, e); });
+  let deb;
+  root.addEventListener('input', e => {
+    const t = e.target; if (!t.dataset.field) return;
+    const j = job(), p = j.pls.find(x => x.id === E.pl), chip = $('#e-pfchip');
+    if (chip) { chip.textContent = 'Checking…'; chip.className = 'pfchip neutral'; }
+    clearTimeout(deb);
+    deb = setTimeout(() => { const v = parseFloat(t.value); if (isNaN(v)) return; p[t.dataset.field] = v; if (t.dataset.field === 'w') p.h = +(v * ASPECT(p.sym)).toFixed(1); updateLive(j); }, 300);
+  });
+  root.addEventListener('change', e => {
+    const t = e.target; if (t.dataset.patch === undefined) return;
+    const ch = t.dataset.patch; if (t.value) E.setup.answers[ch] = t.value; else delete E.setup.answers[ch];
+    renderAll(); root.querySelector(`[data-patch="${ch}"]`)?.focus();
+  });
+  addEventListener('keydown', e => {
+    if (!root.classList.contains('on') || e.target.closest?.('input, textarea, select, [contenteditable]') || e.ctrlKey || e.metaKey || e.altKey) return;
+    const onJob = E.section === 'jobs' && job() && (E.tab === 'sheet' || E.tab === 'inspect');
+    if ((e.key === 'f' || e.key === 'F') && onJob) { E.focus = !E.focus; renderAll(); }
+    else if (e.key === 'Escape' && (E.focus || E.modal)) { E.focus = false; E.modal = null; renderAll(); }
+    else if (e.key === '[') { E.noledger = !E.noledger; renderAll(); }
+    else if (e.key === ']') { E.nopanel = !E.nopanel; renderAll(); }
+    else if (/^[1-5]$/.test(e.key) && E.section === 'jobs' && E.tab === 'sheet' && job()) { E.stage = Object.keys(STAGES)[+e.key - 1]; paneSheet(job()); }
+  });
+  addEventListener('resize', () => { if (root.classList.contains('on') && E.tab === 'inspect' && E.zoom === 'fit' && job()?.rendered) paneInspect(job()); });
+
+  setScenario('working');
+})();
+</script>
+</body>
+</html>
