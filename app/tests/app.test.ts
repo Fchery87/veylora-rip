@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/svelte";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import App from "../src/App.svelte";
@@ -203,5 +203,32 @@ describe("setup and channel verification", () => {
     await user.click(screen.getByRole("button", { name: "Record test result" }));
     expect(await within(table).findByText("Mismatch")).toBeInTheDocument();
     expect(within(screen.getByRole("main")).getByText("Unverified")).toBeInTheDocument();
+  });
+});
+
+describe("device mode and recipe selection", () => {
+  it("switches the device mode and updates the status bar", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Recipes" }));
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Device mode" }),
+      "PM-exp-02",
+    );
+    const bar = screen.getByRole("contentinfo", { name: "Device status" });
+    expect(await within(bar).findByText(/PM-exp-02/)).toBeInTheDocument();
+  });
+
+  it("selects a recipe in the active mode and gives a reason for recipes of other modes", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Recipes" }));
+    const list = await screen.findByRole("list", { name: "Recipes" });
+    const other = within(list).getByRole("button", { name: /Use Second/ });
+    expect(other).toBeDisabled();
+    expect(other).toHaveAccessibleDescription(/requires mode PM-exp-02/i);
+    await user.click(within(list).getByRole("button", { name: /Use Alternate/ }));
+    await waitFor(() =>
+      expect(within(list).getByRole("button", { name: /Use Fixture transfer/ })).toBeEnabled(),
+    );
+    expect(within(list).getAllByText("Selected")).toHaveLength(1);
   });
 });

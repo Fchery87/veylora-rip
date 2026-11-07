@@ -113,6 +113,13 @@ export interface RecipeModel {
   name: string;
   state: ModeMaturity;
   modeId: string;
+  selected: boolean;
+}
+
+export interface DeviceModeModel {
+  id: string;
+  maturity: ModeMaturity;
+  selected: boolean;
 }
 
 export interface TargetModel {
@@ -154,6 +161,11 @@ export interface AppServices {
   /** Records bench evidence for one logical ink. Verified once every channel matched. */
   recordChannelTest(logicalInk: string, result: ChannelTestResult): Promise<DeviceSetupModel>;
   listRecipes(): Promise<RecipeModel[]>;
+  listDeviceModes(): Promise<DeviceModeModel[]>;
+  /** Changing the mode updates capabilities, and the selected recipe if it no longer fits. */
+  selectDeviceMode(modeId: string): Promise<CapabilityState>;
+  /** Rejects when the recipe belongs to a different device mode. */
+  selectRecipe(recipeId: string): Promise<RecipeModel[]>;
   listTargets(): Promise<TargetModel[]>;
   listArtworkCandidates(): Promise<ArtworkCandidate[]>;
   renderAndHold(jobId: string): Promise<JobDetail>;
