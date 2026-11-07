@@ -2,10 +2,11 @@
   import SegmentedControl from "../../components/SegmentedControl.svelte";
   import StageChip from "../../components/StageChip.svelte";
   import Tag from "../../components/Tag.svelte";
-  import type { CapabilityState, JobDetail } from "../../services/types";
-  import { STAGES, type StageId } from "../../status";
+  import type { AppStore } from "../../store.svelte";
+  import { WHITE_MASK_SOURCES, type CapabilityState, type JobDetail } from "../../services/types";
+  import { simulationSource, STAGES, type StageId } from "../../status";
 
-  let { job, caps }: { job: JobDetail; caps: CapabilityState } = $props();
+  let { store, job, caps }: { store: AppStore; job: JobDetail; caps: CapabilityState } = $props();
 
   let stage = $state<StageId>("garment");
   // Sheet dimensions in mm for the sizes the fixture mode lists.
@@ -14,12 +15,18 @@
     A4: { w: 210, h: 297 },
   };
   const size = $derived(SIZES[job.sheet] ?? SIZES.A3);
-  const chokeReason = $derived(`Not supported by mode ${caps.mode.id}`);
+  const unsupported = $derived(`Not supported by mode ${caps.mode.id}`);
+  const frozen = $derived(job.rendered);
+
+  function commitChoke(e: Event) {
+    const value = (e.currentTarget as HTMLInputElement).valueAsNumber;
+    if (Number.isFinite(value)) store.setWhiteChoke(job.id, value);
+  }
 </script>
 
 <div class="layout">
   <div class="stage-col">
-    <div class="chip-row"><StageChip {stage} source="simulation" fixture={caps.dataSource === "fixture"} /></div>
+    <div class="chip-row"><StageChip {stage} source={simulationSource(caps.dataSource)} /></div>
     <div class="surround">
       <div
         class="sheet stage-{stage}"
@@ -59,22 +66,62 @@
     </ul>
 
     <h2>White</h2>
-    <dl>
-      <dt>Source</dt>
-      <dd>{job.whitePolicy.source}</dd>
-      <dt>Policy</dt>
-      <dd>{job.whitePolicy.policy}</dd>
-    </dl>
+    <label for="white-policy">White policy</label>
+    <select
+      id="white-policy"
+      value={job.whitePolicy.policy}
+      disabled={frozen}
+      onchange={(e) => store.setWhitePolicy(job.id, e.currentTarget.value)}
+    >
+      {#each caps.mode.whitePolicies as policy (policy)}
+        <option value={policy}>{policy}</option>
+      {/each}
+    </select>
+    <label for="mask-source">Mask source</label>
+    <select
+      id="mask-source"
+      value={job.whitePolicy.source}
+      disabled={frozen}
+      onchange={(e) =>
+        store.setWhiteMask(job.id, {
+          source: e.currentTarget.value,
+          invert: job.whitePolicy.invertMask,
+        })}
+    >
+      {#each WHITE_MASK_SOURCES as source (source)}
+        <option value={source}>{source}</option>
+      {/each}
+    </select>
+    <label class="check">
+      <input
+        type="checkbox"
+        checked={caps.mode.whiteMaskInvert && job.whitePolicy.invertMask}
+        disabled={!caps.mode.whiteMaskInvert || frozen}
+        aria-describedby={!caps.mode.whiteMaskInvert ? "mask-invert-reason" : undefined}
+        onchange={(e) =>
+          store.setWhiteMask(job.id, {
+            source: job.whitePolicy.source,
+            invert: e.currentTarget.checked,
+          })}
+      />
+      Invert mask
+    </label>
+    {#if !caps.mode.whiteMaskInvert}
+      <span id="mask-invert-reason" class="reason">{unsupported}</span>
+    {/if}
     <label for="white-choke">White choke (mm)</label>
     <input
       id="white-choke"
       type="number"
-      value={job.whitePolicy.chokeMm}
-      disabled={!caps.mode.whiteChoke || job.rendered}
+      step="0.1"
+      value={caps.mode.whiteChoke ? job.whitePolicy.chokeMm : null}
+      placeholder={caps.mode.whiteChoke ? undefined : "n/a"}
+      disabled={!caps.mode.whiteChoke || frozen}
       aria-describedby={!caps.mode.whiteChoke ? "white-choke-reason" : undefined}
+      onchange={commitChoke}
     />
     {#if !caps.mode.whiteChoke}
-      <span id="white-choke-reason" class="reason">{chokeReason}</span>
+      <span id="white-choke-reason" class="reason">{unsupported}</span>
     {/if}
     <p class="muted note">Applied after mask combine, before choke. Never changes C, M, Y or K.</p>
     <Tag tone="warn">Experimental</Tag>
@@ -98,7 +145,7 @@
     border-radius: 8px;
     display: grid;
     place-items: center;
-    padding: 36px 0;
+    padding: 32px 0;
   }
   .sheet {
     height: 340px;
@@ -111,7 +158,7 @@
   }
   .placement {
     position: absolute;
-    background: rgb(46 107 230 / 0.35);
+    background: var(--placement-fill);
     outline: 1px solid var(--select-inner);
     box-shadow: 0 0 0 1px var(--select-outer);
   }
@@ -132,7 +179,7 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 6px;
+    gap: 8px;
   }
   li {
     display: grid;
@@ -140,36 +187,6 @@
   }
   .bad {
     color: var(--bad-fg);
-  }
-  dl {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 2px 12px;
-    margin: 0;
-    font-size: 13px;
-  }
-  dt {
-    color: var(--muted);
-  }
-  dd {
-    margin: 0;
-  }
-  input {
-    height: 32px;
-    border: 1px solid var(--line-strong);
-    border-radius: 8px;
-    padding: 0 10px;
-    background: var(--surface);
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-  }
-  input:disabled {
-    background: var(--subtle);
-    color: var(--muted);
-  }
-  label {
-    font-size: 13px;
-    font-weight: 500;
   }
   .reason {
     font-size: 12px;

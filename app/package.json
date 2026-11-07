@@ -10,6 +10,8 @@
     "check": "vp check && svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "@lucide/svelte": "1.70.0",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tauri-apps/api": "2.12.4",

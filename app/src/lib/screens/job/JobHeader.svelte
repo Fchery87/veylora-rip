@@ -2,7 +2,7 @@
   import { deriveJobCommands } from "../../capability";
   import Button from "../../components/Button.svelte";
   import StatusBadge from "../../components/StatusBadge.svelte";
-  import Tag from "../../components/Tag.svelte";
+  import PreflightSummary from "../../components/PreflightSummary.svelte";
   import type { AppStore } from "../../store.svelte";
   import type { CapabilityState, JobDetail } from "../../services/types";
 
@@ -10,21 +10,6 @@
 
   const commands = $derived(deriveJobCommands(caps, job));
   let confirming = $state<"file-sink" | "printer" | null>(null);
-
-  const blocking = $derived(job.findings.filter((f) => f.severity === "blocking").length);
-  const toConfirm = $derived(
-    job.findings.filter((f) => f.severity === "confirm" && !f.acknowledged).length,
-  );
-  const summary = $derived.by(() => {
-    if (blocking > 0) {
-      const parts = [`${blocking} blocking`];
-      if (toConfirm > 0) parts.push(`${toConfirm} to confirm`);
-      return { text: parts.join(" · "), tone: "bad" as const };
-    }
-    if (toConfirm > 0) return { text: `${toConfirm} to confirm`, tone: "warn" as const };
-    if (job.rendered) return { text: "Passed at render", tone: "neutral" as const };
-    return { text: "Ready to render", tone: "ok" as const };
-  });
 
   async function confirm() {
     const kind = confirming;
@@ -39,7 +24,7 @@
     <h1>{job.name}</h1>
     <StatusBadge state={job.state} progressPercent={job.progressPercent} />
     <span class="meta"><span class="mono">{job.id}</span> · {job.sheet} · {caps.mode.id}</span>
-    <Tag tone={summary.tone}>{summary.text}</Tag>
+    <PreflightSummary {job} />
     <span class="spacer"></span>
 
     <div class="action">

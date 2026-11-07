@@ -34,8 +34,8 @@
 <style>
   :global(.seg) {
     display: inline-flex;
-    gap: 2px;
-    padding: 2px;
+    gap: 4px;
+    padding: 4px;
     border-radius: 8px;
     background: var(--subtle);
   }

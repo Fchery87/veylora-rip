@@ -2,7 +2,11 @@ import type {
   AppServices,
   Attempt,
   CapabilityState,
+  ChannelTestResult,
+  DeviceModeModel,
   DeviceSetupModel,
+  ModeMaturity,
+  RecipeModel,
   DiagnosticExportRequest,
   Finding,
   JobDetail,
@@ -57,7 +61,7 @@ function baseJob(over: Partial<JobDetail> & Pick<JobDetail, "id" | "name">): Job
       { label: "Recipe", value: "RCP-fixture-01" },
       { label: "Snapshot hash", value: "sha256:fixture-0000" },
     ],
-    whitePolicy: { source: "Auto from alpha", policy: "Underbase", chokeMm: 0 },
+    whitePolicy: { source: "Auto from alpha", policy: "Underbase", invertMask: false, chokeMm: 0 },
     rendered: false,
     ...over,
   };
@@ -115,10 +119,10 @@ function workingDayJobs(): JobDetail[] {
   ];
 }
 
-function workingDaySetup(): DeviceSetupModel {
+function newSetup(name: string): DeviceSetupModel {
   return {
-    name: "Home bench",
-    revision: 3,
+    name,
+    revision: 1,
     verified: false,
     channels: [
       {
@@ -160,7 +164,43 @@ function workingDaySetup(): DeviceSetupModel {
   };
 }
 
-function capabilities(scenario: Scenario, jobs: JobDetail[], hasSetup: boolean): CapabilityState {
+function workingDaySetup(): DeviceSetupModel {
+  return { ...newSetup("Home bench"), revision: 3 };
+}
+
+interface ModeFixture {
+  maturity: ModeMaturity;
+  sheetSizes: string[];
+  whiteChoke: boolean;
+  whiteMaskInvert: boolean;
+  whitePolicies: string[];
+  screenedInspect: boolean;
+}
+
+const MODES: Record<string, ModeFixture> = {
+  "PM-exp-01": {
+    maturity: "experimental",
+    sheetSizes: ["A3", "A4"],
+    whiteChoke: false,
+    whiteMaskInvert: false,
+    whitePolicies: ["Underbase", "No white"],
+    screenedInspect: true,
+  },
+  "PM-exp-02": {
+    maturity: "experimental",
+    sheetSizes: ["A4"],
+    whiteChoke: true,
+    whiteMaskInvert: false,
+    whitePolicies: ["Underbase", "Highlight", "No white"],
+    screenedInspect: false,
+  },
+};
+
+function capabilities(
+  jobs: JobDetail[],
+  setup: DeviceSetupModel | null,
+  modeId: string,
+): CapabilityState {
   const open = jobs.find((j) =>
     j.attempts.some((a) => a.outcome === "ambiguous" || a.outcome === "kept-in-review"),
   );
@@ -170,22 +210,48 @@ function capabilities(scenario: Scenario, jobs: JobDetail[], hasSetup: boolean):
   return {
     dataSource: "fixture",
     setup: {
-      exists: scenario === "working-day" && hasSetup,
-      verified: false,
+      exists: setup !== null,
+      verified: setup?.verified ?? false,
       experimental: false,
-      name: scenario === "working-day" ? "Home bench rev 3" : "",
+      name: setup ? `${setup.name} rev ${setup.revision}` : "",
     },
-    mode: {
-      id: "PM-exp-01",
-      maturity: "experimental",
-      sheetSizes: ["A3", "A4"],
-      whiteChoke: false,
-      screenedInspect: true,
-    },
+    mode: { id: modeId, ...MODES[modeId] },
     sinks: { physicalPrinter: false, fileSink: true },
     openReview:
       open && attempt ? { jobId: open.id, attemptId: attempt.id, jobName: open.name } : null,
   };
+}
+
+const recipes: Omit<RecipeModel, "selected">[] = [
+  {
+    id: "RCP-fixture-01",
+    name: "Fixture transfer recipe",
+    state: "experimental",
+    modeId: "PM-exp-01",
+  },
+  {
+    id: "RCP-fixture-03",
+    name: "Alternate fixture recipe",
+    state: "experimental",
+    modeId: "PM-exp-01",
+  },
+  {
+    id: "RCP-fixture-02",
+    name: "Second fixture recipe",
+    state: "experimental",
+    modeId: "PM-exp-02",
+  },
+];
+
+const deviceModes = (selected: string): DeviceModeModel[] =>
+  Object.entries(MODES).map(([id, m]) => ({
+    id,
+    maturity: m.maturity,
+    selected: id === selected,
+  }));
+
+function assertDraft(job: JobDetail) {
+  if (job.rendered) throw new Error("Snapshot frozen. Duplicate the job to edit.");
 }
 
 const summary = (j: JobDetail): JobSummary => ({
@@ -201,6 +267,9 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
   let jobs: JobDetail[] = scenario === "working-day" ? workingDayJobs() : [];
   const calls: MockServices["calls"] = { exportDiagnosticReport: [] };
   let sinkCounter = 0;
+  let modeId = "PM-exp-01";
+  let recipeId = "RCP-fixture-01";
+  let setup: DeviceSetupModel | null = scenario === "working-day" ? workingDaySetup() : null;
 
   const find = (id: string): JobDetail => {
     const job = jobs.find((j) => j.id === id);
@@ -215,18 +284,45 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
 
   return {
     calls,
-    getCapabilities: async () => capabilities(scenario, jobs, true),
+    getCapabilities: async () => capabilities(jobs, setup, modeId),
     listJobs: async () => jobs.map(summary),
     getJob: async (id) => find(id),
-    getDeviceSetup: async () => workingDaySetup(),
-    listRecipes: async () => [
-      {
-        id: "RCP-fixture-01",
-        name: "Fixture transfer recipe",
-        state: "experimental",
-        modeId: "PM-exp-01",
-      },
-    ],
+    getDeviceSetup: async () => setup,
+    createDeviceSetup: async (name) => {
+      setup = newSetup(name);
+      return setup;
+    },
+    recordChannelTest: async (logicalInk: string, result: ChannelTestResult) => {
+      if (!setup) throw new Error("Create a device setup first.");
+      const channels = setup.channels.map((c) =>
+        c.logicalInk === logicalInk ? { ...c, evidence: result } : c,
+      );
+      if (!channels.some((c) => c.logicalInk === logicalInk)) {
+        throw new Error(`Unknown channel ${logicalInk}`);
+      }
+      setup = { ...setup, channels, verified: channels.every((c) => c.evidence === "matched") };
+      return setup;
+    },
+    listRecipes: async () => recipes.map((r) => ({ ...r, selected: r.id === recipeId })),
+    listDeviceModes: async () => deviceModes(modeId),
+    selectDeviceMode: async (id) => {
+      if (!MODES[id]) throw new Error(`Unknown device mode ${id}`);
+      modeId = id;
+      const current = recipes.find((r) => r.id === recipeId);
+      if (current && current.modeId !== id) {
+        recipeId = recipes.find((r) => r.modeId === id)?.id ?? "";
+      }
+      return capabilities(jobs, setup, modeId);
+    },
+    selectRecipe: async (id) => {
+      const recipe = recipes.find((r) => r.id === id);
+      if (!recipe) throw new Error(`Unknown recipe ${id}`);
+      if (recipe.modeId !== modeId) {
+        throw new Error(`Recipe ${id} requires mode ${recipe.modeId}`);
+      }
+      recipeId = id;
+      return recipes.map((r) => ({ ...r, selected: r.id === recipeId }));
+    },
     listTargets: async () => [
       { id: "T-channel", name: "Channel identity", description: "One patch per protocol channel." },
       {
@@ -256,6 +352,30 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
         message: "APNG is not supported. Export a static PNG.",
       },
     ],
+    setWhitePolicy: async (id, policy) => {
+      assertDraft(find(id));
+      if (!MODES[modeId].whitePolicies.includes(policy)) {
+        throw new Error(`White policy ${policy} is not supported by mode ${modeId}`);
+      }
+      return update(id, (j) => ({ ...j, whitePolicy: { ...j.whitePolicy, policy } }));
+    },
+    setWhiteMask: async (id, mask) => {
+      assertDraft(find(id));
+      if (mask.invert && !MODES[modeId].whiteMaskInvert) {
+        throw new Error(`Mask inversion is not supported by mode ${modeId}`);
+      }
+      return update(id, (j) => ({
+        ...j,
+        whitePolicy: { ...j.whitePolicy, source: mask.source, invertMask: mask.invert },
+      }));
+    },
+    setWhiteChoke: async (id, chokeMm) => {
+      assertDraft(find(id));
+      if (!MODES[modeId].whiteChoke) {
+        throw new Error(`White choke is not supported by mode ${modeId}`);
+      }
+      return update(id, (j) => ({ ...j, whitePolicy: { ...j.whitePolicy, chokeMm } }));
+    },
     renderAndHold: async (id) =>
       update(id, (j) => ({ ...j, state: "held", rendered: true, updated: "just now" })),
     acknowledgeFinding: async (id, findingId) =>
@@ -294,7 +414,7 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
           attempts: j.attempts.map((a) => (a.id === attemptId ? { ...a, outcome: m.attempt } : a)),
         }));
       }
-      return capabilities(scenario, jobs, true);
+      return capabilities(jobs, setup, modeId);
     },
     exportDiagnosticReport: async (request) => {
       calls.exportDiagnosticReport.push(request);

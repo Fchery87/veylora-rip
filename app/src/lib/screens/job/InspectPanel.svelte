@@ -3,7 +3,7 @@
   import SegmentedControl from "../../components/SegmentedControl.svelte";
   import StageChip from "../../components/StageChip.svelte";
   import type { CapabilityState, JobDetail } from "../../services/types";
-  import type { StageId } from "../../status";
+  import { simulationSource, type StageId } from "../../status";
 
   let { job, caps }: { job: JobDetail; caps: CapabilityState } = $props();
 
@@ -42,7 +42,7 @@
       {/each}
     </div>
   </div>
-  <StageChip {stage} source="simulation" fixture={caps.dataSource === "fixture"} />
+  <StageChip {stage} source={simulationSource(caps.dataSource)} />
   <div class="viewport" role="img" aria-label="Placeholder for plane {active.join(', ') || 'none'}">
     <p>No raster is shown. Retained artifacts arrive when backend integration is unblocked.</p>
   </div>
@@ -66,7 +66,7 @@
   }
   .planes {
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
   .viewport {
     width: 100%;
@@ -75,13 +75,13 @@
     border-radius: 8px;
     display: grid;
     place-items: center;
-    color: #fff;
+    color: var(--canvas-text);
     font-size: 13px;
   }
   .meta {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 2px 16px;
+    gap: 4px 16px;
     margin: 0;
     font-size: 13px;
   }

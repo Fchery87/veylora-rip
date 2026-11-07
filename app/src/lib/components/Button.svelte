@@ -29,7 +29,7 @@
 <style>
   .btn {
     height: 34px;
-    padding: 0 14px;
+    padding: 0 16px;
     border-radius: 8px;
     border: 1px solid var(--line-strong);
     background: var(--surface);
@@ -42,7 +42,7 @@
   }
   .btn.sm {
     height: 30px;
-    padding: 0 10px;
+    padding: 0 12px;
   }
   .btn:hover:not(:disabled) {
     background: var(--subtle);

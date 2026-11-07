@@ -20,7 +20,7 @@
 
   let candidates = $state<ArtworkCandidate[]>([]);
   onMount(async () => {
-    candidates = await store.services.listArtworkCandidates();
+    candidates = await store.queries.listArtworkCandidates();
   });
 
   const job = $derived(store.job);
@@ -37,10 +37,10 @@
         {#snippet panel(id)}
           {#if id === "review"}<ReviewPanel {store} {job} />
           {:else if id === "import"}<ImportPanel {candidates} />
-          {:else if id === "sheet"}<SheetPanel {job} {caps} />
+          {:else if id === "sheet"}<SheetPanel {store} {job} {caps} />
           {:else if id === "inspect"}<InspectPanel {job} {caps} />
           {:else if id === "preflight"}<PreflightPanel {store} {job} />
-          {:else if id === "attempts"}<AttemptsPanel attempts={job.attempts} />
+          {:else if id === "attempts"}<AttemptsPanel attempts={job.attempts} freshIds={store.freshAttemptIds} />
           {:else if id === "provenance"}<ProvenancePanel {job} />
           {/if}
         {/snippet}

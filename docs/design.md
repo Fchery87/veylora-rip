@@ -378,6 +378,8 @@ The canvas does not follow the UI theme.
 | `--garment` | `#1c1c1e` (black, default) | Garment simulation color, chosen from the palette below. Always labeled approximate. |
 | `--select-outer` / `--select-inner` | `#ffffff` / `#101828` | Selection is a 1 px double outline. It stays visible over any plane, including cyan, so it does not use the accent. |
 | `--printable` | `#101828`, dashed, with a `#ffffff` 1 px halo | Printable box |
+| `--canvas-text` | `#101828` | Text drawn on the canvas surround, such as placeholder messages |
+| `--placement-fill` | `#2e6be6` at 35% | Placement body on the sheet |
 | `--clip-hatch` | `#dc2626` at 55% | Out-of-bounds hatching |
 
 #### Garment palette
@@ -474,6 +476,7 @@ Every preview shows a chip at the top left using this vocabulary:
 - `Downsampled overview` (Inspect, below 100%)
 - `Pre-encoding truth` (Inspect, when final bytes can't be decoded)
 - `Fixture data` is appended to any chip while running on mocked services.
+- `Not physical output` is appended to every preview chip, last. It is an addition to the vocabulary above, required so that no simulation, fixture, or retained-artifact preview can be read as printer output (Task 8.2).
 
 Simulation chips use the warn tone; retained-artifact chips use neutral.
 

@@ -54,7 +54,7 @@
     font-weight: 500;
     cursor: pointer;
     display: inline-flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
   }
   :global(.tab[data-state="active"]) {
@@ -68,7 +68,7 @@
   .count {
     min-width: 18px;
     height: 18px;
-    padding: 0 5px;
+    padding: 0 4px;
     border-radius: 999px;
     background: var(--subtle);
     font-size: 11.5px;

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/svelte";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import App from "../src/App.svelte";
@@ -119,9 +119,22 @@ describe("labels and unsupported controls", () => {
     await openJob(user, /Front chest/);
     await user.click(screen.getByRole("tab", { name: "Sheet" }));
     const chip = screen.getByTestId("stage-chip");
-    expect(chip).toHaveTextContent("Simulation");
-    expect(chip).toHaveTextContent("Fixture data");
-    expect(chip).toHaveTextContent("Not physical output");
+    expect(chip).toHaveTextContent(
+      "Garment simulation · approximate, not a color proof · simulation · Fixture data · Not physical output",
+    );
+  });
+
+  it("labels inspect previews with the same simulation, fixture and non-physical vocabulary", async () => {
+    const { user } = await openApp();
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    expect(screen.getByTestId("stage-chip")).toHaveTextContent(
+      "Logical planes: C M Y K W · continuous tone · simulation · Fixture data · Not physical output",
+    );
+    await user.click(screen.getByRole("radio", { name: "Slots" }));
+    expect(screen.getByTestId("stage-chip")).toHaveTextContent(
+      "Physical-slot raster · W split to W1 and W2 · simulation · Fixture data · Not physical output",
+    );
   });
 
   it("disables white choke with a stated reason when the mode does not support it", async () => {
@@ -130,7 +143,7 @@ describe("labels and unsupported controls", () => {
     await user.click(screen.getByRole("tab", { name: "Sheet" }));
     const choke = screen.getByRole("spinbutton", { name: /White choke/ });
     expect(choke).toBeDisabled();
-    expect(screen.getByText("Not supported by mode PM-exp-01")).toBeInTheDocument();
+    expect(choke).toHaveAccessibleDescription("Not supported by mode PM-exp-01");
   });
 
   it("marks experimental maturity on recipes", async () => {
@@ -163,5 +176,156 @@ describe("other screens", () => {
     await user.click(await screen.findByRole("button", { name: "Export diagnostic report" }));
     expect(await screen.findByText(/diagnostics-.*\.zip/)).toBeInTheDocument();
     expect(services.calls.exportDiagnosticReport).toHaveLength(1);
+  });
+});
+
+describe("setup and channel verification", () => {
+  it("creates a device setup from an empty install and unlocks gated navigation", async () => {
+    const { user } = await openApp("fresh-install");
+    expect(screen.getByRole("button", { name: "Targets" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    await user.type(await screen.findByRole("textbox", { name: "Setup name" }), "Garage bench");
+    await user.click(screen.getByRole("button", { name: "Create setup" }));
+    expect(
+      await screen.findByRole("heading", { name: /Garage bench · rev 1/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Targets" })).toBeEnabled();
+  });
+
+  it("records a channel test result and marks the setup verified once every channel matched", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    const table = await screen.findByRole("table", { name: "Channel map" });
+    const inks = ["C", "M", "Y", "K", "W"];
+    for (const ink of inks) {
+      await user.selectOptions(screen.getByRole("combobox", { name: "Channel" }), ink);
+      await user.selectOptions(screen.getByRole("combobox", { name: "Result" }), "matched");
+      await user.click(screen.getByRole("button", { name: "Record test result" }));
+      await within(table).findAllByText("Matched");
+    }
+    expect(within(table).getAllByText("Matched")).toHaveLength(5);
+    expect(await within(screen.getByRole("main")).findByText("Verified")).toBeInTheDocument();
+  });
+
+  it("shows a mismatch as bad evidence and keeps the setup unverified", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    const table = await screen.findByRole("table", { name: "Channel map" });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Channel" }), "Y");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Result" }), "mismatch");
+    await user.click(screen.getByRole("button", { name: "Record test result" }));
+    expect(await within(table).findByText("Mismatch")).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).getByText("Unverified")).toBeInTheDocument();
+  });
+});
+
+describe("device mode and recipe selection", () => {
+  it("switches the device mode and updates the status bar", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Recipes" }));
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Device mode" }),
+      "PM-exp-02",
+    );
+    const bar = screen.getByRole("contentinfo", { name: "Device status" });
+    expect(await within(bar).findByText(/PM-exp-02/)).toBeInTheDocument();
+  });
+
+  it("selects a recipe in the active mode and gives a reason for recipes of other modes", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Recipes" }));
+    const list = await screen.findByRole("list", { name: "Recipes" });
+    const other = within(list).getByRole("button", { name: /Use Second/ });
+    expect(other).toBeDisabled();
+    expect(other).toHaveAccessibleDescription(/requires mode PM-exp-02/i);
+    await user.click(within(list).getByRole("button", { name: /Use Alternate/ }));
+    await waitFor(() =>
+      expect(within(list).getByRole("button", { name: /Use Fixture transfer/ })).toBeEnabled(),
+    );
+    expect(within(list).getAllByText("Selected")).toHaveLength(1);
+  });
+});
+
+describe("white policy and mask controls", () => {
+  async function openSheet(name: RegExp) {
+    const ctx = await openApp();
+    await openJob(ctx.user, name);
+    await ctx.user.click(screen.getByRole("tab", { name: "Sheet" }));
+    return ctx;
+  }
+
+  it("changes the white policy and mask source on a draft job", async () => {
+    const { user } = await openSheet(/Pocket print/);
+    await user.selectOptions(screen.getByRole("combobox", { name: "White policy" }), "No white");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Mask source" }),
+      "Whole placement",
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "White policy" })).toHaveValue("No white"),
+    );
+    expect(screen.getByRole("combobox", { name: "Mask source" })).toHaveValue("Whole placement");
+  });
+
+  it("shows unsupported mask inversion disabled with the mode reason", async () => {
+    await openSheet(/Pocket print/);
+    const invert = screen.getByRole("checkbox", { name: "Invert mask" });
+    expect(invert).toBeDisabled();
+    expect(invert).not.toBeChecked();
+    expect(invert).toHaveAccessibleDescription("Not supported by mode PM-exp-01");
+  });
+
+  it("does not show an editable-looking value for unsupported white choke", async () => {
+    await openSheet(/Pocket print/);
+    const choke = screen.getByRole("spinbutton", { name: /White choke/ });
+    expect(choke).toBeDisabled();
+    expect(choke).toHaveValue(null);
+  });
+
+  it("freezes policy and mask controls once the job has rendered", async () => {
+    await openSheet(/Front chest/);
+    expect(screen.getByRole("combobox", { name: "White policy" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Mask source" })).toBeDisabled();
+  });
+
+  it("enables white choke in a mode that supports it", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Recipes" }));
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Device mode" }),
+      "PM-exp-02",
+    );
+    await user.click(screen.getByRole("button", { name: "Jobs" }));
+    await openJob(user, /Pocket print/);
+    await user.click(screen.getByRole("tab", { name: "Sheet" }));
+    const choke = screen.getByRole("spinbutton", { name: /White choke/ });
+    expect(choke).toBeEnabled();
+    await user.clear(choke);
+    await user.type(choke, "0.3");
+    await user.tab();
+    await user.click(screen.getByRole("tab", { name: "Provenance" }));
+    await user.click(screen.getByRole("tab", { name: "Sheet" }));
+    expect(screen.getByRole("spinbutton", { name: /White choke/ })).toHaveValue(0.3);
+  });
+});
+
+describe("attempt timeline", () => {
+  it("highlights a new attempt briefly and never the entries that were already there", async () => {
+    const { user } = await openApp();
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("button", { name: "Write to file sink" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm write to file sink" }));
+    const list = await screen.findByRole("list", { name: "Attempt history" });
+    const entry = await within(list).findByRole("listitem");
+    expect(entry).toHaveAttribute("data-fresh", "true");
+    await waitFor(() => expect(entry).not.toHaveAttribute("data-fresh"), { timeout: 2000 });
+  });
+
+  it("does not highlight attempts that exist when the tab opens", async () => {
+    const { user } = await openApp();
+    await openJob(user, /North Ridge/);
+    await user.click(screen.getByRole("tab", { name: /Attempts/ }));
+    const list = await screen.findByRole("list", { name: "Attempt history" });
+    expect(within(list).getByRole("listitem")).not.toHaveAttribute("data-fresh");
   });
 });

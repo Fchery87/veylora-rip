@@ -15,7 +15,7 @@
   .kv {
     display: grid;
     grid-template-columns: 200px 1fr;
-    gap: 6px 16px;
+    gap: 8px 16px;
     max-width: 720px;
     margin: 0;
   }

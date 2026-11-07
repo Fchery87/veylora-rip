@@ -38,6 +38,8 @@ pub struct ModeCapability {
     pub maturity: ModeMaturity,
     pub sheet_sizes: Vec<String>,
     pub white_choke: bool,
+    pub white_mask_invert: bool,
+    pub white_policies: Vec<String>,
     pub screened_inspect: bool,
 }
 
@@ -84,6 +86,8 @@ impl CapabilityState {
                 maturity: ModeMaturity::Experimental,
                 sheet_sizes: vec!["A3".to_owned(), "A4".to_owned()],
                 white_choke: false,
+                white_mask_invert: false,
+                white_policies: vec!["Underbase".to_owned(), "No white".to_owned()],
                 screened_inspect: true,
             },
             sinks: SinkCapability {
@@ -112,6 +116,8 @@ mod tests {
         assert_eq!(json["dataSource"], "fixture");
         assert_eq!(json["sinks"]["physicalPrinter"], false);
         assert_eq!(json["mode"]["sheetSizes"][0], "A3");
+        assert_eq!(json["mode"]["whiteMaskInvert"], false);
+        assert_eq!(json["mode"]["whitePolicies"][0], "Underbase");
         assert!(json["openReview"].is_null());
     }
 }

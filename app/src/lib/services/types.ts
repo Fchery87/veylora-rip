@@ -27,6 +27,9 @@ export interface CapabilityState {
     maturity: ModeMaturity;
     sheetSizes: string[];
     whiteChoke: boolean;
+    /** Mask inversion needs device-mode support. */
+    whiteMaskInvert: boolean;
+    whitePolicies: string[];
     screenedInspect: boolean;
   };
   sinks: {
@@ -89,7 +92,13 @@ export interface JobDetail extends JobSummary {
   findings: Finding[];
   attempts: Attempt[];
   provenance: { label: string; value: string }[];
-  whitePolicy: { source: string; policy: string; chokeMm: number };
+  whitePolicy: {
+    /** Mask source. */
+    source: string;
+    policy: string;
+    invertMask: boolean;
+    chokeMm: number;
+  };
   rendered: boolean;
 }
 
@@ -113,6 +122,13 @@ export interface RecipeModel {
   name: string;
   state: ModeMaturity;
   modeId: string;
+  selected: boolean;
+}
+
+export interface DeviceModeModel {
+  id: string;
+  maturity: ModeMaturity;
+  selected: boolean;
 }
 
 export interface TargetModel {
@@ -141,14 +157,33 @@ export interface DiagnosticExportResult {
 
 export type ReviewOutcome = "finished" | "reprint" | "printed-badly" | "decide-later";
 
+export type ChannelTestResult = "matched" | "mismatch";
+
+export const WHITE_MASK_SOURCES = ["Auto from alpha", "Whole placement"] as const;
+
 export interface AppServices {
   getCapabilities(): Promise<CapabilityState>;
   listJobs(): Promise<JobSummary[]>;
   getJob(jobId: string): Promise<JobDetail>;
-  getDeviceSetup(): Promise<DeviceSetupModel>;
+  /** Null until a device setup has been created. */
+  getDeviceSetup(): Promise<DeviceSetupModel | null>;
+  /** Creates revision 1 of a setup. Every channel starts as not tested. */
+  createDeviceSetup(name: string): Promise<DeviceSetupModel>;
+  /** Records bench evidence for one logical ink. Verified once every channel matched. */
+  recordChannelTest(logicalInk: string, result: ChannelTestResult): Promise<DeviceSetupModel>;
   listRecipes(): Promise<RecipeModel[]>;
+  listDeviceModes(): Promise<DeviceModeModel[]>;
+  /** Changing the mode updates capabilities, and the selected recipe if it no longer fits. */
+  selectDeviceMode(modeId: string): Promise<CapabilityState>;
+  /** Rejects when the recipe belongs to a different device mode. */
+  selectRecipe(recipeId: string): Promise<RecipeModel[]>;
   listTargets(): Promise<TargetModel[]>;
   listArtworkCandidates(): Promise<ArtworkCandidate[]>;
+  /** Draft jobs only; rendered jobs are frozen snapshots. */
+  setWhitePolicy(jobId: string, policy: string): Promise<JobDetail>;
+  setWhiteMask(jobId: string, mask: { source: string; invert: boolean }): Promise<JobDetail>;
+  /** Rejects when the active device mode does not support choke. */
+  setWhiteChoke(jobId: string, chokeMm: number): Promise<JobDetail>;
   renderAndHold(jobId: string): Promise<JobDetail>;
   acknowledgeFinding(jobId: string, findingId: string): Promise<JobDetail>;
   writeToFileSink(jobId: string): Promise<JobDetail>;
