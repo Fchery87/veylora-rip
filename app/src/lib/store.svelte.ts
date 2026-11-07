@@ -24,6 +24,8 @@ export class AppStore {
   tab = $state<JobTabId>("sheet");
   theme = $state<Theme>("light");
   announcement = $state("");
+  /** Attempt ids added by the last command. Cleared after the 500 ms highlight (design 5.6). */
+  freshAttemptIds = $state<string[]>([]);
   error = $state("");
 
   readonly #services: AppServices;
@@ -58,10 +60,22 @@ export class AppStore {
 
   /** Keep the active tab valid when the job's state changes which tabs exist. */
   private async applyJob(job: JobDetail) {
+    this.markFreshAttempts(this.job, job);
     this.job = job;
     const tabs = deriveJobTabs(job);
     const current = tabs.find((t) => t.id === this.tab);
     if (!current || current.disabled) this.tab = defaultTab(job);
+  }
+
+  private markFreshAttempts(previous: JobDetail | null, next: JobDetail) {
+    if (!previous || previous.id !== next.id) return;
+    const known = new Set(previous.attempts.map((a) => a.id));
+    const added = next.attempts.filter((a) => !known.has(a.id)).map((a) => a.id);
+    if (added.length === 0) return;
+    this.freshAttemptIds = added;
+    setTimeout(() => {
+      this.freshAttemptIds = this.freshAttemptIds.filter((id) => !added.includes(id));
+    }, 500);
   }
 
   async selectJob(id: string) {

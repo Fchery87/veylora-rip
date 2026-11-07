@@ -308,3 +308,24 @@ describe("white policy and mask controls", () => {
     expect(screen.getByRole("spinbutton", { name: /White choke/ })).toHaveValue(0.3);
   });
 });
+
+describe("attempt timeline", () => {
+  it("highlights a new attempt briefly and never the entries that were already there", async () => {
+    const { user } = await openApp();
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("button", { name: "Write to file sink" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm write to file sink" }));
+    const list = await screen.findByRole("list", { name: "Attempt history" });
+    const entry = await within(list).findByRole("listitem");
+    expect(entry).toHaveAttribute("data-fresh", "true");
+    await waitFor(() => expect(entry).not.toHaveAttribute("data-fresh"), { timeout: 2000 });
+  });
+
+  it("does not highlight attempts that exist when the tab opens", async () => {
+    const { user } = await openApp();
+    await openJob(user, /North Ridge/);
+    await user.click(screen.getByRole("tab", { name: /Attempts/ }));
+    const list = await screen.findByRole("list", { name: "Attempt history" });
+    expect(within(list).getByRole("listitem")).not.toHaveAttribute("data-fresh");
+  });
+});
