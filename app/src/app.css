@@ -47,7 +47,8 @@
   --shadow-sheet: 0 12px 32px -8px rgb(16 24 40 / 0.18);
 
   --font-ui: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-mono:
+    "Geist Mono Variable", "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   color-scheme: light;
 }
 
