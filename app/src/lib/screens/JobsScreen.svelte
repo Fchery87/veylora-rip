@@ -20,7 +20,7 @@
 
   let candidates = $state<ArtworkCandidate[]>([]);
   onMount(async () => {
-    candidates = await store.services.listArtworkCandidates();
+    candidates = await store.queries.listArtworkCandidates();
   });
 
   const job = $derived(store.job);

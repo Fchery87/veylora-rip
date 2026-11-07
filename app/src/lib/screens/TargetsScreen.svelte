@@ -8,7 +8,7 @@
 
   let targets = $state<TargetModel[]>([]);
   onMount(async () => {
-    targets = await store.services.listTargets();
+    targets = await store.queries.listTargets();
   });
 </script>
 

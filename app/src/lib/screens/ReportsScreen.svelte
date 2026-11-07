@@ -11,13 +11,12 @@
   let error = $state("");
 
   async function exportReport() {
-    try {
-      error = "";
-      result = await store.services.exportDiagnosticReport({ redact, omitArtwork });
-      store.announcement = "Diagnostic report exported";
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
+    const exported = await store.command(
+      (s) => s.exportDiagnosticReport({ redact, omitArtwork }),
+      "Diagnostic report exported",
+    );
+    error = exported ? "" : store.error;
+    if (exported) result = exported;
   }
 </script>
 

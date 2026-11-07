@@ -12,8 +12,8 @@
 
   async function load() {
     [recipes, modes] = await Promise.all([
-      store.services.listRecipes(),
-      store.services.listDeviceModes(),
+      store.queries.listRecipes(),
+      store.queries.listDeviceModes(),
     ]);
   }
   onMount(load);
@@ -26,12 +26,12 @@
   const tone = { experimental: "warn", validated: "ok", retired: "neutral" } as const;
 
   async function chooseMode(id: string) {
-    await store.command(() => store.services.selectDeviceMode(id), "Device mode changed");
+    await store.command((s) => s.selectDeviceMode(id), "Device mode changed");
     await load();
   }
 
   async function chooseRecipe(id: string) {
-    await store.command(() => store.services.selectRecipe(id), "Recipe selected");
+    await store.command((s) => s.selectRecipe(id), "Recipe selected");
     await load();
   }
 </script>

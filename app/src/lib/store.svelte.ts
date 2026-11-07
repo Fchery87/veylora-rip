@@ -8,6 +8,11 @@ import type {
   ReviewOutcome,
 } from "./services/types";
 
+export type QueryServices = Pick<
+  AppServices,
+  "getDeviceSetup" | "listRecipes" | "listDeviceModes" | "listTargets" | "listArtworkCandidates"
+>;
+
 export type Theme = "light" | "dark";
 
 /** Presentation state only. Every authoritative change goes through AppServices. */
@@ -27,7 +32,8 @@ export class AppStore {
     this.#services = services;
   }
 
-  get services(): AppServices {
+  /** Read-only queries for screens. Commands go through `command`. */
+  get queries(): QueryServices {
     return this.#services;
   }
 
@@ -72,10 +78,13 @@ export class AppStore {
   }
 
   /** Run a service command, refresh capability and job state, and announce the result. */
-  async command<T>(action: () => Promise<T>, message: string): Promise<T | undefined> {
+  async command<T>(
+    action: (services: AppServices) => Promise<T>,
+    message: string,
+  ): Promise<T | undefined> {
     try {
       this.error = "";
-      const result = await action();
+      const result = await action(this.#services);
       await this.refresh();
       this.announcement = message;
       return result;
@@ -85,47 +94,40 @@ export class AppStore {
     }
   }
 
-  private run(action: () => Promise<unknown>, message: string) {
-    return this.command(action, message);
-  }
-
   renderAndHold(jobId: string) {
-    return this.run(() => this.#services.renderAndHold(jobId), "Job rendered and held");
+    return this.command((s) => s.renderAndHold(jobId), "Job rendered and held");
   }
 
   acknowledgeFinding(jobId: string, findingId: string) {
-    return this.run(
-      () => this.#services.acknowledgeFinding(jobId, findingId),
-      "Finding acknowledged",
-    );
+    return this.command((s) => s.acknowledgeFinding(jobId, findingId), "Finding acknowledged");
   }
 
   writeToFileSink(jobId: string) {
-    return this.run(async () => {
-      await this.#services.writeToFileSink(jobId);
+    return this.command(async (s) => {
+      await s.writeToFileSink(jobId);
       this.tab = "attempts";
     }, "Written to file sink. Not physical output.");
   }
 
   setWhitePolicy(jobId: string, policy: string) {
-    return this.run(() => this.#services.setWhitePolicy(jobId, policy), "White policy changed");
+    return this.command((s) => s.setWhitePolicy(jobId, policy), "White policy changed");
   }
 
   setWhiteMask(jobId: string, mask: { source: string; invert: boolean }) {
-    return this.run(() => this.#services.setWhiteMask(jobId, mask), "White mask changed");
+    return this.command((s) => s.setWhiteMask(jobId, mask), "White mask changed");
   }
 
   setWhiteChoke(jobId: string, chokeMm: number) {
-    return this.run(() => this.#services.setWhiteChoke(jobId, chokeMm), "White choke changed");
+    return this.command((s) => s.setWhiteChoke(jobId, chokeMm), "White choke changed");
   }
 
   releaseToPrinter(jobId: string) {
-    return this.run(() => this.#services.releaseToPrinter(jobId), "Job released to printer");
+    return this.command((s) => s.releaseToPrinter(jobId), "Job released to printer");
   }
 
   resolveReview(attemptId: string, outcome: ReviewOutcome) {
-    return this.run(async () => {
-      await this.#services.resolveReview(attemptId, outcome);
+    return this.command(async (s) => {
+      await s.resolveReview(attemptId, outcome);
       this.tab = "attempts";
     }, "Review outcome recorded");
   }

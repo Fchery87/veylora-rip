@@ -14,7 +14,7 @@
   let testResult = $state<ChannelTestResult>("matched");
 
   onMount(async () => {
-    setup = await store.services.getDeviceSetup();
+    setup = await store.queries.getDeviceSetup();
   });
 
   const evidence: Record<ChannelRow["evidence"], { text: string; tone: "warn" | "ok" | "bad" }> = {
@@ -28,7 +28,7 @@
     const name = newName.trim();
     if (!name) return;
     const created = await store.command(
-      () => store.services.createDeviceSetup(name),
+      (s) => s.createDeviceSetup(name),
       "Device setup created",
     );
     if (created) setup = created;
@@ -36,7 +36,7 @@
 
   async function record() {
     const updated = await store.command(
-      () => store.services.recordChannelTest(testInk, testResult),
+      (s) => s.recordChannelTest(testInk, testResult),
       "Channel test result recorded",
     );
     if (updated) setup = updated;
