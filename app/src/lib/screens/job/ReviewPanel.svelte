@@ -111,7 +111,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    padding: 10px 12px;
+    padding: 12px 12px;
     background: var(--review-bg);
     color: var(--review-fg);
     border-radius: 8px;

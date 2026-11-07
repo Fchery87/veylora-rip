@@ -66,7 +66,7 @@
   }
   .planes {
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
   .viewport {
     width: 100%;
@@ -75,13 +75,13 @@
     border-radius: 8px;
     display: grid;
     place-items: center;
-    color: #fff;
+    color: var(--canvas-text);
     font-size: 13px;
   }
   .meta {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 2px 16px;
+    gap: 4px 16px;
     margin: 0;
     font-size: 13px;
   }

@@ -19,14 +19,14 @@
 <style>
   :global(.plane) {
     width: 36px;
-    padding: 4px 0 6px;
+    padding: 4px 0 8px;
     border: 1px solid var(--line-strong);
     border-radius: 6px;
     background: var(--surface);
     color: var(--text-2);
     font-weight: 600;
     display: grid;
-    gap: 3px;
+    gap: 4px;
     justify-items: center;
     cursor: pointer;
   }

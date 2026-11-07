@@ -55,7 +55,7 @@
   }
   article {
     display: grid;
-    gap: 6px;
+    gap: 8px;
     padding: 12px 0;
     border-top: 1px solid var(--line);
     justify-items: start;

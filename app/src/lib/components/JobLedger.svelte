@@ -84,9 +84,9 @@
   }
   .row {
     display: grid;
-    gap: 2px;
-    margin: 2px 8px;
-    padding: 10px 12px;
+    gap: 4px;
+    margin: 4px 8px;
+    padding: 12px 12px;
     border-radius: 8px;
     cursor: pointer;
   }

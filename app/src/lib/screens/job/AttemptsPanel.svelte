@@ -38,7 +38,7 @@
     display: grid;
     grid-template-columns: 90px 110px 160px 1fr;
     gap: 12px;
-    padding: 10px 12px;
+    padding: 12px 12px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-left-width: 3px;

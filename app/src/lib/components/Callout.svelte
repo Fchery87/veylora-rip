@@ -11,7 +11,7 @@
 
 <style>
   .callout {
-    padding: 10px 12px;
+    padding: 12px 12px;
     border-radius: 8px;
     border-left: 3px solid currentColor;
     font-size: 13px;

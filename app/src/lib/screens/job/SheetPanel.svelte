@@ -145,7 +145,7 @@
     border-radius: 8px;
     display: grid;
     place-items: center;
-    padding: 36px 0;
+    padding: 32px 0;
   }
   .sheet {
     height: 340px;
@@ -158,7 +158,7 @@
   }
   .placement {
     position: absolute;
-    background: rgb(46 107 230 / 0.35);
+    background: var(--placement-fill);
     outline: 1px solid var(--select-inner);
     box-shadow: 0 0 0 1px var(--select-outer);
   }
@@ -179,7 +179,7 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 6px;
+    gap: 8px;
   }
   li {
     display: grid;
