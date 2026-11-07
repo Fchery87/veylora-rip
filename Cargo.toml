@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["crates/veylora-app"]
+
+[workspace.package]
+edition = "2021"
+version = "0.0.0"
+license = "UNLICENSED"
+publish = false
