@@ -4,7 +4,7 @@
   import Tag from "../../components/Tag.svelte";
   import type { AppStore } from "../../store.svelte";
   import { WHITE_MASK_SOURCES, type CapabilityState, type JobDetail } from "../../services/types";
-  import { STAGES, type StageId } from "../../status";
+  import { simulationSource, STAGES, type StageId } from "../../status";
 
   let { store, job, caps }: { store: AppStore; job: JobDetail; caps: CapabilityState } = $props();
 
@@ -26,7 +26,7 @@
 
 <div class="layout">
   <div class="stage-col">
-    <div class="chip-row"><StageChip {stage} source="simulation" fixture={caps.dataSource === "fixture"} /></div>
+    <div class="chip-row"><StageChip {stage} source={simulationSource(caps.dataSource)} /></div>
     <div class="surround">
       <div
         class="sheet stage-{stage}"

@@ -119,9 +119,22 @@ describe("labels and unsupported controls", () => {
     await openJob(user, /Front chest/);
     await user.click(screen.getByRole("tab", { name: "Sheet" }));
     const chip = screen.getByTestId("stage-chip");
-    expect(chip).toHaveTextContent("Simulation");
-    expect(chip).toHaveTextContent("Fixture data");
-    expect(chip).toHaveTextContent("Not physical output");
+    expect(chip).toHaveTextContent(
+      "Garment simulation · approximate, not a color proof · simulation · Fixture data · Not physical output",
+    );
+  });
+
+  it("labels inspect previews with the same simulation, fixture and non-physical vocabulary", async () => {
+    const { user } = await openApp();
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    expect(screen.getByTestId("stage-chip")).toHaveTextContent(
+      "Logical planes: C M Y K W · continuous tone · simulation · Fixture data · Not physical output",
+    );
+    await user.click(screen.getByRole("radio", { name: "Slots" }));
+    expect(screen.getByTestId("stage-chip")).toHaveTextContent(
+      "Physical-slot raster · W split to W1 and W2 · simulation · Fixture data · Not physical output",
+    );
   });
 
   it("disables white choke with a stated reason when the mode does not support it", async () => {
