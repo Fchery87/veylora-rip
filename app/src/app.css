@@ -1,0 +1,170 @@
+/* Tokens from docs/design.md section 5. Light is the default theme. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --subtle: #f2f4f7;
+  --line: #e4e7ec;
+  --line-strong: #d0d5dd;
+  --text: #101828;
+  --text-2: #344054;
+  --muted: #667085;
+  --accent: #2e6be6;
+  --accent-hover: #2459c9;
+  --on-accent: #ffffff;
+  --accent-soft: #eef4ff;
+  --accent-text: #1d4fb8;
+
+  --ok-fg: #067647;
+  --ok-bg: #ecfdf3;
+  --info-fg: #1d4fb8;
+  --info-bg: #eef4ff;
+  --warn-fg: #b54708;
+  --warn-bg: #fffaeb;
+  --bad-fg: #b42318;
+  --bad-bg: #fef3f2;
+  --review-fg: #6927da;
+  --review-bg: #f4f3ff;
+  --neutral-fg: #344054;
+  --neutral-bg: #f2f4f7;
+
+  --ink-c: #00a0c6;
+  --ink-m: #d4307a;
+  --ink-y: #e8c200;
+  --ink-k: #2a2a2a;
+  --ink-w: #f4f4ef;
+
+  --canvas-surround: #7f7f7f;
+  --film-check-a: #d9d9d9;
+  --film-check-b: #f2f2f2;
+  --garment: #1c1c1e;
+  --select-outer: #ffffff;
+  --select-inner: #101828;
+  --clip-hatch: rgb(220 38 38 / 0.55);
+
+  --shadow-1: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.07);
+  --shadow-sheet: 0 12px 32px -8px rgb(16 24 40 / 0.18);
+
+  --font-ui: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0f17;
+  --surface: #121826;
+  --subtle: #182031;
+  --line: #232b3b;
+  --line-strong: #2f3a4f;
+  --text: #eef1f6;
+  --text-2: #c7cdd8;
+  --muted: #8a94a7;
+  --accent: #5b8cff;
+  --accent-hover: #7aa2ff;
+  --on-accent: #0b0f17;
+  --accent-soft: rgb(91 140 255 / 0.13);
+  --accent-text: #a9c2ff;
+
+  --ok-fg: #47cd89;
+  --ok-bg: rgb(71 205 137 / 0.12);
+  --info-fg: #a9c2ff;
+  --info-bg: rgb(91 140 255 / 0.13);
+  --warn-fg: #fdb022;
+  --warn-bg: rgb(253 176 34 / 0.12);
+  --bad-fg: #f97066;
+  --bad-bg: rgb(249 112 102 / 0.12);
+  --review-fg: #a48afb;
+  --review-bg: rgb(164 138 251 / 0.14);
+  --neutral-fg: #c7cdd8;
+  --neutral-bg: #1b2333;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.5);
+  --shadow-sheet: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 400 14px/21px var(--font-ui);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+h2 {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+}
+
+.page {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  overflow: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
