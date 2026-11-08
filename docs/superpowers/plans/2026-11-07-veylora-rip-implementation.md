@@ -101,34 +101,32 @@ veylora-domain
 - Produces a compiling workspace and a CLI that reports its version.
 - The workspace must expose `veylora-domain` without platform dependencies.
 
-- [x] **Step 1: Write the failing workspace smoke test**
+- [ ] **Step 1: Write the failing workspace smoke test**
 
 Add a domain test that asserts the product version and a CLI test that invokes the binary with `--version` through the chosen command harness.
 
-- [x] **Step 2: Run the failing test**
+- [ ] **Step 2: Run the failing test**
 
 Run: `cargo test --workspace`
 Expected: FAIL because the workspace and version API do not exist.
 
-- [x] **Step 3: Implement the minimal workspace**
+- [ ] **Step 3: Implement the minimal workspace**
 
 Define workspace members, package metadata, a `PRODUCT_NAME` constant, and a CLI `--version` command. Pin dependency versions in the lockfile and configure format/check/clippy jobs.
 
-- [x] **Step 4: Run the baseline checks**
+- [ ] **Step 4: Run the baseline checks**
 
 Run: `cargo fmt --all -- --check`  
 Run: `cargo clippy --workspace --all-targets -- -D warnings`  
 Run: `cargo test --workspace`
 Expected: all pass.
 
-- [x] **Step 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```text
 git add Cargo.toml Cargo.lock crates .github rustfmt.toml clippy.toml
 git commit -m "chore: create Veylora RIP Rust workspace"
 ```
-
-Completed 2026-11-08 in `ee05451`. Workspace checks pass on Windows (40 tests), including clean-worktree validation without frontend build output. Linux headless checks are configured in CI but have not been observed running.
 
 ### Task 0.2: Establish error, ID, hashing, and provenance primitives
 
