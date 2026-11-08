@@ -3616,6 +3616,11 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+<<<<<<< HEAD
+=======
+ "sha2",
+ "uuid",
+>>>>>>> integration/native-foundation
 ]
 
 [[package]]

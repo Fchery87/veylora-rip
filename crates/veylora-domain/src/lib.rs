@@ -2,6 +2,8 @@
 
 pub mod errors;
 pub mod preflight;
+pub mod ids;
+pub mod provenance;
 
 /// Product display name shared by headless and desktop adapters.
 pub const PRODUCT_NAME: &str = "Veylora RIP";
