@@ -1,5 +1,49 @@
 use veylora_diagnostics::targets::{generate_target, PhysicalSize, TargetKind};
 
+#[test]
+fn stable_hash_covers_kind_size_and_all_serialized_geometry() {
+    use veylora_domain::provenance::ContentHash;
+    let target = generate_target(
+        TargetKind::ChannelIdentity,
+        PhysicalSize::new(110.0, 150.0).unwrap(),
+    );
+    let fixture: veylora_diagnostics::targets::DiagnosticTarget = serde_json::from_str(
+        include_str!("../../../fixtures/targets/channel-identity.json"),
+    )
+    .unwrap();
+    assert_eq!(target, fixture);
+    assert_eq!(target.stable_hash(), fixture.stable_hash());
+    assert_eq!(
+        target.stable_hash().to_string(),
+        "b665e1899d93e1290bc076320186b7667c53b72848ebb1c9937b669e90dd6437"
+    );
+    assert_eq!(
+        target.stable_hash(),
+        ContentHash::digest(&serde_json::to_vec(&target).unwrap())
+    );
+    assert_ne!(
+        target.stable_hash(),
+        generate_target(
+            TargetKind::ChannelIdentity,
+            PhysicalSize::new(111.0, 150.0).unwrap()
+        )
+        .stable_hash()
+    );
+    assert_ne!(
+        target.stable_hash(),
+        generate_target(
+            TargetKind::ChannelIdentity,
+            PhysicalSize::new(110.0, 151.0).unwrap()
+        )
+        .stable_hash()
+    );
+    let hashes: std::collections::HashSet<_> = KINDS
+        .into_iter()
+        .map(|kind| generate_target(kind, target.size()).stable_hash())
+        .collect();
+    assert_eq!(hashes.len(), 7);
+}
+
 const KINDS: [TargetKind; 7] = [
     TargetKind::ChannelIdentity,
     TargetKind::Geometry,
@@ -108,6 +152,10 @@ fn every_target_is_bounded_and_deterministic_at_extreme_sizes() {
             let size = PhysicalSize::new(w, h).unwrap();
             let target = generate_target(kind, size);
             assert_eq!(target, generate_target(kind, size));
+            let bytes = serde_json::to_vec(&target).unwrap();
+            let restored: veylora_diagnostics::targets::DiagnosticTarget =
+                serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(restored.stable_hash(), target.stable_hash());
             assert!(target.objects().len() <= 64);
             for object in target.objects() {
                 let b = object.bounds;

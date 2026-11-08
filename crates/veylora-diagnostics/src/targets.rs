@@ -106,6 +106,14 @@ impl TryFrom<TargetWire> for DiagnosticTarget {
     }
 }
 impl DiagnosticTarget {
+    /// SHA-256 of compact serde JSON in this schema's declared field/object order.
+    /// Includes dimensions, logical coverage, alpha, labels and synthetic provenance.
+    /// Changes to geometry or this encoding require a schema version increment.
+    pub fn stable_hash(&self) -> veylora_domain::provenance::ContentHash {
+        let bytes =
+            serde_json::to_vec(self).expect("generated finite geometry is JSON serializable");
+        veylora_domain::provenance::ContentHash::digest(&bytes)
+    }
     pub fn size(&self) -> PhysicalSize {
         self.size
     }
