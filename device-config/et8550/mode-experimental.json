@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "Experimental ET-8550 print mode record. No Epson-specific numeric values are",
+    "assumed by the RIP: every field below is a placeholder requiring a physical",
+    "observation on the converted unit. This file documents the shape expected",
+    "by veylora-device::mode::PrintMode and does not authorize submission."
+  ],
+  "status": "experimental",
+  "mode_label": "et8550-experimental-placeholder",
+  "requires_physical_observation": true,
+  "raster": {
+    "dpi_x": null,
+    "dpi_y": null,
+    "printable_width_px": null,
+    "printable_height_px": null,
+    "band_height_px": null
+  },
+  "protocol": {
+    "label": null,
+    "firmware_fingerprint": null,
+    "channel_sequence": null
+  },
+  "media": {
+    "media_label": null,
+    "feed_path": null,
+    "film_fingerprint": null
+  },
+  "deposition": {
+    "passes": null,
+    "overlap_percent": null,
+    "coverage_caps": null
+  },
+  "quality": {
+    "target_label": null,
+    "notes": "Replace nulls with values measured on the converted ET-8550 before use.",
+    "tolerance_percent": null
+  }
+}

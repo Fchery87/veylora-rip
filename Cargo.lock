@@ -3641,6 +3641,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "veylora-persistence"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "veylora-domain",
+]
+
+[[package]]
 name = "vswhom"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
