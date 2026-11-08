@@ -3618,6 +3618,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "veylora-diagnostics"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "veylora-domain",
+]
+
+[[package]]
 name = "veylora-domain"
 version = "0.0.0"
 dependencies = [
