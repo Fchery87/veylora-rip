@@ -128,8 +128,8 @@ impl JobStore {
     }
 }
 
-const PHYSICAL_GATE_ERROR: &str =
-    "Physical submission is unavailable until the ET-8550 physical gate passes.";
+/// Shown if the gate ever opens before a transport exists.
+const NO_PHYSICAL_TRANSPORT: &str = "Physical submission has no transport yet.";
 
 impl JobStore {
     fn job_mut(&mut self, id: &str) -> Result<&mut JobDetail, String> {
@@ -189,7 +189,7 @@ impl JobStore {
         if !gate.enabled {
             return Err(gate.reason.unwrap_or_default());
         }
-        let n = job
+        let sink_number = job
             .attempts
             .iter()
             .filter(|a| a.kind == AttemptKind::FileSink)
@@ -197,22 +197,27 @@ impl JobStore {
             + 1;
         let number = job_id.trim_start_matches("J-");
         job.attempts.push(Attempt {
-            id: format!("A-{number}-f{n}"),
+            id: format!("A-{number}-f{sink_number}"),
             kind: AttemptKind::FileSink,
             at: "now".to_owned(),
             outcome: AttemptOutcome::Finished,
             note: "Written to the file sink. Not physical output.".to_owned(),
-            sink_path: Some(format!(r"C:\Veylora\sink\{job_id}-{n}.vrip")),
+            sink_path: Some(format!(r"C:\Veylora\sink\{job_id}-{sink_number}.vrip")),
         });
         job.summary.state = JobState::Held;
         Ok(job.clone())
     }
 
-    /// Physical submission. Always refused until the physical gate passes;
-    /// it never creates an attempt.
+    /// Physical submission. Refused for the same reason the release control
+    /// shows (`job_actions::release_to_printer`); it never creates an attempt.
     pub fn release_to_printer(&mut self, job_id: &str) -> Result<JobDetail, String> {
-        self.job_mut(job_id)?;
-        Err(PHYSICAL_GATE_ERROR.to_owned())
+        let caps = self.capabilities();
+        let job = self.job_mut(job_id)?;
+        let gate = job_actions::release_to_printer(&caps, job);
+        if !gate.enabled {
+            return Err(gate.reason.unwrap_or_default());
+        }
+        Err(NO_PHYSICAL_TRANSPORT.to_owned())
     }
 
     /// Records the operator's outcome for an attempt in review. It never

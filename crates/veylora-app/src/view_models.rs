@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::state::DataSource;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Tone {
@@ -320,7 +322,9 @@ pub struct ReviewChoiceView {
 pub struct ReviewAttemptView {
     pub id: String,
     pub last_signal: String,
-    pub source: String,
+    pub source: DataSource,
+    /// Operator-facing label for `source`.
+    pub source_label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

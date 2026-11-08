@@ -22,7 +22,7 @@ fn every_blocking_fixture_finding_has_a_visible_correction() {
     let mut seen_blocking = 0;
     for summary in store.list() {
         let job = store.get(&summary.id).unwrap();
-        let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+        let view = preflight::present(&job, &CapabilityState::fixture());
         for group in &view.groups {
             for finding in &group.findings {
                 if finding.severity == Severity::Blocking {
@@ -46,7 +46,7 @@ fn every_blocking_fixture_finding_has_a_visible_correction() {
 fn a_blocking_finding_without_a_fix_still_shows_a_correction() {
     let mut job = JobStore::fixture().get("J-0144").unwrap();
     job.findings = vec![blocking("f9", "   ")];
-    let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&job, &CapabilityState::fixture());
     let finding = &view.groups[0].findings[0];
     assert!(!finding.correction.trim().is_empty());
     assert!(finding.correction.contains("no automatic fix"));
@@ -55,7 +55,7 @@ fn a_blocking_finding_without_a_fix_still_shows_a_correction() {
 #[test]
 fn blocking_findings_use_the_authored_fix_and_group_first_with_a_bad_summary() {
     let job = JobStore::fixture().get("J-0144").unwrap();
-    let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&job, &CapabilityState::fixture());
     assert_eq!(view.groups[0].title, "Blocking");
     assert_eq!(
         view.groups[0].findings[0].correction,
@@ -72,11 +72,11 @@ fn blocking_findings_use_the_authored_fix_and_group_first_with_a_bad_summary() {
 #[test]
 fn only_confirm_findings_can_be_acknowledged() {
     let job = JobStore::fixture().get("J-0145").unwrap();
-    let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&job, &CapabilityState::fixture());
     assert!(view.groups[0].findings[0].can_acknowledge);
     assert_eq!(view.summary.text, "1 to confirm");
     let blocked = JobStore::fixture().get("J-0144").unwrap();
-    let view = preflight::present(&blocked, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&blocked, &CapabilityState::fixture());
     assert!(!view.groups[0].findings[0].can_acknowledge);
 }
 
@@ -245,7 +245,17 @@ fn release_to_printer_is_refused_until_the_physical_gate_passes() {
         .as_deref()
         .unwrap()
         .contains("physical gate passes"));
-    assert!(store.release_to_printer("J-0143").is_err());
+    let draft = store.get("J-0145").unwrap();
+    assert_eq!(
+        store.release_to_printer("J-0145").unwrap_err(),
+        job_actions::release_to_printer(&caps, &draft).reason.unwrap(),
+        "a draft job is refused for the presenter's reason too"
+    );
+    assert_eq!(
+        store.release_to_printer("J-0143").unwrap_err(),
+        actions.release_to_printer.reason.unwrap(),
+        "the command refuses with exactly the reason the presenter shows"
+    );
     assert_eq!(
         store.get("J-0143").unwrap().attempts.len(),
         0,
@@ -278,9 +288,16 @@ fn an_open_review_blocks_the_printer_and_surfaces_in_capabilities() {
         (open.job_id.as_str(), open.attempt_id.as_str()),
         ("J-0142", "A-0142-1")
     );
-    let view = review::present(&store.get("J-0142").unwrap()).unwrap();
+    let view = review::present(&caps, &store.get("J-0142").unwrap()).unwrap();
     assert!(view.printer_blocked);
     assert_eq!(view.attempt.id, "A-0142-1");
+    assert_eq!(view.attempt.source, DataSource::Fixture);
+    assert_eq!(view.attempt.source_label, "Fixture data");
+    let mut live = caps.clone();
+    live.data_source = DataSource::Live;
+    let live_view = review::present(&live, &store.get("J-0142").unwrap()).unwrap();
+    assert_eq!(live_view.attempt.source, DataSource::Live);
+    assert_ne!(live_view.attempt.source_label, "Fixture data");
     let outcomes: Vec<_> = view.choices.iter().map(|c| c.outcome).collect();
     assert_eq!(
         outcomes,
@@ -295,7 +312,7 @@ fn an_open_review_blocks_the_printer_and_surfaces_in_capabilities() {
         .choices
         .iter()
         .all(|c| !c.effect.is_empty() && !c.confirm_label.is_empty()));
-    assert!(review::present(&store.get("J-0143").unwrap()).is_none());
+    assert!(review::present(&caps, &store.get("J-0143").unwrap()).is_none());
 }
 
 #[test]
@@ -431,8 +448,7 @@ fn view_models_serialize_with_the_frontend_field_names() {
     let store = JobStore::fixture();
     let caps = store.capabilities();
     let job = store.get("J-0144").unwrap();
-    let json =
-        serde_json::to_value(preflight::present(&job, "Home bench rev 3", "PM-exp-01")).unwrap();
+    let json = serde_json::to_value(preflight::present(&job, &caps)).unwrap();
     assert_eq!(json["groups"][0]["findings"][0]["canAcknowledge"], false);
     assert_eq!(json["groups"][0]["tone"], "bad");
     assert_eq!(json["openCount"], 1);

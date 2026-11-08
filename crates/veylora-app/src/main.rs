@@ -21,7 +21,7 @@ use veylora_app_lib::view_models::{
 struct Jobs(Mutex<JobStore>);
 
 impl Jobs {
-    fn with<T>(&self, f: impl FnOnce(&mut JobStore) -> Result<T, String>) -> Result<T, String> {
+    fn with_store<T>(&self, f: impl FnOnce(&mut JobStore) -> Result<T, String>) -> Result<T, String> {
         let mut store = self
             .0
             .lock()
@@ -32,34 +32,29 @@ impl Jobs {
 
 #[tauri::command]
 fn get_capabilities(jobs: State<Jobs>) -> Result<CapabilityState, String> {
-    jobs.with(|s| Ok(s.capabilities()))
+    jobs.with_store(|s| Ok(s.capabilities()))
 }
 
 #[tauri::command]
 fn list_jobs(jobs: State<Jobs>) -> Result<Vec<JobSummary>, String> {
-    jobs.with(|s| Ok(s.list()))
+    jobs.with_store(|s| Ok(s.list()))
 }
 
 #[tauri::command]
 fn get_job(jobs: State<Jobs>, job_id: String) -> Result<JobDetail, String> {
-    jobs.with(|s| s.get(&job_id))
+    jobs.with_store(|s| s.get(&job_id))
 }
 
 #[tauri::command]
 fn get_preflight_view(jobs: State<Jobs>, job_id: String) -> Result<PreflightView, String> {
-    jobs.with(|s| {
-        let caps = s.capabilities();
-        Ok(preflight::present(
-            &s.get(&job_id)?,
-            &caps.setup.name,
-            &caps.mode.id,
-        ))
+    jobs.with_store(|s| {
+        Ok(preflight::present(&s.get(&job_id)?, &s.capabilities()))
     })
 }
 
 #[tauri::command]
 fn get_job_actions(jobs: State<Jobs>, job_id: String) -> Result<JobActionsView, String> {
-    jobs.with(|s| Ok(job_actions::present(&s.capabilities(), &s.get(&job_id)?)))
+    jobs.with_store(|s| Ok(job_actions::present(&s.capabilities(), &s.get(&job_id)?)))
 }
 
 #[tauri::command]
@@ -68,7 +63,7 @@ fn get_inspect_view(
     job_id: String,
     selection: InspectSelection,
 ) -> Result<InspectView, String> {
-    jobs.with(|s| inspect::present(&s.get(&job_id)?, &s.capabilities(), &selection))
+    jobs.with_store(|s| inspect::present(&s.get(&job_id)?, &s.capabilities(), &selection))
 }
 
 #[tauri::command]
@@ -80,12 +75,12 @@ fn toggle_inspect_plane(
     on: bool,
 ) -> Result<InspectView, String> {
     let next = inspect::toggle_plane(&selection, plane, on);
-    jobs.with(|s| inspect::present(&s.get(&job_id)?, &s.capabilities(), &next))
+    jobs.with_store(|s| inspect::present(&s.get(&job_id)?, &s.capabilities(), &next))
 }
 
 #[tauri::command]
 fn get_review_view(jobs: State<Jobs>, job_id: String) -> Result<Option<ReviewView>, String> {
-    jobs.with(|s| Ok(review::present(&s.get(&job_id)?)))
+    jobs.with_store(|s| Ok(review::present(&s.capabilities(), &s.get(&job_id)?)))
 }
 
 #[tauri::command]
@@ -94,22 +89,22 @@ fn acknowledge_finding(
     job_id: String,
     finding_id: String,
 ) -> Result<JobDetail, String> {
-    jobs.with(|s| s.acknowledge_finding(&job_id, &finding_id))
+    jobs.with_store(|s| s.acknowledge_finding(&job_id, &finding_id))
 }
 
 #[tauri::command]
 fn render_and_hold(jobs: State<Jobs>, job_id: String) -> Result<JobDetail, String> {
-    jobs.with(|s| s.render_and_hold(&job_id))
+    jobs.with_store(|s| s.render_and_hold(&job_id))
 }
 
 #[tauri::command]
 fn write_to_file_sink(jobs: State<Jobs>, job_id: String) -> Result<JobDetail, String> {
-    jobs.with(|s| s.write_to_file_sink(&job_id))
+    jobs.with_store(|s| s.write_to_file_sink(&job_id))
 }
 
 #[tauri::command]
 fn release_to_printer(jobs: State<Jobs>, job_id: String) -> Result<JobDetail, String> {
-    jobs.with(|s| s.release_to_printer(&job_id))
+    jobs.with_store(|s| s.release_to_printer(&job_id))
 }
 
 #[tauri::command]
@@ -118,7 +113,7 @@ fn resolve_review(
     attempt_id: String,
     outcome: ReviewOutcome,
 ) -> Result<CapabilityState, String> {
-    jobs.with(|s| s.resolve_review(&attempt_id, outcome))
+    jobs.with_store(|s| s.resolve_review(&attempt_id, outcome))
 }
 
 #[tauri::command]
@@ -127,7 +122,7 @@ fn set_white_policy(
     job_id: String,
     policy: String,
 ) -> Result<JobDetail, String> {
-    jobs.with(|s| s.set_white_policy(&job_id, &policy))
+    jobs.with_store(|s| s.set_white_policy(&job_id, &policy))
 }
 
 #[tauri::command]
@@ -137,12 +132,12 @@ fn set_white_mask(
     source: String,
     invert: bool,
 ) -> Result<JobDetail, String> {
-    jobs.with(|s| s.set_white_mask(&job_id, &source, invert))
+    jobs.with_store(|s| s.set_white_mask(&job_id, &source, invert))
 }
 
 #[tauri::command]
 fn set_white_choke(jobs: State<Jobs>, job_id: String, choke_mm: f64) -> Result<JobDetail, String> {
-    jobs.with(|s| s.set_white_choke(&job_id, choke_mm))
+    jobs.with_store(|s| s.set_white_choke(&job_id, choke_mm))
 }
 
 fn main() {

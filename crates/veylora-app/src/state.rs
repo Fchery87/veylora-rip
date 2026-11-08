@@ -17,6 +17,16 @@ pub enum DataSource {
     Live,
 }
 
+impl DataSource {
+    /// How a value from this source is labeled to the operator.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Fixture => "Fixture data",
+            Self::Live => "Live data",
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]

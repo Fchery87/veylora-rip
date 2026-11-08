@@ -3,6 +3,7 @@
 //! An ambiguous attempt is never retried automatically: the operator records
 //! what happened, and a reprint is a new held job state, not a send.
 
+use crate::state::CapabilityState;
 use crate::view_models::{
     Attempt, JobDetail, ReviewAttemptView, ReviewChoiceView, ReviewOutcome, ReviewView,
 };
@@ -50,7 +51,7 @@ pub fn open_attempt(job: &JobDetail) -> Option<&Attempt> {
     job.attempts.iter().find(|a| a.outcome.is_open_review())
 }
 
-pub fn present(job: &JobDetail) -> Option<ReviewView> {
+pub fn present(caps: &CapabilityState, job: &JobDetail) -> Option<ReviewView> {
     let attempt = open_attempt(job)?;
     Some(ReviewView {
         headline: "Check the printer before printing anything else".to_owned(),
@@ -61,7 +62,8 @@ pub fn present(job: &JobDetail) -> Option<ReviewView> {
         attempt: ReviewAttemptView {
             id: attempt.id.clone(),
             last_signal: attempt.at.clone(),
-            source: "Fixture data".to_owned(),
+            source: caps.data_source,
+            source_label: caps.data_source.label().to_owned(),
         },
         choices: choices(),
         printer_blocked: true,

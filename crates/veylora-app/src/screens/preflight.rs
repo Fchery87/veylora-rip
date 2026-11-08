@@ -1,5 +1,6 @@
 //! Preflight tab presentation (design 3.8).
 
+use crate::state::CapabilityState;
 use crate::view_models::{
     Finding, FindingGroupView, FindingView, JobDetail, PreflightView, Severity, SummaryView, Tone,
 };
@@ -42,7 +43,7 @@ fn summary(job: &JobDetail, blocking: usize, to_confirm: usize) -> SummaryView {
 }
 
 /// Builds the preflight view for a job against the active setup and mode.
-pub fn present(job: &JobDetail, setup_label: &str, mode_id: &str) -> PreflightView {
+pub fn present(job: &JobDetail, caps: &CapabilityState) -> PreflightView {
     let groups = [
         (Severity::Blocking, "Blocking", Tone::Bad),
         (Severity::Confirm, "Confirm", Tone::Warn),
@@ -77,7 +78,10 @@ pub fn present(job: &JobDetail, setup_label: &str, mode_id: &str) -> PreflightVi
         .count();
 
     PreflightView {
-        checked_against: format!("Checked just now against {setup_label}, mode {mode_id}"),
+        checked_against: format!(
+            "Checked just now against {}, mode {}",
+            caps.setup.name, caps.mode.id
+        ),
         groups,
         summary: summary(job, blocking, to_confirm),
         open_count: blocking + to_confirm,

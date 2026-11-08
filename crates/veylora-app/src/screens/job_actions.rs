@@ -4,11 +4,13 @@
 use crate::state::CapabilityState;
 use crate::view_models::{CommandView, JobActionsView, JobDetail, JobState, Severity};
 
-const PHYSICAL_GATE: &str =
+/// The one reason physical submission is refused. The release command and the
+/// release control both read it through `release_to_printer`.
+pub const PHYSICAL_GATE: &str =
     "Physical submission is unavailable until the ET-8550 physical gate passes";
 
-fn count_label(n: usize, noun: &str) -> String {
-    format!("{n} {noun}{}", if n == 1 { "" } else { "s" })
+fn count_label(count: usize, noun: &str) -> String {
+    format!("{count} {noun}{}", if count == 1 { "" } else { "s" })
 }
 
 pub fn render_and_hold(job: &JobDetail) -> CommandView {
