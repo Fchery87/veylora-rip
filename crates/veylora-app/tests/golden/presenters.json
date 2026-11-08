@@ -1,0 +1,3248 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Render and hold the job first"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": false,
+            "reason": "Render and hold the job before writing to the file sink"
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Logical planes: C M Y K W · continuous tone · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0142"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Logical plane K"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "None: artwork orientation, no transform"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Artwork orientation"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": true
+              },
+              {
+                "plane": "W",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [
+                "K"
+              ],
+              "stage": "logical"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for plane K"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": {
+          "attempt": {
+            "id": "A-0142-1",
+            "source": "fixture",
+            "sourceLabel": "Fixture data"
+          },
+          "body": "Attempt A-0142-1 ended without a confirmed result. It may or may not have printed. Nothing can be sent to this printer until you record what happened.",
+          "choices": [
+            {
+              "confirmLabel": "Mark finished",
+              "effect": "The attempt will be recorded as finished by the operator. No new attempt is created.",
+              "label": "It printed correctly",
+              "outcome": "finished"
+            },
+            {
+              "confirmLabel": "Create reprint attempt",
+              "effect": "The attempt will be recorded as not printed and a reprint attempt will be created held.",
+              "label": "Nothing printed, reprint",
+              "outcome": "reprint"
+            },
+            {
+              "confirmLabel": "Create reprint attempt",
+              "effect": "The attempt will be recorded as printed badly and a reprint attempt will be created held.",
+              "label": "Printed badly, reprint",
+              "outcome": "printed-badly"
+            },
+            {
+              "confirmLabel": "Keep in review",
+              "effect": "The attempt stays in review. The printer remains blocked until it is resolved.",
+              "label": "Decide later",
+              "outcome": "decide-later"
+            }
+          ],
+          "facts": [
+            {
+              "label": "Bytes written / intended",
+              "value": "1048576 / 4194304"
+            },
+            {
+              "label": "Spool job ID",
+              "value": "SPOOL-0142"
+            },
+            {
+              "label": "Last signal",
+              "value": "09:14:02"
+            },
+            {
+              "label": "Source",
+              "value": "Fixture data"
+            }
+          ],
+          "headline": "Check the printer before printing anything else",
+          "printerBlocked": true,
+          "whatWasSent": {
+            "artifactHash": "sha256:fixture-artifact-0142",
+            "artifactSize": "4194304 bytes",
+            "placements": [
+              "artwork.png · 20, 30 mm · 180 x 240 mm"
+            ],
+            "snapshotHash": "sha256:fixture-0000"
+          }
+        }
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [
+            {
+              "artifactHash": "sha256:fixture-artifact-0142",
+              "at": "09:14:02",
+              "bytesIntended": 4194304,
+              "bytesWritten": 1048576,
+              "id": "A-0142-1",
+              "kind": "printer",
+              "note": "Spool ended before confirmation. Fixture data.",
+              "outcome": "ambiguous",
+              "spoolJobId": "SPOOL-0142"
+            }
+          ],
+          "findings": [],
+          "id": "J-0142",
+          "name": "North Ridge tee run",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "ambiguous",
+          "updated": "12 min ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "J-0142 default selection"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Physical submission is unavailable until the ET-8550 physical gate passes"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Logical planes: C M Y K W · continuous tone · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0143"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Logical plane K"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "None: artwork orientation, no transform"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Artwork orientation"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": true
+              },
+              {
+                "plane": "W",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [
+                "K"
+              ],
+              "stage": "logical"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for plane K"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "J-0143 default selection"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": false,
+            "reason": "Render the job to inspect its retained output."
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Render and hold the job first"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Fix 1 blocking finding to render"
+          },
+          "writeToFileSink": {
+            "enabled": false,
+            "reason": "Render and hold the job before writing to the file sink"
+          }
+        },
+        "inspect": {
+          "error": "Render the job to inspect its retained output."
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [
+            {
+              "findings": [
+                {
+                  "acknowledged": false,
+                  "canAcknowledge": false,
+                  "cause": "sleeve.png extends past the left edge of the printable box.",
+                  "correction": "Move it left by at least 4.2 mm",
+                  "id": "f1",
+                  "placementId": "p1",
+                  "severity": "blocking",
+                  "title": "Placement is outside the printable area"
+                }
+              ],
+              "severity": "blocking",
+              "title": "Blocking",
+              "tone": "bad"
+            }
+          ],
+          "openCount": 1,
+          "summary": {
+            "text": "1 blocking",
+            "tone": "bad"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [
+            {
+              "acknowledged": false,
+              "cause": "sleeve.png extends past the left edge of the printable box.",
+              "fix": "Move it left by at least 4.2 mm",
+              "id": "f1",
+              "placementId": "p1",
+              "severity": "blocking",
+              "title": "Placement is outside the printable area"
+            }
+          ],
+          "id": "J-0144",
+          "name": "Hoodie sleeve",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": true,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "sleeve.png",
+              "widthMm": 180.0,
+              "xMm": -4.2,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": false,
+          "sheet": "A3",
+          "state": "draft",
+          "updated": "just now",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "J-0144 default selection"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": false,
+            "reason": "Render the job to inspect its retained output."
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Render and hold the job first"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Confirm 1 finding to render"
+          },
+          "writeToFileSink": {
+            "enabled": false,
+            "reason": "Render and hold the job before writing to the file sink"
+          }
+        },
+        "inspect": {
+          "error": "Render the job to inspect its retained output."
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [
+            {
+              "findings": [
+                {
+                  "acknowledged": false,
+                  "canAcknowledge": true,
+                  "cause": "pocket.png is untagged, so sRGB is assumed.",
+                  "correction": "Confirm sRGB is correct, or re-export the file with a profile.",
+                  "id": "f2",
+                  "placementId": "p1",
+                  "severity": "confirm",
+                  "title": "Artwork has no color profile"
+                }
+              ],
+              "severity": "confirm",
+              "title": "Confirm",
+              "tone": "warn"
+            }
+          ],
+          "openCount": 1,
+          "summary": {
+            "text": "1 to confirm",
+            "tone": "warn"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [
+            {
+              "acknowledged": false,
+              "cause": "pocket.png is untagged, so sRGB is assumed.",
+              "fix": "Confirm sRGB is correct, or re-export the file with a profile.",
+              "id": "f2",
+              "placementId": "p1",
+              "severity": "confirm",
+              "title": "Artwork has no color profile"
+            }
+          ],
+          "id": "J-0145",
+          "name": "Pocket print",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": false,
+          "sheet": "A3",
+          "state": "draft",
+          "updated": "just now",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "J-0145 default selection"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Physical submission is unavailable until the ET-8550 physical gate passes"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Physical-slot raster · W split to W1 and W2 · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0143"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "None selected"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "Mode PM-exp-01 mirrors for film; the UI does not"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Film orientation, mirrored by the mode"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": false
+              },
+              {
+                "plane": "W1",
+                "pressed": false
+              },
+              {
+                "plane": "W2",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [],
+              "stage": "slots"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for no plane"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "W"
+          ],
+          "stage": "slots"
+        }
+      },
+      "name": "slots with logical white is dropped"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Physical submission is unavailable until the ET-8550 physical gate passes"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Physical-slot raster · W split to W1 and W2 · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0143"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Physical slot W1"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "Mode PM-exp-01 mirrors for film; the UI does not"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Film orientation, mirrored by the mode"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": false
+              },
+              {
+                "plane": "W1",
+                "pressed": true
+              },
+              {
+                "plane": "W2",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [
+                "W1"
+              ],
+              "stage": "slots"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for plane W1"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "W1"
+          ],
+          "stage": "slots"
+        }
+      },
+      "name": "slots single slot"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Physical submission is unavailable until the ET-8550 physical gate passes"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Screened device raster · Composite simulation of retained planes · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": true
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0143"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Composite of retained planes"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "Mode PM-exp-01 mirrors for film; the UI does not"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Film orientation, mirrored by the mode"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": false
+              },
+              {
+                "plane": "W1",
+                "pressed": false
+              },
+              {
+                "plane": "W2",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": true,
+              "planes": [],
+              "stage": "screened"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for composite of retained planes"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": true,
+          "planes": [],
+          "stage": "screened"
+        }
+      },
+      "name": "screened composite"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Physical submission is unavailable until the ET-8550 physical gate passes"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "error": "Inspect shows the Logical, Slots, and Screened stages."
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [],
+          "stage": "garment"
+        }
+      },
+      "name": "garment stage is refused"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Render and hold the job first"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": false,
+            "reason": "Render and hold the job before writing to the file sink"
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Logical planes: C M Y K W · continuous tone · simulation · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0142"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Logical plane K"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "None: artwork orientation, no transform"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Artwork orientation"
+              }
+            ],
+            "metadataNote": "No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": true
+              },
+              {
+                "plane": "W",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [
+                "K"
+              ],
+              "stage": "logical"
+            },
+            "source": "simulation",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for plane K"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": {
+          "attempt": {
+            "id": "A-0142-1",
+            "source": "live",
+            "sourceLabel": "Live data"
+          },
+          "body": "Attempt A-0142-1 ended without a confirmed result. It may or may not have printed. Nothing can be sent to this printer until you record what happened.",
+          "choices": [
+            {
+              "confirmLabel": "Mark finished",
+              "effect": "The attempt will be recorded as finished by the operator. No new attempt is created.",
+              "label": "It printed correctly",
+              "outcome": "finished"
+            },
+            {
+              "confirmLabel": "Create reprint attempt",
+              "effect": "The attempt will be recorded as not printed and a reprint attempt will be created held.",
+              "label": "Nothing printed, reprint",
+              "outcome": "reprint"
+            },
+            {
+              "confirmLabel": "Create reprint attempt",
+              "effect": "The attempt will be recorded as printed badly and a reprint attempt will be created held.",
+              "label": "Printed badly, reprint",
+              "outcome": "printed-badly"
+            },
+            {
+              "confirmLabel": "Keep in review",
+              "effect": "The attempt stays in review. The printer remains blocked until it is resolved.",
+              "label": "Decide later",
+              "outcome": "decide-later"
+            }
+          ],
+          "facts": [
+            {
+              "label": "Bytes written / intended",
+              "value": "1048576 / 4194304"
+            },
+            {
+              "label": "Spool job ID",
+              "value": "SPOOL-0142"
+            },
+            {
+              "label": "Last signal",
+              "value": "09:14:02"
+            },
+            {
+              "label": "Source",
+              "value": "Live data"
+            }
+          ],
+          "headline": "Check the printer before printing anything else",
+          "printerBlocked": true,
+          "whatWasSent": {
+            "artifactHash": "sha256:fixture-artifact-0142",
+            "artifactSize": "4194304 bytes",
+            "placements": [
+              "artwork.png · 20, 30 mm · 180 x 240 mm"
+            ],
+            "snapshotHash": "sha256:fixture-0000"
+          }
+        }
+      },
+      "input": {
+        "caps": {
+          "dataSource": "live",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [
+            {
+              "artifactHash": "sha256:fixture-artifact-0142",
+              "at": "09:14:02",
+              "bytesIntended": 4194304,
+              "bytesWritten": 1048576,
+              "id": "A-0142-1",
+              "kind": "printer",
+              "note": "Spool ended before confirmation. Fixture data.",
+              "outcome": "ambiguous",
+              "spoolJobId": "SPOOL-0142"
+            }
+          ],
+          "findings": [],
+          "id": "J-0142",
+          "name": "North Ridge tee run",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "ambiguous",
+          "updated": "12 min ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "live data source"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Physical submission is unavailable until the ET-8550 physical gate passes"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "error": "The active print mode does not support screened inspection."
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": false,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "screened"
+        }
+      },
+      "name": "screened unsupported by the mode"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Physical submission is unavailable until the ET-8550 physical gate passes"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Logical planes: C M Y K W · continuous tone · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0143"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Logical plane K"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "None: artwork orientation, no transform"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Artwork orientation"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": true
+              },
+              {
+                "plane": "W",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [
+                "K"
+              ],
+              "stage": "logical"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": true,
+                "id": "screened",
+                "label": "Screened",
+                "reason": "The active print mode does not support screened inspection."
+              }
+            ],
+            "viewportLabel": "Placeholder for plane K"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": false,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "screened option disabled"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": false,
+            "reason": "Render the job to inspect its retained output."
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Render and hold the job first"
+          },
+          "renderAndHold": {
+            "enabled": true
+          },
+          "writeToFileSink": {
+            "enabled": false,
+            "reason": "Render and hold the job before writing to the file sink"
+          }
+        },
+        "inspect": {
+          "error": "Render the job to inspect its retained output."
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [
+            {
+              "findings": [
+                {
+                  "acknowledged": true,
+                  "acknowledgement": "Acknowledged by Fixture operator at 10:00:00 UTC",
+                  "canAcknowledge": false,
+                  "cause": "pocket.png is untagged, so sRGB is assumed.",
+                  "correction": "Confirm sRGB is correct, or re-export the file with a profile.",
+                  "id": "f2",
+                  "placementId": "p1",
+                  "severity": "confirm",
+                  "title": "Artwork has no color profile"
+                }
+              ],
+              "severity": "confirm",
+              "title": "Confirm",
+              "tone": "warn"
+            }
+          ],
+          "openCount": 0,
+          "summary": {
+            "text": "Ready to render",
+            "tone": "ok"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [
+            {
+              "acknowledged": true,
+              "acknowledgement": {
+                "at": "10:00:00 UTC",
+                "operator": "Fixture operator"
+              },
+              "cause": "pocket.png is untagged, so sRGB is assumed.",
+              "fix": "Confirm sRGB is correct, or re-export the file with a profile.",
+              "id": "f2",
+              "placementId": "p1",
+              "severity": "confirm",
+              "title": "Artwork has no color profile"
+            }
+          ],
+          "id": "J-0145",
+          "name": "Pocket print",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": false,
+          "sheet": "A3",
+          "state": "draft",
+          "updated": "just now",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "acknowledged confirm finding"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Render and hold the job first"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": false,
+            "reason": "Render and hold the job before writing to the file sink"
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Logical planes: C M Y K W · continuous tone · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0142"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Logical plane K"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "None: artwork orientation, no transform"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Artwork orientation"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": true
+              },
+              {
+                "plane": "W",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [
+                "K"
+              ],
+              "stage": "logical"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for plane K"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": {
+          "attempt": {
+            "id": "A-0142-1",
+            "source": "fixture",
+            "sourceLabel": "Fixture data"
+          },
+          "body": "Attempt A-0142-1 ended without a confirmed result. It may or may not have printed. Nothing can be sent to this printer until you record what happened.",
+          "choices": [
+            {
+              "confirmLabel": "Mark finished",
+              "effect": "The attempt will be recorded as finished by the operator. No new attempt is created.",
+              "label": "It printed correctly",
+              "outcome": "finished"
+            },
+            {
+              "confirmLabel": "Create reprint attempt",
+              "effect": "The attempt will be recorded as not printed and a reprint attempt will be created held.",
+              "label": "Nothing printed, reprint",
+              "outcome": "reprint"
+            },
+            {
+              "confirmLabel": "Create reprint attempt",
+              "effect": "The attempt will be recorded as printed badly and a reprint attempt will be created held.",
+              "label": "Printed badly, reprint",
+              "outcome": "printed-badly"
+            },
+            {
+              "confirmLabel": "Keep in review",
+              "effect": "The attempt stays in review. The printer remains blocked until it is resolved.",
+              "label": "Decide later",
+              "outcome": "decide-later"
+            }
+          ],
+          "facts": [
+            {
+              "label": "Bytes written / intended",
+              "value": "Not recorded"
+            },
+            {
+              "label": "Spool job ID",
+              "value": "Not recorded"
+            },
+            {
+              "label": "Last signal",
+              "value": "09:14:02"
+            },
+            {
+              "label": "Source",
+              "value": "Fixture data"
+            }
+          ],
+          "headline": "Check the printer before printing anything else",
+          "printerBlocked": true,
+          "whatWasSent": {
+            "artifactHash": "Not recorded",
+            "artifactSize": "4194304 bytes",
+            "placements": [
+              "artwork.png · 20, 30 mm · 180 x 240 mm"
+            ],
+            "snapshotHash": "sha256:fixture-0000"
+          }
+        }
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": false
+          }
+        },
+        "job": {
+          "attempts": [
+            {
+              "at": "09:14:02",
+              "bytesIntended": 4194304,
+              "id": "A-0142-1",
+              "kind": "printer",
+              "note": "Spool ended before confirmation. Fixture data.",
+              "outcome": "ambiguous"
+            }
+          ],
+          "findings": [],
+          "id": "J-0142",
+          "name": "North Ridge tee run",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "ambiguous",
+          "updated": "12 min ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "review with unrecorded facts"
+    },
+    {
+      "expected": {
+        "actions": {
+          "inspect": {
+            "enabled": true
+          },
+          "releaseToPrinter": {
+            "enabled": false,
+            "reason": "Waiting: printer blocked by review of J-0142"
+          },
+          "renderAndHold": {
+            "enabled": false,
+            "reason": "Already rendered. Duplicate as new job to edit."
+          },
+          "writeToFileSink": {
+            "enabled": true
+          }
+        },
+        "inspect": {
+          "ok": {
+            "chip": "Logical planes: C M Y K W · continuous tone · simulation · Fixture data · Not physical output",
+            "composite": {
+              "label": "Composite simulation of retained planes",
+              "pressed": false
+            },
+            "metadata": [
+              {
+                "kind": "identifier",
+                "label": "Job",
+                "value": "J-0143"
+              },
+              {
+                "kind": "text",
+                "label": "Dimensions",
+                "value": "297 x 420 mm · pixel size unavailable until a raster exists"
+              },
+              {
+                "kind": "text",
+                "label": "Plane",
+                "value": "Logical plane K"
+              },
+              {
+                "kind": "identifier",
+                "label": "Mode ID",
+                "value": "PM-exp-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Setup ID",
+                "value": "Home bench rev 3"
+              },
+              {
+                "kind": "identifier",
+                "label": "Recipe ID",
+                "value": "RCP-fixture-01"
+              },
+              {
+                "kind": "identifier",
+                "label": "Profile hash",
+                "value": "sha256:fixture-profile-0000"
+              },
+              {
+                "kind": "identifier",
+                "label": "Screen ID",
+                "value": "SCR-fixture-01"
+              },
+              {
+                "kind": "text",
+                "label": "Transform ownership",
+                "value": "None: artwork orientation, no transform"
+              },
+              {
+                "kind": "identifier",
+                "label": "Artifact hash",
+                "value": "sha256:fixture-artifact-0000"
+              },
+              {
+                "kind": "text",
+                "label": "Orientation",
+                "value": "Artwork orientation"
+              }
+            ],
+            "metadataNote": "Fixture data. No retained artifact exists yet.",
+            "panels": [
+              {
+                "message": "Available when a raster exists",
+                "title": "Coverage"
+              },
+              {
+                "message": "Available when a raster exists",
+                "title": "Loupe"
+              }
+            ],
+            "placeholder": "No raster is shown. Retained artifacts arrive when backend integration is unblocked.",
+            "planes": [
+              {
+                "plane": "C",
+                "pressed": false
+              },
+              {
+                "plane": "M",
+                "pressed": false
+              },
+              {
+                "plane": "Y",
+                "pressed": false
+              },
+              {
+                "plane": "K",
+                "pressed": true
+              },
+              {
+                "plane": "W",
+                "pressed": false
+              }
+            ],
+            "rasterShown": false,
+            "selection": {
+              "composite": false,
+              "planes": [
+                "K"
+              ],
+              "stage": "logical"
+            },
+            "source": "fixture",
+            "stages": [
+              {
+                "disabled": false,
+                "id": "logical",
+                "label": "Logical"
+              },
+              {
+                "disabled": false,
+                "id": "slots",
+                "label": "Slots"
+              },
+              {
+                "disabled": false,
+                "id": "screened",
+                "label": "Screened"
+              }
+            ],
+            "viewportLabel": "Placeholder for plane K"
+          }
+        },
+        "preflight": {
+          "checkedAgainst": "Checked just now against Home bench rev 3, mode PM-exp-01",
+          "groups": [],
+          "openCount": 0,
+          "summary": {
+            "text": "Passed at render",
+            "tone": "neutral"
+          }
+        },
+        "review": null
+      },
+      "input": {
+        "caps": {
+          "dataSource": "fixture",
+          "mode": {
+            "id": "PM-exp-01",
+            "maturity": "experimental",
+            "screenedInspect": true,
+            "sheetSizes": [
+              "A3",
+              "A4"
+            ],
+            "whiteChoke": false,
+            "whiteMaskInvert": false,
+            "whitePolicies": [
+              "Underbase",
+              "No white"
+            ]
+          },
+          "openReview": {
+            "attemptId": "A-0142-1",
+            "jobId": "J-0142",
+            "jobName": "North Ridge tee run"
+          },
+          "setup": {
+            "exists": true,
+            "experimental": false,
+            "name": "Home bench rev 3",
+            "verified": false
+          },
+          "sinks": {
+            "fileSink": true,
+            "physicalPrinter": true
+          }
+        },
+        "job": {
+          "attempts": [],
+          "findings": [],
+          "id": "J-0143",
+          "name": "Front chest logo",
+          "placementCount": 1,
+          "placements": [
+            {
+              "clipped": false,
+              "heightMm": 240.0,
+              "id": "p1",
+              "name": "artwork.png",
+              "widthMm": 180.0,
+              "xMm": 20.0,
+              "yMm": 30.0
+            }
+          ],
+          "provenance": [
+            {
+              "label": "Device setup",
+              "value": "Home bench rev 3"
+            },
+            {
+              "label": "Print mode",
+              "value": "PM-exp-01 (experimental)"
+            },
+            {
+              "label": "Recipe",
+              "value": "RCP-fixture-01"
+            },
+            {
+              "label": "Snapshot hash",
+              "value": "sha256:fixture-0000"
+            }
+          ],
+          "rendered": true,
+          "sheet": "A3",
+          "state": "held",
+          "updated": "1 h ago",
+          "whitePolicy": {
+            "chokeMm": 0.0,
+            "invertMask": false,
+            "policy": "Underbase",
+            "source": "Auto from alpha"
+          }
+        },
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "logical"
+        }
+      },
+      "name": "physical gate open"
+    }
+  ],
+  "toggles": [
+    {
+      "expected": {
+        "composite": false,
+        "planes": [
+          "C"
+        ],
+        "stage": "slots"
+      },
+      "input": {
+        "on": true,
+        "op": "plane",
+        "plane": "C",
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "slots"
+        }
+      },
+      "name": "select replaces"
+    },
+    {
+      "expected": {
+        "composite": false,
+        "planes": [],
+        "stage": "slots"
+      },
+      "input": {
+        "on": false,
+        "op": "plane",
+        "plane": "K",
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "slots"
+        }
+      },
+      "name": "deselect leaves none"
+    },
+    {
+      "expected": {
+        "composite": false,
+        "planes": [
+          "M"
+        ],
+        "stage": "logical"
+      },
+      "input": {
+        "on": true,
+        "op": "plane",
+        "plane": "M",
+        "selection": {
+          "composite": true,
+          "planes": [],
+          "stage": "logical"
+        }
+      },
+      "name": "plane leaves composite"
+    },
+    {
+      "expected": {
+        "composite": true,
+        "planes": [],
+        "stage": "slots"
+      },
+      "input": {
+        "on": true,
+        "op": "composite",
+        "plane": "K",
+        "selection": {
+          "composite": false,
+          "planes": [
+            "K"
+          ],
+          "stage": "slots"
+        }
+      },
+      "name": "composite on"
+    },
+    {
+      "expected": {
+        "composite": false,
+        "planes": [],
+        "stage": "logical"
+      },
+      "input": {
+        "on": false,
+        "op": "composite",
+        "plane": "K",
+        "selection": {
+          "composite": true,
+          "planes": [],
+          "stage": "logical"
+        }
+      },
+      "name": "composite off"
+    }
+  ]
+}
