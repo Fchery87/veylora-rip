@@ -120,7 +120,6 @@ fn record(input: &Path, output: &Path) -> Result<(), String> {
             return Err("observation text must be nonempty and at most 4096 bytes".into());
         }
     }
-    let baseline = &observation.baseline.settings;
     if observation
         .framing
         .as_ref()
@@ -134,27 +133,11 @@ fn record(input: &Path, output: &Path) -> Result<(), String> {
             return Err("evidence path must be nonempty and bounded".into());
         }
     }
-    let candidate = &observation.candidate.settings;
-    if baseline.is_empty() || baseline.len() > 64 || baseline.keys().ne(candidate.keys()) {
-        return Err("comparison must use the same 1..64 setting names".into());
-    }
-    let changed: Vec<_> = baseline
-        .iter()
-        .filter(|(k, v)| candidate.get(*k) != Some(*v))
-        .map(|(k, _)| k)
-        .collect();
-    if changed != vec![&observation.changed_variable] {
-        return Err("comparison must change exactly the declared one variable".into());
-    }
-    for (name, value) in baseline.iter().chain(candidate) {
-        if name.trim().is_empty()
-            || value.trim().is_empty()
-            || name.len() > 128
-            || value.len() > 4096
-        {
-            return Err("invalid comparison setting".into());
-        }
-    }
+    veylora_device::probe::validate_comparison(
+        &observation.baseline.settings,
+        &observation.candidate.settings,
+        &observation.changed_variable,
+    )?;
     let parent = input.parent().unwrap_or(Path::new("."));
     let mut evidence = Vec::new();
     for reference in [&observation.baseline, &observation.candidate] {
