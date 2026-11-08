@@ -143,6 +143,21 @@ Fixture data and simulated output must retain visible labels such as `Fixture da
 - File-sink workflow is reachable through services, not direct backend calls.
 - No UI path presents a fixture or simulation as physical printer output.
 
+## Additional printer-independent requirements from the original plan
+
+The original 2026-11-07 plan remains binding. Phases A-E do not remove these deliverables:
+
+- Task 5.2: fake transport, observer contracts and injected before/during/after-write failures, without actual printer submission.
+- Tasks 6.1-6.2: calibration and recipe storage, compatibility, chart export, measurement import, missing-patch rejection and holdout isolation. Synthetic measurements cannot validate a production recipe.
+- Task 6.3: quality protocol and empty baseline templates, without fabricated measurements.
+- Task 9.1: portable bundles, path-independent references, checksums, safe extraction and schema compatibility.
+- Task 9.2: Windows packaging, prerequisites, release verification, active-submission update refusal and rollback tests. Report any unperformed clean-machine acceptance separately.
+- Task 9.3: dependency, profile, font and fixture license inventory and automated notice checks.
+
+Real offline raster artifacts are labeled `Not printer-ready`, not simulation merely because no printer is attached. Reserve simulation labels for simulated operations and synthetic inputs. Until encoding exists, the offline endpoint exports diagnostic artifacts, not the glossary's native file sink of exact printer-ready bytes.
+
+The architecture arrows above describe data flow, not dependency declarations. Domain depends on no downstream crate. Numerical and device crates depend on domain, rendering composes numerical crates, services compose adapters, and UI calls services.
+
 ## Explicitly deferred native work
 
 Do not implement or enable these as production behavior until the real setup is available and Gate A evidence exists:
