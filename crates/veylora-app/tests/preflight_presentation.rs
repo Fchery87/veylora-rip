@@ -144,19 +144,84 @@ fn selection(stage: StageId, planes: &[Plane]) -> InspectSelection {
     InspectSelection {
         stage,
         planes: planes.to_vec(),
+        composite: false,
     }
 }
 
 #[test]
-fn toggling_a_plane_returns_to_logical_stage_in_canonical_order() {
+fn inspect_starts_on_one_logical_plane() {
+    let default = inspect::default_selection();
+    assert_eq!(default, selection(StageId::Logical, &[Plane::K]));
+}
+
+#[test]
+fn toggling_a_plane_keeps_the_stage_and_shows_one_plane_at_a_time() {
     let start = selection(StageId::Slots, &[Plane::K]);
     let next = inspect::toggle_plane(&start, Plane::C, true);
-    assert_eq!(next.stage, StageId::Logical);
-    assert_eq!(next.planes, vec![Plane::C, Plane::K]);
-    let off = inspect::toggle_plane(&next, Plane::K, false);
-    assert_eq!(off.planes, vec![Plane::C]);
-    let again = inspect::toggle_plane(&off, Plane::C, true);
-    assert_eq!(again.planes, vec![Plane::C], "no duplicates");
+    assert_eq!(next.stage, StageId::Slots, "the stage does not jump");
+    assert_eq!(
+        next.planes,
+        vec![Plane::C],
+        "selecting replaces, never adds"
+    );
+    let again = inspect::toggle_plane(&next, Plane::C, true);
+    assert_eq!(again.planes, vec![Plane::C]);
+    let off = inspect::toggle_plane(&next, Plane::C, false);
+    assert_eq!(off.planes, Vec::<Plane>::new());
+    assert_eq!(off.stage, StageId::Slots);
+}
+
+#[test]
+fn composite_is_a_labeled_simulation_that_replaces_the_single_plane() {
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let start = selection(StageId::Slots, &[Plane::K]);
+    let composite = inspect::set_composite(&start, true);
+    assert!(composite.composite && composite.planes.is_empty());
+    assert_eq!(composite.stage, StageId::Slots);
+    let view = inspect::present(&job, &caps, &composite).unwrap();
+    assert!(view.composite.pressed);
+    assert_eq!(
+        view.composite.label,
+        "Composite simulation of retained planes"
+    );
+    assert!(view.planes.iter().all(|p| !p.pressed));
+    assert!(view
+        .chip
+        .contains("Composite simulation of retained planes"));
+    assert!(view.chip.ends_with("Not physical output"));
+    let back = inspect::toggle_plane(&composite, Plane::M, true);
+    assert!(!back.composite);
+    assert_eq!(back.planes, vec![Plane::M]);
+    let plain = inspect::present(&job, &caps, &start).unwrap();
+    assert!(!plain.composite.pressed);
+    assert!(!plain.chip.contains("Composite"));
+}
+
+#[test]
+fn slots_and_screened_offer_both_white_slots_and_logical_offers_one_white_plane() {
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let names = |stage| {
+        inspect::present(&job, &caps, &selection(stage, &[]))
+            .unwrap()
+            .planes
+            .iter()
+            .map(|p| p.plane)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        names(StageId::Logical),
+        vec![Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W]
+    );
+    let slots = vec![Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W1, Plane::W2];
+    assert_eq!(names(StageId::Slots), slots);
+    assert_eq!(names(StageId::Screened), slots);
+    let view = inspect::present(&job, &caps, &selection(StageId::Slots, &[Plane::W])).unwrap();
+    assert!(
+        view.selection.planes.is_empty(),
+        "a logical W is not a physical slot"
+    );
 }
 
 #[test]
@@ -184,6 +249,52 @@ fn inspect_view_lists_every_plane_and_the_stage_options() {
 }
 
 #[test]
+fn metadata_covers_the_design_fields_and_is_labeled_fixture() {
+    use veylora_app_lib::view_models::MetaKind;
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let view = inspect::present(&job, &caps, &selection(StageId::Slots, &[Plane::K])).unwrap();
+    let labels: Vec<_> = view.metadata.iter().map(|m| m.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        vec![
+            "Job",
+            "Dimensions",
+            "Plane",
+            "Mode ID",
+            "Setup ID",
+            "Recipe ID",
+            "Profile hash",
+            "Screen ID",
+            "Transform ownership",
+            "Artifact hash",
+            "Orientation"
+        ]
+    );
+    let row = |label: &str| view.metadata.iter().find(|m| m.label == label).unwrap();
+    assert_eq!(row("Job").kind, MetaKind::Identifier);
+    assert_eq!(row("Orientation").kind, MetaKind::Text);
+    assert_eq!(row("Plane").value, "Physical slot K");
+    assert!(row("Artifact hash").value.starts_with("sha256:fixture"));
+    assert!(row("Profile hash").value.starts_with("sha256:fixture"));
+    assert!(row("Dimensions").value.contains("297 x 420 mm"));
+    assert!(view.metadata_note.contains("Fixture data"));
+    assert!(row("Transform ownership").value.contains("PM-exp-01"));
+}
+
+#[test]
+fn coverage_and_loupe_are_stubs_without_numbers_until_a_raster_exists() {
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let view = inspect::present(&job, &caps, &selection(StageId::Logical, &[Plane::K])).unwrap();
+    let titles: Vec<_> = view.panels.iter().map(|p| p.title.as_str()).collect();
+    assert_eq!(titles, vec!["Coverage", "Loupe"]);
+    for panel in &view.panels {
+        assert_eq!(panel.message, "Available when a raster exists");
+    }
+}
+
+#[test]
 fn metadata_names_job_mode_and_orientation_per_stage() {
     let caps = CapabilityState::fixture();
     let job = JobStore::fixture().get("J-0143").unwrap();
@@ -198,7 +309,7 @@ fn metadata_names_job_mode_and_orientation_per_stage() {
             .clone()
     };
     assert_eq!(value(&logical, "Job"), "J-0143");
-    assert_eq!(value(&logical, "Mode"), "PM-exp-01");
+    assert_eq!(value(&logical, "Mode ID"), "PM-exp-01");
     assert_eq!(value(&logical, "Orientation"), "Artwork orientation");
     assert_eq!(
         value(&slots, "Orientation"),
@@ -456,7 +567,7 @@ fn every_preview_label_says_it_is_not_physical_output() {
             PreviewSource::Fixture,
             PreviewSource::Retained,
         ] {
-            let chip = inspect::stage_chip_text(stage, source);
+            let chip = inspect::stage_chip_text(stage, source, false);
             assert!(chip.ends_with("Not physical output"), "{chip}");
             let lower = chip.to_lowercase();
             assert!(!lower.contains("final"), "{chip}");
@@ -469,19 +580,19 @@ fn every_preview_label_says_it_is_not_physical_output() {
 #[test]
 fn simulations_and_fixtures_are_labeled_and_never_called_retained() {
     for stage in ALL_STAGES {
-        let sim = inspect::stage_chip_text(stage, PreviewSource::Simulation);
+        let sim = inspect::stage_chip_text(stage, PreviewSource::Simulation, false);
         assert!(
             sim.contains("simulation") && !sim.contains("retained"),
             "{sim}"
         );
-        let fixture = inspect::stage_chip_text(stage, PreviewSource::Fixture);
+        let fixture = inspect::stage_chip_text(stage, PreviewSource::Fixture, false);
         assert!(
             fixture.contains("simulation") && fixture.contains("Fixture data"),
             "{fixture}"
         );
     }
     assert_eq!(
-        inspect::stage_chip_text(StageId::Logical, PreviewSource::Fixture),
+        inspect::stage_chip_text(StageId::Logical, PreviewSource::Fixture, false),
         "Logical planes: C M Y K W \u{b7} continuous tone \u{b7} simulation \u{b7} Fixture data \u{b7} Not physical output"
     );
 }

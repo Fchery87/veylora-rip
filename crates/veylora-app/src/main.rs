@@ -62,8 +62,9 @@ fn get_job_actions(jobs: State<Jobs>, job_id: String) -> Result<JobActionsView, 
 fn get_inspect_view(
     jobs: State<Jobs>,
     job_id: String,
-    selection: InspectSelection,
+    selection: Option<InspectSelection>,
 ) -> Result<InspectView, String> {
+    let selection = selection.unwrap_or_else(inspect::default_selection);
     jobs.with_store(|s| inspect::present(&s.get(&job_id)?, &s.capabilities(), &selection))
 }
 
@@ -76,6 +77,17 @@ fn toggle_inspect_plane(
     on: bool,
 ) -> Result<InspectView, String> {
     let next = inspect::toggle_plane(&selection, plane, on);
+    jobs.with_store(|s| inspect::present(&s.get(&job_id)?, &s.capabilities(), &next))
+}
+
+#[tauri::command]
+fn set_inspect_composite(
+    jobs: State<Jobs>,
+    job_id: String,
+    selection: InspectSelection,
+    on: bool,
+) -> Result<InspectView, String> {
+    let next = inspect::set_composite(&selection, on);
     jobs.with_store(|s| inspect::present(&s.get(&job_id)?, &s.capabilities(), &next))
 }
 
@@ -152,6 +164,7 @@ fn main() {
             get_job_actions,
             get_inspect_view,
             toggle_inspect_plane,
+            set_inspect_composite,
             get_review_view,
             acknowledge_finding,
             render_and_hold,

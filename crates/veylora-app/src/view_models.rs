@@ -230,7 +230,8 @@ pub enum StageId {
     Screened,
 }
 
-/// A logical plane. Not a physical slot or protocol channel.
+/// A plane choice in Inspect. `W` is the logical white plane; `W1` and `W2` are
+/// the physical white slots it splits into. Neither is a protocol channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Plane {
     C,
@@ -238,14 +239,38 @@ pub enum Plane {
     Y,
     K,
     W,
+    W1,
+    W2,
 }
 
 impl Plane {
-    pub const ALL: [Plane; 5] = [Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W];
+    const LOGICAL: [Plane; 5] = [Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W];
+    const SLOTS: [Plane; 6] = [Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W1, Plane::W2];
+
+    /// The planes a stage offers: logical white, or the two physical white slots.
+    pub fn for_stage(stage: StageId) -> &'static [Plane] {
+        match stage {
+            StageId::Slots | StageId::Screened => &Self::SLOTS,
+            _ => &Self::LOGICAL,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::C => "C",
+            Self::M => "M",
+            Self::Y => "Y",
+            Self::K => "K",
+            Self::W => "W",
+            Self::W1 => "W1",
+            Self::W2 => "W2",
+        }
+    }
 }
 
 /// Where a preview came from. `Fixture` is a simulation produced from fixture data.
-/// `Retained` is reserved for real retained artifacts, which no backend emits yet.
+/// `Retained` is reserved for the gated backend: no backend emits it yet, and
+/// the labels already handle it so the UI needs no change when one does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PreviewSource {
@@ -257,7 +282,10 @@ pub enum PreviewSource {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InspectSelection {
     pub stage: StageId,
+    /// One plane at a time by default; empty when none or composite is selected.
     pub planes: Vec<Plane>,
+    /// Composite simulation of all retained planes. Replaces the plane choice.
+    pub composite: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -275,10 +303,32 @@ pub struct PlaneOption {
     pub pressed: bool,
 }
 
+/// How a metadata value is styled: identifiers and hashes are monospace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MetaKind {
+    Text,
+    Identifier,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MetaRow {
     pub label: String,
     pub value: String,
+    pub kind: MetaKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CompositeOption {
+    pub label: String,
+    pub pressed: bool,
+}
+
+/// A panel that has no data until a raster exists. It shows `message`, no numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct InfoPanel {
+    pub title: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -287,12 +337,19 @@ pub struct InspectView {
     pub selection: InspectSelection,
     pub stages: Vec<StageOption>,
     pub planes: Vec<PlaneOption>,
+    pub composite: CompositeOption,
     /// Always says simulation or retained, and always "Not physical output".
     pub chip: String,
     pub source: PreviewSource,
+    /// Says whether the metadata values are fixture data.
+    pub metadata_note: String,
     pub metadata: Vec<MetaRow>,
-    /// False until retained artifacts exist; the UI shows `placeholder` instead.
+    /// Coverage and loupe stubs.
+    pub panels: Vec<InfoPanel>,
+    /// Reserved for retained artifacts: always false until a backend emits a
+    /// raster, and the UI shows `placeholder` instead.
     pub raster_shown: bool,
+    pub viewport_label: String,
     pub placeholder: String,
 }
 
@@ -368,5 +425,6 @@ pub struct ReviewView {
     pub attempt: ReviewAttemptView,
     pub choices: Vec<ReviewChoiceView>,
     /// True while this attempt is unresolved. Nothing may be sent to the printer.
+    /// Reserved: always true today, because only an unresolved attempt has a view.
     pub printer_blocked: bool,
 }
