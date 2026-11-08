@@ -1,0 +1,37 @@
+name: Rust
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  rust:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            packages: --workspace
+          # The headless foundation must not require desktop or Windows libraries.
+          - os: ubuntu-latest
+            packages: -p veylora-domain -p veylora-cli
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo check --locked ${{ matrix.packages }} --all-targets
+      - run: cargo clippy --locked ${{ matrix.packages }} --all-targets -- -D warnings
+      - run: cargo test --locked ${{ matrix.packages }}

@@ -1,0 +1,7 @@
+[package]
+name = "veylora-domain"
+description = "Platform-independent Veylora RIP domain contracts"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
