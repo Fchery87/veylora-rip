@@ -1,9 +1,18 @@
 # Third-Party Notices
 
-Veylora RIP bundles the third-party components listed here. This file is part of
-the Task 9.3 inventory (see `docs/dependency-inventory.md` and
-`docs/profile-and-font-licensing.md`). It currently covers fonts only; Rust
-crates, npm packages, profiles, and fixtures are inventoried in Task 9.3 step 1.
+**Not a release-complete notice bundle. Distribution is blocked.** This file
+retains previously recorded font notices. Exact package licenses and emitted
+font files still need verification. Rust, frontend, native and tool notices
+remain unresolved in `docs/dependency-inventory.md`. Missing text is not a waiver.
+
+Run `pwsh -NoProfile -File scripts/check-licenses.ps1` before release. Its expected
+current result is failure, not clearance. A license expression in a manifest does
+not replace required copyright, license or NOTICE text. Do not add guessed terms.
+The final installer and accessible About/licenses presentation must also retain
+required notices. This source document alone does not prove installed delivery.
+
+Profile, font and fixture permission policy is in
+`docs/profile-and-font-licensing.md`. Commercial RIPs are not runtime dependencies.
 
 ## Geist (UI typeface)
 
