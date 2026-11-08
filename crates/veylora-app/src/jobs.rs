@@ -5,8 +5,9 @@
 use crate::screens::{job_actions, review};
 use crate::state::{CapabilityState, OpenReview};
 use crate::view_models::{
-    Attempt, AttemptKind, AttemptOutcome, Finding, JobDetail, JobState, JobSummary, Placement,
-    ProvenanceRow, ReviewOutcome, Severity, WhitePolicy,
+    Acknowledgement, Attempt, AttemptKind, AttemptOutcome, Finding, JobDetail, JobState,
+    JobSummary, MaskSource, Placement, ProvenanceRow, ReviewOutcome, Severity, WhitePolicy,
+    WhitePolicyKind,
 };
 
 fn placement(id: &str, name: &str, x_mm: f64, clipped: bool) -> Placement {
@@ -21,6 +22,9 @@ fn placement(id: &str, name: &str, x_mm: f64, clipped: bool) -> Placement {
     }
 }
 
+/// Operator recorded on acknowledgements until real operator identity exists.
+const FIXTURE_OPERATOR: &str = "Fixture operator";
+
 fn finding(id: &str, severity: Severity, title: &str, cause: &str, fix: &str) -> Finding {
     Finding {
         id: id.to_owned(),
@@ -28,8 +32,24 @@ fn finding(id: &str, severity: Severity, title: &str, cause: &str, fix: &str) ->
         title: title.to_owned(),
         cause: cause.to_owned(),
         fix: fix.to_owned(),
+        placement_id: Some("p1".to_owned()),
         acknowledged: false,
+        acknowledgement: None,
     }
+}
+
+/// UTC wall-clock time of day, `HH:MM:SS UTC`.
+fn time_of_day_utc() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+        % 86_400;
+    format!(
+        "{:02}:{:02}:{:02} UTC",
+        secs / 3600,
+        secs % 3600 / 60,
+        secs % 60
+    )
 }
 
 fn base_job(id: &str, name: &str) -> JobDetail {
@@ -57,8 +77,8 @@ fn base_job(id: &str, name: &str) -> JobDetail {
             row("Snapshot hash", "sha256:fixture-0000"),
         ],
         white_policy: WhitePolicy {
-            source: "Auto from alpha".to_owned(),
-            policy: "Underbase".to_owned(),
+            source: MaskSource::AutoFromAlpha,
+            policy: WhitePolicyKind::Underbase,
             invert_mask: false,
             choke_mm: 0.0,
         },
@@ -167,6 +187,10 @@ impl JobStore {
             return Err("Only confirm-level findings can be acknowledged.".to_owned());
         }
         finding.acknowledged = true;
+        finding.acknowledgement = Some(Acknowledgement {
+            operator: FIXTURE_OPERATOR.to_owned(),
+            at: time_of_day_utc(),
+        });
         Ok(job.clone())
     }
 
@@ -265,23 +289,27 @@ impl JobStore {
         Ok(job)
     }
 
-    pub fn set_white_policy(&mut self, job_id: &str, policy: &str) -> Result<JobDetail, String> {
+    pub fn set_white_policy(
+        &mut self,
+        job_id: &str,
+        policy: WhitePolicyKind,
+    ) -> Result<JobDetail, String> {
         let caps = self.capabilities();
         let job = self.draft_mut(job_id)?;
-        if !caps.mode.white_policies.iter().any(|p| p == policy) {
+        if !caps.mode.white_policies.contains(&policy) {
             return Err(format!(
-                "White policy {policy} is not supported by mode {}",
+                "White policy {policy:?} is not supported by mode {}",
                 caps.mode.id
             ));
         }
-        job.white_policy.policy = policy.to_owned();
+        job.white_policy.policy = policy;
         Ok(job.clone())
     }
 
     pub fn set_white_mask(
         &mut self,
         job_id: &str,
-        source: &str,
+        source: MaskSource,
         invert: bool,
     ) -> Result<JobDetail, String> {
         let caps = self.capabilities();
@@ -292,7 +320,7 @@ impl JobStore {
                 caps.mode.id
             ));
         }
-        job.white_policy.source = source.to_owned();
+        job.white_policy.source = source;
         job.white_policy.invert_mask = invert;
         Ok(job.clone())
     }

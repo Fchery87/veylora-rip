@@ -43,6 +43,13 @@ pub enum Severity {
     Info,
 }
 
+/// Who acknowledged a confirm-level finding, and when.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Acknowledgement {
+    pub operator: String,
+    pub at: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Finding {
@@ -52,7 +59,12 @@ pub struct Finding {
     pub cause: String,
     /// Exact correction. Every blocking finding must show one.
     pub fix: String,
+    /// The placement this finding points at, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placement_id: Option<String>,
     pub acknowledged: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledgement: Option<Acknowledgement>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -122,12 +134,28 @@ pub struct ProvenanceRow {
     pub value: String,
 }
 
+/// A white policy a print mode can offer. Wire names are the display names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WhitePolicyKind {
+    Underbase,
+    #[serde(rename = "No white")]
+    NoWhite,
+}
+
+/// Where the white mask comes from. Wire names are the display names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MaskSource {
+    #[serde(rename = "Auto from alpha")]
+    AutoFromAlpha,
+    #[serde(rename = "Whole placement")]
+    WholePlacement,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WhitePolicy {
-    /// Mask source.
-    pub source: String,
-    pub policy: String,
+    pub source: MaskSource,
+    pub policy: WhitePolicyKind,
     pub invert_mask: bool,
     pub choke_mm: f64,
 }
@@ -156,7 +184,12 @@ pub struct FindingView {
     pub cause: String,
     /// Never empty for a blocking finding.
     pub correction: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placement_id: Option<String>,
     pub acknowledged: bool,
+    /// "Acknowledged by <operator> at <time>", once acknowledged.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledgement: Option<String>,
     pub can_acknowledge: bool,
 }
 

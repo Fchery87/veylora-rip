@@ -12,7 +12,9 @@ fn blocking(id: &str, fix: &str) -> Finding {
         title: "Placement is outside the printable area".to_owned(),
         cause: "sleeve.png extends past the left edge.".to_owned(),
         fix: fix.to_owned(),
+        placement_id: None,
         acknowledged: false,
+        acknowledgement: None,
     }
 }
 
@@ -30,6 +32,12 @@ fn every_blocking_fixture_finding_has_a_visible_correction() {
                     assert!(
                         !finding.correction.trim().is_empty(),
                         "finding {} has no correction",
+                        finding.id
+                    );
+                    assert_ne!(
+                        finding.correction,
+                        preflight::NO_AUTOMATIC_FIX,
+                        "fixture finding {} must carry a concrete fix, not the generic fallback",
                         finding.id
                     );
                 }
@@ -78,6 +86,52 @@ fn only_confirm_findings_can_be_acknowledged() {
     let blocked = JobStore::fixture().get("J-0144").unwrap();
     let view = preflight::present(&blocked, &CapabilityState::fixture());
     assert!(!view.groups[0].findings[0].can_acknowledge);
+}
+
+#[test]
+fn findings_that_point_at_a_placement_carry_its_id() {
+    let job = JobStore::fixture().get("J-0144").unwrap();
+    let view = preflight::present(&job, &CapabilityState::fixture());
+    let id = view.groups[0].findings[0].placement_id.as_deref().unwrap();
+    assert!(job.placements.iter().any(|p| p.id == id));
+}
+
+#[test]
+fn acknowledging_a_confirm_finding_records_who_and_when() {
+    let mut store = JobStore::fixture();
+    let before = preflight::present(&store.get("J-0145").unwrap(), &CapabilityState::fixture());
+    assert_eq!(before.groups[0].findings[0].acknowledgement, None);
+    let job = store.acknowledge_finding("J-0145", "f2").unwrap();
+    let ack = job.findings[0].acknowledgement.as_ref().unwrap();
+    assert_eq!(ack.operator, "Fixture operator");
+    assert!(!ack.at.is_empty());
+    let view = preflight::present(&job, &CapabilityState::fixture());
+    let text = view.groups[0].findings[0]
+        .acknowledgement
+        .as_deref()
+        .unwrap();
+    assert_eq!(
+        text,
+        format!("Acknowledged by Fixture operator at {}", ack.at)
+    );
+}
+
+#[test]
+fn white_policy_wire_names_are_unchanged_and_unknown_values_are_rejected() {
+    use veylora_app_lib::view_models::{MaskSource, WhitePolicyKind};
+    let job = JobStore::fixture().get("J-0145").unwrap();
+    let json = serde_json::to_value(&job.white_policy).unwrap();
+    assert_eq!(json["policy"], "Underbase");
+    assert_eq!(json["source"], "Auto from alpha");
+    assert_eq!(
+        serde_json::from_value::<WhitePolicyKind>("No white".into()).unwrap(),
+        WhitePolicyKind::NoWhite
+    );
+    assert_eq!(
+        serde_json::from_value::<MaskSource>("Whole placement".into()).unwrap(),
+        MaskSource::WholePlacement
+    );
+    assert!(serde_json::from_value::<WhitePolicyKind>("Highlight".into()).is_err());
 }
 
 // ---- Step 2: plane toggles and metadata ----
@@ -248,7 +302,9 @@ fn release_to_printer_is_refused_until_the_physical_gate_passes() {
     let draft = store.get("J-0145").unwrap();
     assert_eq!(
         store.release_to_printer("J-0145").unwrap_err(),
-        job_actions::release_to_printer(&caps, &draft).reason.unwrap(),
+        job_actions::release_to_printer(&caps, &draft)
+            .reason
+            .unwrap(),
         "a draft job is refused for the presenter's reason too"
     );
     assert_eq!(
@@ -475,17 +531,21 @@ fn view_models_serialize_with_the_frontend_field_names() {
 #[test]
 fn white_policy_edits_respect_frozen_snapshots_and_mode_support() {
     let mut store = JobStore::fixture();
-    let err = store.set_white_policy("J-0143", "No white").unwrap_err();
+    use veylora_app_lib::view_models::{MaskSource, WhitePolicyKind};
+    let err = store
+        .set_white_policy("J-0143", WhitePolicyKind::NoWhite)
+        .unwrap_err();
     assert_eq!(err, "Snapshot frozen. Duplicate the job to edit.");
-    let job = store.set_white_policy("J-0145", "No white").unwrap();
-    assert_eq!(job.white_policy.policy, "No white");
-    assert!(store.set_white_policy("J-0145", "Highlight").is_err());
+    let job = store
+        .set_white_policy("J-0145", WhitePolicyKind::NoWhite)
+        .unwrap();
+    assert_eq!(job.white_policy.policy, WhitePolicyKind::NoWhite);
     assert!(store
-        .set_white_mask("J-0145", "Whole placement", true)
+        .set_white_mask("J-0145", MaskSource::WholePlacement, true)
         .is_err());
     let job = store
-        .set_white_mask("J-0145", "Whole placement", false)
+        .set_white_mask("J-0145", MaskSource::WholePlacement, false)
         .unwrap();
-    assert_eq!(job.white_policy.source, "Whole placement");
+    assert_eq!(job.white_policy.source, MaskSource::WholePlacement);
     assert!(store.set_white_choke("J-0145", 0.5).is_err());
 }

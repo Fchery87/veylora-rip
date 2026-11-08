@@ -5,7 +5,8 @@ use crate::view_models::{
     Finding, FindingGroupView, FindingView, JobDetail, PreflightView, Severity, SummaryView, Tone,
 };
 
-const NO_AUTOMATIC_FIX: &str = "There is no automatic fix for this finding. Resolve the cause described above, then preflight checks again.";
+/// Safety net only. Fixture and authored blocking findings carry a concrete fix.
+pub const NO_AUTOMATIC_FIX: &str = "There is no automatic fix for this finding. Resolve the cause described above, then preflight checks again.";
 
 fn finding_view(finding: &Finding) -> FindingView {
     let fix = finding.fix.trim();
@@ -20,7 +21,12 @@ fn finding_view(finding: &Finding) -> FindingView {
         title: finding.title.clone(),
         cause: finding.cause.clone(),
         correction,
+        placement_id: finding.placement_id.clone(),
         acknowledged: finding.acknowledged,
+        acknowledgement: finding
+            .acknowledgement
+            .as_ref()
+            .map(|ack| format!("Acknowledged by {} at {}", ack.operator, ack.at)),
         can_acknowledge: finding.severity == Severity::Confirm && !finding.acknowledged,
     }
 }

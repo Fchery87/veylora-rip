@@ -13,15 +13,18 @@ use veylora_app_lib::jobs::JobStore;
 use veylora_app_lib::screens::{inspect, job_actions, preflight, review};
 use veylora_app_lib::state::CapabilityState;
 use veylora_app_lib::view_models::{
-    InspectSelection, InspectView, JobActionsView, JobDetail, JobSummary, Plane, PreflightView,
-    ReviewOutcome, ReviewView,
+    InspectSelection, InspectView, JobActionsView, JobDetail, JobSummary, MaskSource, Plane,
+    PreflightView, ReviewOutcome, ReviewView, WhitePolicyKind,
 };
 
 /// Fixture job state shared by the commands until application services exist.
 struct Jobs(Mutex<JobStore>);
 
 impl Jobs {
-    fn with_store<T>(&self, f: impl FnOnce(&mut JobStore) -> Result<T, String>) -> Result<T, String> {
+    fn with_store<T>(
+        &self,
+        f: impl FnOnce(&mut JobStore) -> Result<T, String>,
+    ) -> Result<T, String> {
         let mut store = self
             .0
             .lock()
@@ -47,9 +50,7 @@ fn get_job(jobs: State<Jobs>, job_id: String) -> Result<JobDetail, String> {
 
 #[tauri::command]
 fn get_preflight_view(jobs: State<Jobs>, job_id: String) -> Result<PreflightView, String> {
-    jobs.with_store(|s| {
-        Ok(preflight::present(&s.get(&job_id)?, &s.capabilities()))
-    })
+    jobs.with_store(|s| Ok(preflight::present(&s.get(&job_id)?, &s.capabilities())))
 }
 
 #[tauri::command]
@@ -120,19 +121,19 @@ fn resolve_review(
 fn set_white_policy(
     jobs: State<Jobs>,
     job_id: String,
-    policy: String,
+    policy: WhitePolicyKind,
 ) -> Result<JobDetail, String> {
-    jobs.with_store(|s| s.set_white_policy(&job_id, &policy))
+    jobs.with_store(|s| s.set_white_policy(&job_id, policy))
 }
 
 #[tauri::command]
 fn set_white_mask(
     jobs: State<Jobs>,
     job_id: String,
-    source: String,
+    source: MaskSource,
     invert: bool,
 ) -> Result<JobDetail, String> {
-    jobs.with_store(|s| s.set_white_mask(&job_id, &source, invert))
+    jobs.with_store(|s| s.set_white_mask(&job_id, source, invert))
 }
 
 #[tauri::command]
