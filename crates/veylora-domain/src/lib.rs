@@ -1,5 +1,8 @@
 //! Platform-independent domain contracts for Veylora RIP.
 
+pub mod errors;
+pub mod preflight;
+
 /// Product display name shared by headless and desktop adapters.
 pub const PRODUCT_NAME: &str = "Veylora RIP";
 
