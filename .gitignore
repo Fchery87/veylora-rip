@@ -3,3 +3,4 @@ target/
 dist/
 .svelte-kit/
 *.log
+crates/veylora-app/gen/

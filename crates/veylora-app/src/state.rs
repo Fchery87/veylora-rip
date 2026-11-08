@@ -7,6 +7,9 @@
 
 use serde::Serialize;
 
+// `Live` and the non-`Experimental` maturities are part of the contract the
+// frontend already handles; no backend emits them until the services exist.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DataSource {
@@ -14,6 +17,7 @@ pub enum DataSource {
     Live,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ModeMaturity {
