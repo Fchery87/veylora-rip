@@ -14,6 +14,18 @@ required notices. This source document alone does not prove installed delivery.
 Profile, font and fixture permission policy is in
 `docs/profile-and-font-licensing.md`. Commercial RIPs are not runtime dependencies.
 
+## ICC color engine: qcms
+
+- Crate: `qcms` 0.3.0 (crates.io metadata: `MIT`)
+- Upstream: https://github.com/FirefoxGraphics/qcms
+- Role: pure-Rust ICC profile parser and transform engine used by
+  `veylora-domain::color`. No C toolchain, no vendored proprietary code, and
+  no Little CMS, Ghostscript, or commercial RIP binaries are pulled in.
+- Verbatim license text, bundled dependency notices, and the installer-side
+  About/licenses presentation still need capture before release. The
+  dependency inventory block remains UNRESOLVED and the release gate
+  continues to fail; see `docs/dependency-inventory.md` and ADR 0002.
+
 ## Geist (UI typeface)
 
 - Package: `@fontsource-variable/geist` 5.3.0 (`OFL-1.1`)

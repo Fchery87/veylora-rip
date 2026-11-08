@@ -133,6 +133,14 @@ It reads only locally available Rust manifests and does not download or alter lo
   This change deliberately does not edit another worker's packaging or CI files.
 - Byte hashes of evidence are intentional. Different checkout newline policies
   can require a reviewed refresh. Do not silently bless content changes.
+- 2026-11-08: `feat/icc-color-boundary` adds the `qcms` 0.3.0 crate (crates.io
+  metadata `MIT`, pure Rust, no C build dependency) as the ICC engine for
+  `veylora-domain::color`. The machine-inventory block below has **not** been
+  regenerated for this change and the release gate therefore remains blocked
+  until `scripts/check-licenses.ps1 -RefreshUnreviewedInventory` is run and a
+  reviewer walks the new component through the UNRESOLVED -> reviewed states.
+  Nothing in this change is cleared for distribution; the `qcms` entry is
+  tracked for honesty, not clearance. See ADR 0002 for the engine choice.
 
 <!-- machine-inventory -->
 ```json license-inventory
