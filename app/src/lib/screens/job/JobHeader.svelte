@@ -1,14 +1,29 @@
 <script lang="ts">
-  import { deriveJobCommands } from "../../capability";
-  import Button from "../../components/Button.svelte";
+    import Button from "../../components/Button.svelte";
   import StatusBadge from "../../components/StatusBadge.svelte";
   import PreflightSummary from "../../components/PreflightSummary.svelte";
   import type { AppStore } from "../../store.svelte";
-  import type { CapabilityState, JobDetail } from "../../services/types";
+  import type {
+    CapabilityState,
+    JobActionsView,
+    JobDetail,
+    PreflightView,
+  } from "../../services/types";
 
-  let { store, job, caps }: { store: AppStore; job: JobDetail; caps: CapabilityState } = $props();
+  let {
+    store,
+    job,
+    caps,
+    actions: commands,
+    preflight,
+  }: {
+    store: AppStore;
+    job: JobDetail;
+    caps: CapabilityState;
+    actions: JobActionsView;
+    preflight: PreflightView;
+  } = $props();
 
-  const commands = $derived(deriveJobCommands(caps, job));
   let confirming = $state<"file-sink" | "printer" | null>(null);
 
   async function confirm() {
@@ -24,7 +39,7 @@
     <h1>{job.name}</h1>
     <StatusBadge state={job.state} progressPercent={job.progressPercent} />
     <span class="meta"><span class="mono">{job.id}</span> · {job.sheet} · {caps.mode.id}</span>
-    <PreflightSummary {job} />
+    <PreflightSummary summary={preflight.summary} />
     <span class="spacer"></span>
 
     <div class="action">

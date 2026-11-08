@@ -3,14 +3,30 @@ import type { SectionId } from "./capability";
 import type {
   AppServices,
   CapabilityState,
+  JobActionsView,
   JobDetail,
   JobSummary,
+  PreflightView,
   ReviewOutcome,
+  ReviewView,
 } from "./services/types";
+
+/** Rust-built view models for the open job. Rendered as given. */
+export interface JobViews {
+  preflight: PreflightView;
+  actions: JobActionsView;
+  review: ReviewView | null;
+}
 
 export type QueryServices = Pick<
   AppServices,
-  "getDeviceSetup" | "listRecipes" | "listDeviceModes" | "listTargets" | "listArtworkCandidates"
+  | "getDeviceSetup"
+  | "listRecipes"
+  | "listDeviceModes"
+  | "listTargets"
+  | "listArtworkCandidates"
+  | "getInspectView"
+  | "toggleInspectPlane"
 >;
 
 export type Theme = "light" | "dark";
@@ -20,6 +36,7 @@ export class AppStore {
   caps = $state<CapabilityState | null>(null);
   jobs = $state<JobSummary[]>([]);
   job = $state<JobDetail | null>(null);
+  views = $state<JobViews | null>(null);
   section = $state<SectionId>("jobs");
   tab = $state<JobTabId>("sheet");
   theme = $state<Theme>("light");
@@ -59,8 +76,18 @@ export class AppStore {
   }
 
   /** Keep the active tab valid when the job's state changes which tabs exist. */
+  private async loadViews(jobId: string): Promise<JobViews> {
+    const [preflight, actions, review] = await Promise.all([
+      this.#services.getPreflightView(jobId),
+      this.#services.getJobActions(jobId),
+      this.#services.getReviewView(jobId),
+    ]);
+    return { preflight, actions, review };
+  }
+
   private async applyJob(job: JobDetail) {
     this.markFreshAttempts(this.job, job);
+    this.views = await this.loadViews(job.id);
     this.job = job;
     const tabs = deriveJobTabs(job);
     const current = tabs.find((t) => t.id === this.tab);
@@ -81,6 +108,7 @@ export class AppStore {
   async selectJob(id: string) {
     this.section = "jobs";
     const job = await this.#services.getJob(id);
+    this.views = await this.loadViews(id);
     this.job = job;
     this.tab = defaultTab(job);
   }

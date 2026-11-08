@@ -1,10 +1,11 @@
 <script lang="ts">
   import { stageChipText, type PreviewSource, type StageId } from "../status";
 
-  let { stage, source }: { stage: StageId; source: PreviewSource } = $props();
+  /** `text` is the label built by Rust; the local text is the mocked fallback. */
+  let { stage, source, text }: { stage: StageId; source: PreviewSource; text?: string } = $props();
 </script>
 
-<span class="chip {source}" data-testid="stage-chip">{stageChipText(stage, source)}</span>
+<span class="chip {source}" data-testid="stage-chip">{text ?? stageChipText(stage, source)}</span>
 
 <style>
   .chip {

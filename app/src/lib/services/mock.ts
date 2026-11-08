@@ -14,6 +14,13 @@ import type {
   Placement,
   ReviewOutcome,
 } from "./types";
+import {
+  inspectView,
+  jobActionsView,
+  preflightView,
+  reviewView,
+  toggleInspectSelection,
+} from "./presentation";
 
 // Mocked application services backed by clearly labeled fixture data.
 // Nothing here renders, separates, encodes, persists, or talks to Windows.
@@ -287,6 +294,17 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
     getCapabilities: async () => capabilities(jobs, setup, modeId),
     listJobs: async () => jobs.map(summary),
     getJob: async (id) => find(id),
+    getPreflightView: async (id) => preflightView(find(id), capabilities(jobs, setup, modeId)),
+    getJobActions: async (id) => jobActionsView(find(id), capabilities(jobs, setup, modeId)),
+    getInspectView: async (id, selection) =>
+      inspectView(find(id), capabilities(jobs, setup, modeId), selection),
+    toggleInspectPlane: async (id, selection, plane, on) =>
+      inspectView(
+        find(id),
+        capabilities(jobs, setup, modeId),
+        toggleInspectSelection(selection, plane, on),
+      ),
+    getReviewView: async (id) => reviewView(find(id)),
     getDeviceSetup: async () => setup,
     createDeviceSetup: async (name) => {
       setup = newSetup(name);
