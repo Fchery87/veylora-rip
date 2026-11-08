@@ -3641,6 +3641,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "veylora-image"
+version = "0.0.0"
+dependencies = [
+ "png",
+ "serde",
+ "sha2",
+ "thiserror 1.0.69",
+ "veylora-domain",
+]
+
+[[package]]
 name = "vswhom"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
