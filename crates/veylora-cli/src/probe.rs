@@ -51,7 +51,13 @@ fn execute(args: &[OsString]) -> Result<(), String> {
         "render-bounded-target" => {
             let output = &options["--output"];
             if output.exists() { return Err("refusing to overwrite existing output".into()); }
-            return Err("diagnostic generator dependency not integrated yet; no artifact produced".into());
+            if output.extension().and_then(|s| s.to_str()) != Some("json") {
+                return Err("diagnostic export supports .json only, not SVG, raster or printer-ready encoding".into());
+            }
+            use veylora_diagnostics::targets::{generate_target, PhysicalSize, TargetKind};
+            let target = generate_target(TargetKind::ChannelIdentity, PhysicalSize::new(100.0, 100.0).map_err(|e| e.to_string())?);
+            let artifact = serde_json::json!({"schema_version":1, "software_version":veylora_domain::version(), "label":"DIAGNOSTIC ONLY - NOT PRINTER-READY", "printer_ready":false, "target_sha256":target.stable_hash(), "target":target});
+            write_new(output, &encode(&artifact)?)?;
         }
         _ => unreachable!(),
     }
@@ -63,7 +69,7 @@ fn parse_options(args: &[OsString], allowed: &[&str]) -> Result<BTreeMap<String,
         return Err("missing, duplicate or unsupported flags; use probe --help".into());
     }
     let mut result = BTreeMap::new();
-    for pair in args.chunks_exact(2) {
+    for pair in args.as_chunks::<2>().0 {
         let key = pair[0].to_str().ok_or("option names must be UTF-8")?;
         if !allowed.contains(&key)
             || result.contains_key(key)
@@ -115,6 +121,19 @@ fn record(input: &Path, output: &Path) -> Result<(), String> {
         }
     }
     let baseline = &observation.baseline.settings;
+    if observation
+        .framing
+        .as_ref()
+        .is_some_and(|s| s.trim().is_empty() || s.len() > 4096)
+    {
+        return Err("framing must be null or nonempty text at most 4096 bytes".into());
+    }
+    for reference in [&observation.baseline, &observation.candidate] {
+        if reference.evidence.as_os_str().is_empty() || reference.evidence.as_os_str().len() > 4096
+        {
+            return Err("evidence path must be nonempty and bounded".into());
+        }
+    }
     let candidate = &observation.candidate.settings;
     if baseline.is_empty() || baseline.len() > 64 || baseline.keys().ne(candidate.keys()) {
         return Err("comparison must use the same 1..64 setting names".into());

@@ -69,6 +69,25 @@ fn tempfile_dir(name: &str) -> std::path::PathBuf {
 }
 
 #[test]
+fn exports_deterministic_shared_diagnostic_target() {
+    let dir = tempfile_dir("generated");
+    for name in ["one.json", "two.json"] {
+        let result = cli()
+            .args(["probe", "render-bounded-target", "--output"])
+            .arg(dir.join(name))
+            .output()
+            .unwrap();
+        assert!(result.status.success(), "{result:?}");
+    }
+    let bytes = fs::read(dir.join("one.json")).unwrap();
+    assert_eq!(bytes, fs::read(dir.join("two.json")).unwrap());
+    let artifact: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(artifact["printer_ready"], false);
+    assert!(artifact["target"]["objects"].as_array().unwrap().len() > 5);
+    assert_eq!(artifact["target"]["kind"], "channel_identity");
+}
+
+#[test]
 fn rejects_unknown_duplicate_missing_flags_and_submission() {
     for args in [
         vec!["inspect-reference", "--input", "missing", "--unsafe"],
@@ -141,6 +160,57 @@ fn records_verified_evidence_and_one_variable_comparison() {
     );
     assert_eq!(recorded["observation"]["changed_variable"], "channel");
     assert_eq!(recorded["protocol_established"], false);
+    let retained = fs::read(dir.join("observation.json")).unwrap();
+    let again = cli()
+        .current_dir(&dir)
+        .args([
+            "probe",
+            "record-observation",
+            "--input",
+            "request.json",
+            "--output",
+            "observation.json",
+        ])
+        .output()
+        .unwrap();
+    assert!(!again.status.success());
+    assert_eq!(fs::read(dir.join("observation.json")).unwrap(), retained);
+    fs::write(dir.join("baseline.bin"), b"changed bytes").unwrap();
+    let changed = cli()
+        .current_dir(&dir)
+        .args([
+            "probe",
+            "record-observation",
+            "--input",
+            "request.json",
+            "--output",
+            "changed.json",
+        ])
+        .output()
+        .unwrap();
+    assert!(changed.status.success());
+    let changed: serde_json::Value =
+        serde_json::from_slice(&fs::read(dir.join("changed.json")).unwrap()).unwrap();
+    assert_ne!(
+        recorded["evidence_files"][0]["sha256"],
+        changed["evidence_files"][0]["sha256"]
+    );
+    fs::remove_file(dir.join("candidate.bin")).unwrap();
+    let missing = cli()
+        .current_dir(&dir)
+        .args([
+            "probe",
+            "record-observation",
+            "--input",
+            "request.json",
+            "--output",
+            "missing.json",
+        ])
+        .output()
+        .unwrap();
+    assert!(!missing.status.success());
+    assert!(!dir.join("missing.json").exists());
+    fs::write(dir.join("candidate.bin"), b"abcd").unwrap();
     let mut invalid = request;
     invalid["candidate"]["settings"]["media"] = serde_json::json!("changed too");
     fs::write(
@@ -162,4 +232,62 @@ fn records_verified_evidence_and_one_variable_comparison() {
         .unwrap();
     assert!(!result.status.success());
     assert!(!dir.join("invalid-out.json").exists());
+}
+
+#[test]
+fn rejects_malformed_and_oversized_inputs_without_creating_output() {
+    let dir = tempfile_dir("invalid-input");
+    for (name, bytes) in [
+        ("broken.json", b"{".as_slice()),
+        ("array.json", b"[]"),
+        ("unknown.json", b"{\"invented\":true}"),
+    ] {
+        fs::write(dir.join(name), bytes).unwrap();
+        let output = dir.join(format!("{name}.out"));
+        let result = cli()
+            .args(["probe", "record-observation", "--input"])
+            .arg(dir.join(name))
+            .arg("--output")
+            .arg(&output)
+            .output()
+            .unwrap();
+        assert!(!result.status.success());
+        assert!(!output.exists());
+    }
+    let huge = dir.join("huge.bin");
+    fs::File::create(&huge)
+        .unwrap()
+        .set_len(8 * 1024 * 1024 + 1)
+        .unwrap();
+    for path in [&huge, &dir] {
+        let result = cli()
+            .args(["probe", "inspect-reference", "--input"])
+            .arg(path)
+            .output()
+            .unwrap();
+        assert!(!result.status.success());
+    }
+}
+
+#[test]
+fn input_limit_is_inclusive_and_empty_reference_is_hashable() {
+    let dir = tempfile_dir("limits");
+    let path = dir.join("evidence.bin");
+    for length in [0, 8 * 1024 * 1024] {
+        fs::File::create(&path).unwrap().set_len(length).unwrap();
+        let result = cli()
+            .args(["probe", "inspect-reference", "--input"])
+            .arg(&path)
+            .output()
+            .unwrap();
+        assert!(result.status.success(), "{result:?}");
+        let record: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+        assert_eq!(record["byte_count"], length);
+        if length == 0 {
+            assert_eq!(
+                record["sha256"],
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            );
+        }
+    }
 }
