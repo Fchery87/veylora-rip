@@ -1,0 +1,9 @@
+[package]
+name = "veylora-device"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+veylora-domain = { path = "../veylora-domain" }

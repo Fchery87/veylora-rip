@@ -25,7 +25,7 @@ jobs:
             packages: --workspace
           # The headless foundation must not require desktop or Windows libraries.
           - os: ubuntu-latest
-            packages: -p veylora-domain -p veylora-cli
+            packages: -p veylora-domain -p veylora-cli -p veylora-device
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
