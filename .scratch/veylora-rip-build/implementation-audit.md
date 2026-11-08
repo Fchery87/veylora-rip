@@ -26,11 +26,11 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 
 | Task | Outcome | Prerequisites | Audit status |
 | --- | --- | --- | --- |
-| 0.1 | Workspace, domain version, CLI, Rust CI | None | In progress |
-| 0.2 | IDs, hashes, provenance | 0.1 | Pending |
-| 0.3 | Errors and validation severity | 0.2 | Pending |
-| 1.1 | Device setup, distinct channels, bench template | 0.2, 0.3 | Pending |
-| 1.2 | Deterministic diagnostic targets | 0.2, 0.3 | Pending |
+| 0.1 | Workspace, domain version, CLI, Rust CI | None | Complete, ee05451 |
+| 0.2 | IDs, hashes, provenance | 0.1 | Complete, merged 6930740 |
+| 0.3 | Errors and validation severity | 0.2 | In progress |
+| 1.1 | Device setup, distinct channels, bench template | 0.2, 0.3 | In progress |
+| 1.2 | Deterministic diagnostic targets | 0.2, 0.3 | In progress |
 | 1.3 | File-only investigation CLI and observations | 1.1, 1.2 | Pending |
 | 2.1 | PrintMode and capability contracts | 1.1, protocol facts | Pending, evidence needed for real mode |
 | 2.2 | Immutable snapshot and recipe | 0.2, 0.3, 2.1 contracts | Pending |
@@ -70,3 +70,4 @@ No print, firmware, maintenance, payment or external upload is authorized as a s
 
 - Baseline frontend: `pnpm run check` (including Svelte type checks), `pnpm test`, and `pnpm run build` passed.
 - Baseline: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` passed.
+- Task 0.1: reviewed domain/CLI/tests/CI diff, worker passed complete workspace checks (40 tests) in clean worktree without frontend dist. Coordinator independently passed integrated fmt, headless clippy/tests and CLI invocation. Hosted CI/Linux execution remains unobserved.
