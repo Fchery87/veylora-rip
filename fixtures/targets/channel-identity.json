@@ -1,0 +1,25 @@
+{
+  "schema": "veylora.diagnostic-target",
+  "version": 1,
+  "provenance": "synthetic geometry; not captured printer evidence or printer-ready output",
+  "kind": "channel_identity",
+  "size": {"width_mm":110.0,"height_mm":150.0},
+  "objects": [
+    {"label":"Orientation text","bounds":{"x_mm":5.0,"y_mm":5.0,"width_mm":95.0,"height_mm":3.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"text","text":"TOP LEFT R 123"}},
+    {"label":"Off-center L marker","bounds":{"x_mm":102.0,"y_mm":5.0,"width_mm":3.0,"height_mm":5.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"asymmetric_marker"}},
+    {"label":"Horizontal mm ruler","bounds":{"x_mm":5.0,"y_mm":142.0,"width_mm":95.0,"height_mm":3.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"ruler","vertical":false,"tick_mm":1.0}},
+    {"label":"Vertical mm ruler","bounds":{"x_mm":102.0,"y_mm":15.0,"width_mm":3.0,"height_mm":120.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"ruler","vertical":true,"tick_mm":1.0}},
+    {"label":"Isolated C","bounds":{"x_mm":5.0,"y_mm":15.0,"width_mm":28.0,"height_mm":6.0},"coverage":{"c":1.0,"m":0.0,"y":0.0,"k":0.0,"w":0.0},"alpha":1.0,"shape":{"type":"rectangle"}},
+    {"label":"Label C","bounds":{"x_mm":5.0,"y_mm":22.0,"width_mm":28.0,"height_mm":2.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"text","text":"C"}},
+    {"label":"Isolated M","bounds":{"x_mm":35.0,"y_mm":15.0,"width_mm":28.0,"height_mm":6.0},"coverage":{"c":0.0,"m":1.0,"y":0.0,"k":0.0,"w":0.0},"alpha":1.0,"shape":{"type":"rectangle"}},
+    {"label":"Label M","bounds":{"x_mm":35.0,"y_mm":22.0,"width_mm":28.0,"height_mm":2.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"text","text":"M"}},
+    {"label":"Isolated Y","bounds":{"x_mm":65.0,"y_mm":15.0,"width_mm":28.0,"height_mm":6.0},"coverage":{"c":0.0,"m":0.0,"y":1.0,"k":0.0,"w":0.0},"alpha":1.0,"shape":{"type":"rectangle"}},
+    {"label":"Label Y","bounds":{"x_mm":65.0,"y_mm":22.0,"width_mm":28.0,"height_mm":2.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"text","text":"Y"}},
+    {"label":"Isolated K","bounds":{"x_mm":5.0,"y_mm":27.0,"width_mm":28.0,"height_mm":6.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"rectangle"}},
+    {"label":"Label K","bounds":{"x_mm":5.0,"y_mm":34.0,"width_mm":28.0,"height_mm":2.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"text","text":"K"}},
+    {"label":"Isolated W","bounds":{"x_mm":35.0,"y_mm":27.0,"width_mm":28.0,"height_mm":6.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":0.0,"w":1.0},"alpha":1.0,"shape":{"type":"rectangle"}},
+    {"label":"Label W","bounds":{"x_mm":35.0,"y_mm":34.0,"width_mm":28.0,"height_mm":2.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"text","text":"W"}},
+    {"label":"K + W overlap","bounds":{"x_mm":65.0,"y_mm":27.0,"width_mm":28.0,"height_mm":6.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":1.0},"alpha":1.0,"shape":{"type":"rectangle"}},
+    {"label":"Label K + W overlap","bounds":{"x_mm":65.0,"y_mm":34.0,"width_mm":28.0,"height_mm":2.0},"coverage":{"c":0.0,"m":0.0,"y":0.0,"k":1.0,"w":0.0},"alpha":1.0,"shape":{"type":"text","text":"K + W overlap"}}
+  ]
+}
