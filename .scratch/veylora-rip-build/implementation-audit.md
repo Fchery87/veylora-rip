@@ -70,7 +70,7 @@ No print, firmware, maintenance, payment or external upload is authorized as a s
 
 - Task 1.3 accepted at c10b166 after SVG correction d2c8f0f: actual shared shapes, visible diagnostic disclaimer, explicit approximate-color/font policy, exact SVG artifact hash and bounded exclusive paired writes. Coordinator reviewed code, independently ran CLI tests and a real SVG export, and passed integrated workspace fmt, strict Clippy and tests. No protocol or physical acceptance is established. Gate A remains blocked as documented in native-evidence-blocker.md.
 
-- Task 1.3 foundation integrated at 5fee126: bounded file inspection, explicit operator observations with evidence-file hashes, strict CLI arguments, exclusive output creation, and JSON diagnostic targets. Workspace formatting, Clippy and tests passed. Frontend check, tests and build passed. Task remains open until SVG visualization and manifest correction is reviewed and validated.
+- Task 1.3 foundation integrated at 5fee126: bounded file inspection, explicit operator observations with evidence-file hashes, strict CLI arguments, exclusive output creation, and JSON diagnostic targets. The later SVG visualization and manifest correction was accepted at c10b166 and is recorded above.
 
 - Task 1.1: rejected initial synthetic evidence helper and mutable revisions. Correction 2e5251d removes fabricated observations, retains explicit evidence, returns new revisions, and length-delimits optional and collection hash inputs. Coordinator independently passed 12 device tests and integrated workspace fmt, strict Clippy and tests at 5576e9c. This validates software contracts only, not physical mappings or native support.
 
