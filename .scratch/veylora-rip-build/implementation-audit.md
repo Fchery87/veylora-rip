@@ -31,7 +31,7 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 | 0.3 | Errors and validation severity | 0.2 | Complete, 3cb3df9 |
 | 1.1 | Device setup, distinct channels, bench template | 0.2, 0.3 | Complete, 724b694 corrected by 2e5251d, integrated 5576e9c |
 | 1.2 | Deterministic diagnostic targets | 0.2, 0.3 | Complete, 2d6fd4c and e3d8cb2 |
-| 1.3 | File-only investigation CLI and observations | 1.1, 1.2 | In progress |
+| 1.3 | File-only investigation CLI and observations | 1.1, 1.2 | Complete, SVG correction d2c8f0f integrated c10b166 |
 | 2.1 | PrintMode and capability contracts | 1.1, protocol facts | Pending, evidence needed for real mode |
 | 2.2 | Immutable snapshot and recipe | 0.2, 0.3, 2.1 contracts | Pending |
 | 2.3 | Durable store and migrations | 2.2 | Pending |
@@ -67,6 +67,8 @@ Gate A after Task 1.3 explicitly requires a pause if a native command path canno
 No print, firmware, maintenance, payment or external upload is authorized as a side effect of implementation. A staged physical experiment needs actual setup facts and operator coordination.
 
 ## Verification log
+
+- Task 1.3 accepted at c10b166 after SVG correction d2c8f0f: actual shared shapes, visible diagnostic disclaimer, explicit approximate-color/font policy, exact SVG artifact hash and bounded exclusive paired writes. Coordinator reviewed code, independently ran CLI tests and a real SVG export, and passed integrated workspace fmt, strict Clippy and tests. No protocol or physical acceptance is established. Gate A remains blocked as documented in native-evidence-blocker.md.
 
 - Task 1.3 foundation integrated at 5fee126: bounded file inspection, explicit operator observations with evidence-file hashes, strict CLI arguments, exclusive output creation, and JSON diagnostic targets. Workspace formatting, Clippy and tests passed. Frontend check, tests and build passed. Task remains open until SVG visualization and manifest correction is reviewed and validated.
 
