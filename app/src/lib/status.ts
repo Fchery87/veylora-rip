@@ -1,6 +1,6 @@
-import type { DataSource, JobState } from "./services/types";
+import type { DataSource, JobState, PreviewSource, StageId, Tone } from "./services/types";
 
-export type Tone = "ok" | "info" | "warn" | "bad" | "review" | "neutral";
+export type { PreviewSource, StageId, Tone };
 
 const STATE_BADGES: Record<JobState, { text: string; tone: Tone }> = {
   draft: { text: "Draft", tone: "neutral" },
@@ -32,9 +32,7 @@ export function isReviewState(state: JobState): boolean {
   return state === "ambiguous" || state === "needs-review";
 }
 
-export type StageId = "garment" | "film" | "logical" | "slots" | "screened";
 /** Where a preview came from. "fixture" is a simulation produced from mocked fixture data. */
-export type PreviewSource = "simulation" | "retained" | "fixture";
 
 /** Source for a simulated preview, given what the app is currently running on. */
 export function simulationSource(dataSource: DataSource): PreviewSource {

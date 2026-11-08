@@ -19,10 +19,12 @@ export interface JobTab {
   reason?: string;
 }
 
-export function deriveJobTabs(job: JobDetail): JobTab[] {
+/** `openFindings` comes from the Rust preflight view when available. */
+export function deriveJobTabs(job: JobDetail, openFindings?: number): JobTab[] {
   const tabs: JobTab[] = [];
   if (isReviewState(job.state)) tabs.push({ id: "review", label: "Review" });
-  const open = job.findings.filter((f) => f.severity !== "info" && !f.acknowledged).length;
+  const open =
+    openFindings ?? job.findings.filter((f) => f.severity !== "info" && !f.acknowledged).length;
   tabs.push(
     { id: "import", label: "Import" },
     { id: "sheet", label: "Sheet" },

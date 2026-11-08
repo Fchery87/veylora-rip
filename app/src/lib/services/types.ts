@@ -165,6 +165,19 @@ export interface AppServices {
   getCapabilities(): Promise<CapabilityState>;
   listJobs(): Promise<JobSummary[]>;
   getJob(jobId: string): Promise<JobDetail>;
+  getPreflightView(jobId: string): Promise<PreflightView>;
+  getJobActions(jobId: string): Promise<JobActionsView>;
+  /** Rejects until the job is rendered, or for a stage the mode cannot inspect. */
+  getInspectView(jobId: string, selection: InspectSelection): Promise<InspectView>;
+  /** Toggling a plane always returns to the logical stage. */
+  toggleInspectPlane(
+    jobId: string,
+    selection: InspectSelection,
+    plane: Plane,
+    on: boolean,
+  ): Promise<InspectView>;
+  /** Null when the job has no attempt waiting for review. */
+  getReviewView(jobId: string): Promise<ReviewView | null>;
   /** Null until a device setup has been created. */
   getDeviceSetup(): Promise<DeviceSetupModel | null>;
   /** Creates revision 1 of a setup. Every channel starts as not tested. */
@@ -191,4 +204,72 @@ export interface AppServices {
   releaseToPrinter(jobId: string): Promise<JobDetail>;
   resolveReview(attemptId: string, outcome: ReviewOutcome): Promise<CapabilityState>;
   exportDiagnosticReport(request: DiagnosticExportRequest): Promise<DiagnosticExportResult>;
+}
+
+// ---- Presentation view models ----
+// Built by Rust (`crates/veylora-app/src/screens`). The UI renders them as given
+// and does not re-derive gating, labels, or corrections.
+
+export type Tone = "ok" | "info" | "warn" | "bad" | "review" | "neutral";
+
+export interface FindingView {
+  id: string;
+  severity: Severity;
+  title: string;
+  cause: string;
+  /** Never empty for a blocking finding. */
+  correction: string;
+  acknowledged: boolean;
+  canAcknowledge: boolean;
+}
+
+export interface PreflightView {
+  checkedAgainst: string;
+  groups: { severity: Severity; title: string; tone: Tone; findings: FindingView[] }[];
+  summary: { text: string; tone: Tone };
+  /** Blocking plus unacknowledged confirm findings. */
+  openCount: number;
+}
+
+export interface CommandView {
+  enabled: boolean;
+  /** Shown as text beside the control. */
+  reason?: string;
+}
+
+export interface JobActionsView {
+  renderAndHold: CommandView;
+  releaseToPrinter: CommandView;
+  writeToFileSink: CommandView;
+  inspect: CommandView;
+}
+
+export type StageId = "garment" | "film" | "logical" | "slots" | "screened";
+export type Plane = "C" | "M" | "Y" | "K" | "W";
+export type PreviewSource = "simulation" | "retained" | "fixture";
+
+export interface InspectSelection {
+  stage: StageId;
+  planes: Plane[];
+}
+
+export interface InspectView {
+  selection: InspectSelection;
+  stages: { id: StageId; label: string; disabled: boolean; reason?: string }[];
+  planes: { plane: Plane; pressed: boolean }[];
+  /** Always says simulation or retained, and always "Not physical output". */
+  chip: string;
+  source: PreviewSource;
+  metadata: { label: string; value: string }[];
+  rasterShown: boolean;
+  placeholder: string;
+}
+
+export interface ReviewView {
+  headline: string;
+  body: string;
+  attempt: { id: string; lastSignal: string; source: string };
+  choices: { outcome: ReviewOutcome; label: string; confirmLabel: string; effect: string }[];
+  /** True while the attempt is unresolved. Nothing may be sent to the printer. */
+  printerBlocked: boolean;
 }
