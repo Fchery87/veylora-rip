@@ -52,6 +52,20 @@ pnpm exec vp build
 
 ## Connected commands
 
-Only `get_capabilities` is wired to the frontend (`app/src/lib/services/tauri.ts`).
+Wired to the frontend through `app/src/lib/services/tauri.ts`: `get_capabilities`,
+`list_jobs`, `get_job`, the view-model commands (`get_preflight_view`,
+`get_job_actions`, `get_inspect_view`, `toggle_inspect_plane`,
+`set_inspect_composite`, `get_review_view`)
+and the job commands (`acknowledge_finding`, `render_and_hold`,
+`write_to_file_sink`, `release_to_printer`, `resolve_review`, `set_white_*`).
+Presentation logic lives in `src/screens/` and is tested in
+`tests/preflight_presentation.rs`. `tests/golden/presenters.json` is the shared
+golden fixture: `tests/golden_presenters.rs` asserts the Rust presenters against
+it and `app/tests/golden.test.ts` asserts the TypeScript fallback against the
+same file. Regenerate it with `UPDATE_GOLDEN=1 cargo test -p veylora-app --test
+golden_presenters`. Job data is a labeled fixture `JobStore` held
+in memory; the print mode is fixed to PM-exp-01 on the Rust side.
+
 The frontend falls back to mocked fixture data outside the Tauri webview and for
-every service that has no Rust command yet. The file sink is mocked.
+device setup, recipes, targets, artwork candidates, and diagnostics, which have no
+Rust command yet. The file sink is mocked. Physical release is always refused.

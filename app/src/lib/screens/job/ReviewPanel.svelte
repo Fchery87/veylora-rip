@@ -1,13 +1,9 @@
 <script lang="ts">
   import ReviewCard from "../../components/ReviewCard.svelte";
   import type { AppStore } from "../../store.svelte";
-  import type { JobDetail } from "../../services/types";
+  import type { ReviewView } from "../../services/types";
 
-  let { store, job }: { store: AppStore; job: JobDetail } = $props();
-
-  const attempt = $derived(
-    job.attempts.find((a) => a.outcome === "ambiguous" || a.outcome === "kept-in-review"),
-  );
+  let { store, view }: { store: AppStore; view: ReviewView | null } = $props();
 </script>
 
-<ReviewCard {attempt} onResolve={(id, outcome) => store.resolveReview(id, outcome)} />
+<ReviewCard {view} onResolve={(id, outcome) => store.resolveReview(id, outcome)} />

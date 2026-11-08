@@ -1,14 +1,29 @@
 <script lang="ts">
-  import { deriveJobCommands } from "../../capability";
   import Button from "../../components/Button.svelte";
   import StatusBadge from "../../components/StatusBadge.svelte";
   import PreflightSummary from "../../components/PreflightSummary.svelte";
   import type { AppStore } from "../../store.svelte";
-  import type { CapabilityState, JobDetail } from "../../services/types";
+  import type {
+    CapabilityState,
+    JobActionsView,
+    JobDetail,
+    PreflightView,
+  } from "../../services/types";
 
-  let { store, job, caps }: { store: AppStore; job: JobDetail; caps: CapabilityState } = $props();
+  let {
+    store,
+    job,
+    caps,
+    actions,
+    preflight,
+  }: {
+    store: AppStore;
+    job: JobDetail;
+    caps: CapabilityState;
+    actions: JobActionsView;
+    preflight: PreflightView;
+  } = $props();
 
-  const commands = $derived(deriveJobCommands(caps, job));
   let confirming = $state<"file-sink" | "printer" | null>(null);
 
   async function confirm() {
@@ -24,34 +39,34 @@
     <h1>{job.name}</h1>
     <StatusBadge state={job.state} progressPercent={job.progressPercent} />
     <span class="meta"><span class="mono">{job.id}</span> · {job.sheet} · {caps.mode.id}</span>
-    <PreflightSummary {job} />
+    <PreflightSummary summary={preflight.summary} />
     <span class="spacer"></span>
 
     <div class="action">
-      {#if !commands.writeToFileSink.enabled && commands.writeToFileSink.reason && job.rendered}
-        <span class="reason">{commands.writeToFileSink.reason}</span>
+      {#if !actions.writeToFileSink.enabled && actions.writeToFileSink.reason && job.rendered}
+        <span class="reason">{actions.writeToFileSink.reason}</span>
       {/if}
       <Button
-        disabled={!commands.writeToFileSink.enabled}
+        disabled={!actions.writeToFileSink.enabled}
         onclick={() => (confirming = "file-sink")}>Write to file sink</Button
       >
     </div>
 
     {#if !job.rendered}
       <div class="action">
-        {#if commands.renderAndHold.reason}<span class="reason">{commands.renderAndHold.reason}</span>{/if}
+        {#if actions.renderAndHold.reason}<span class="reason">{actions.renderAndHold.reason}</span>{/if}
         <Button
           variant="primary"
-          disabled={!commands.renderAndHold.enabled}
+          disabled={!actions.renderAndHold.enabled}
           onclick={() => store.renderAndHold(job.id)}>Render and hold</Button
         >
       </div>
     {:else}
       <div class="action">
-        {#if commands.releaseToPrinter.reason}<span class="reason">{commands.releaseToPrinter.reason}</span>{/if}
+        {#if actions.releaseToPrinter.reason}<span class="reason">{actions.releaseToPrinter.reason}</span>{/if}
         <Button
           variant="primary"
-          disabled={!commands.releaseToPrinter.enabled}
+          disabled={!actions.releaseToPrinter.enabled}
           onclick={() => (confirming = "printer")}>Release to printer</Button
         >
       </div>

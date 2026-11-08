@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { stageChipText, type PreviewSource, type StageId } from "../status";
+  import type { PreviewSource } from "../status";
 
-  let { stage, source }: { stage: StageId; source: PreviewSource } = $props();
+  /** `text` is the finished label. Rust builds it for Inspect. */
+  let { source, text }: { source: PreviewSource; text: string } = $props();
 </script>
 
-<span class="chip {source}" data-testid="stage-chip">{stageChipText(stage, source)}</span>
+<span class="chip {source}" data-testid="stage-chip">{text}</span>
 
 <style>
   .chip {

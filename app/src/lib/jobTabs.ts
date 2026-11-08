@@ -19,10 +19,10 @@ export interface JobTab {
   reason?: string;
 }
 
-export function deriveJobTabs(job: JobDetail): JobTab[] {
+/** `openFindings` is the open count from the preflight view, the one source for the badge. */
+export function deriveJobTabs(job: JobDetail, openFindings: number): JobTab[] {
   const tabs: JobTab[] = [];
   if (isReviewState(job.state)) tabs.push({ id: "review", label: "Review" });
-  const open = job.findings.filter((f) => f.severity !== "info" && !f.acknowledged).length;
   tabs.push(
     { id: "import", label: "Import" },
     { id: "sheet", label: "Sheet" },
@@ -32,7 +32,7 @@ export function deriveJobTabs(job: JobDetail): JobTab[] {
       disabled: !job.rendered,
       reason: "Render the job to inspect its retained output.",
     },
-    { id: "preflight", label: "Preflight", count: open || undefined },
+    { id: "preflight", label: "Preflight", count: openFindings || undefined },
     { id: "attempts", label: "Attempts", count: job.attempts.length || undefined },
     { id: "provenance", label: "Provenance" },
   );

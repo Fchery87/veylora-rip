@@ -1,31 +1,27 @@
 <script lang="ts">
   import FindingItem from "../../components/Finding.svelte";
   import type { AppStore } from "../../store.svelte";
-  import type { JobDetail, Severity } from "../../services/types";
+  import type { JobDetail, PreflightView } from "../../services/types";
 
-  let { store, job }: { store: AppStore; job: JobDetail } = $props();
-
-  const groups: { severity: Severity; title: string; tone: "bad" | "warn" | "info" }[] = [
-    { severity: "blocking", title: "Blocking", tone: "bad" },
-    { severity: "confirm", title: "Confirm", tone: "warn" },
-    { severity: "info", title: "Info", tone: "info" },
-  ];
+  let { store, job, view }: { store: AppStore; job: JobDetail; view: PreflightView } = $props();
 </script>
 
-{#if job.findings.length === 0}
+<p class="muted checked">{view.checkedAgainst}</p>
+{#if view.groups.length === 0}
   <p class="muted">No findings. Preflight runs continuously while you edit.</p>
 {:else}
   <div class="stack">
-    {#each groups as group (group.severity)}
-      {@const items = job.findings.filter((f) => f.severity === group.severity)}
-      {#if items.length > 0}
-        <section class="card" aria-label={group.title}>
-          <h2>{group.title}</h2>
-          {#each items as f (f.id)}
-            <FindingItem finding={f} onAcknowledge={() => store.acknowledgeFinding(job.id, f.id)} />
-          {/each}
-        </section>
-      {/if}
+    {#each view.groups as group (group.severity)}
+      <section class="card" aria-label={group.title}>
+        <h2>{group.title}</h2>
+        {#each group.findings as f (f.id)}
+          <FindingItem
+            finding={f}
+            onAcknowledge={() => store.acknowledgeFinding(job.id, f.id)}
+            onShowPlacement={(id) => store.showPlacement(id)}
+          />
+        {/each}
+      </section>
     {/each}
   </div>
 {/if}
@@ -35,5 +31,8 @@
     display: grid;
     gap: 12px;
     max-width: 720px;
+  }
+  .checked {
+    margin: 0 0 12px;
   }
 </style>

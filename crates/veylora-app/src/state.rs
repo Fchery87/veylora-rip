@@ -7,6 +7,8 @@
 
 use serde::Serialize;
 
+use crate::view_models::WhitePolicyKind;
+
 // `Live` and the non-`Experimental` maturities are part of the contract the
 // frontend already handles; no backend emits them until the services exist.
 #[allow(dead_code)]
@@ -15,6 +17,16 @@ use serde::Serialize;
 pub enum DataSource {
     Fixture,
     Live,
+}
+
+impl DataSource {
+    /// How a value from this source is labeled to the operator.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Fixture => "Fixture data",
+            Self::Live => "Live data",
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -43,7 +55,7 @@ pub struct ModeCapability {
     pub sheet_sizes: Vec<String>,
     pub white_choke: bool,
     pub white_mask_invert: bool,
-    pub white_policies: Vec<String>,
+    pub white_policies: Vec<WhitePolicyKind>,
     pub screened_inspect: bool,
 }
 
@@ -91,7 +103,7 @@ impl CapabilityState {
                 sheet_sizes: vec!["A3".to_owned(), "A4".to_owned()],
                 white_choke: false,
                 white_mask_invert: false,
-                white_policies: vec!["Underbase".to_owned(), "No white".to_owned()],
+                white_policies: vec![WhitePolicyKind::Underbase, WhitePolicyKind::NoWhite],
                 screened_inspect: true,
             },
             sinks: SinkCapability {

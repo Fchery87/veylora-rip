@@ -1,74 +1,45 @@
 <script lang="ts">
-  import type { Attempt, ReviewOutcome } from "../services/types";
+  import type { ReviewOutcome, ReviewView } from "../services/types";
   import Button from "./Button.svelte";
 
   let {
-    attempt,
+    view,
     onResolve,
-  }: { attempt: Attempt | undefined; onResolve: (attemptId: string, outcome: ReviewOutcome) => void } =
+  }: { view: ReviewView | null; onResolve: (attemptId: string, outcome: ReviewOutcome) => void } =
     $props();
 
-  interface Choice {
-    outcome: ReviewOutcome;
-    label: string;
-    confirmLabel: string;
-    effect: string;
-  }
-
-  const choices: Choice[] = [
-    {
-      outcome: "finished",
-      label: "It printed correctly",
-      confirmLabel: "Mark finished",
-      effect: "The attempt will be recorded as finished by the operator. No new attempt is created.",
-    },
-    {
-      outcome: "reprint",
-      label: "Nothing printed, reprint",
-      confirmLabel: "Create reprint attempt",
-      effect: "The attempt will be recorded as not printed and a reprint attempt will be created held.",
-    },
-    {
-      outcome: "printed-badly",
-      label: "Printed badly, reprint",
-      confirmLabel: "Create reprint attempt",
-      effect: "The attempt will be recorded as printed badly and a reprint attempt will be created held.",
-    },
-    {
-      outcome: "decide-later",
-      label: "Decide later",
-      confirmLabel: "Keep in review",
-      effect: "The attempt stays in review. The printer remains blocked until it is resolved.",
-    },
-  ];
-
-  let pending = $state<Choice | null>(null);
+  let pending = $state<ReviewView["choices"][number] | null>(null);
 
   async function confirm() {
-    if (!pending || !attempt) return;
+    if (!pending || !view) return;
     const outcome = pending.outcome;
     pending = null;
-    onResolve(attempt.id, outcome);
+    onResolve(view.attempt.id, outcome);
   }
 </script>
 
 <section class="card review">
-  <h2>Check the printer before printing anything else</h2>
-  <p>
-    {#if attempt}
-      Attempt <span class="mono">{attempt.id}</span> ended without a confirmed result. It may or may
-      not have printed. Nothing can be sent to this printer until you record what happened.
-    {:else}
-      No attempt is waiting for review.
-    {/if}
-  </p>
-  {#if attempt}
-    <dl class="facts">
-      <div><dt>Last signal</dt><dd class="mono">{attempt.at}</dd></div>
-      <div><dt>Source</dt><dd>Fixture data</dd></div>
+  <h2>{view?.headline ?? "Check the printer before printing anything else"}</h2>
+  <p>{view?.body ?? "No attempt is waiting for review."}</p>
+  {#if view}
+    <dl class="facts" aria-label="Facts">
+      {#each view.facts as fact (fact.label)}
+        <div><dt>{fact.label}</dt><dd class="mono">{fact.value}</dd></div>
+      {/each}
     </dl>
+    <section class="sent" aria-label="What was sent">
+      <h3>What was sent</h3>
+      <dl class="facts">
+        <div><dt>Artifact hash</dt><dd class="mono">{view.whatWasSent.artifactHash}</dd></div>
+        <div><dt>Artifact size</dt><dd class="mono">{view.whatWasSent.artifactSize}</dd></div>
+        <div><dt>Snapshot hash</dt><dd class="mono">{view.whatWasSent.snapshotHash}</dd></div>
+      </dl>
+      <ul>
+        {#each view.whatWasSent.placements as placement (placement)}<li>{placement}</li>{/each}
+      </ul>
+    </section>
     <div class="choices">
-      {#each choices as choice (choice.outcome)}
+      {#each view.choices as choice (choice.outcome)}
         <Button onclick={() => (pending = choice)}>{choice.label}</Button>
       {/each}
     </div>
@@ -91,8 +62,22 @@
   }
   .facts {
     display: flex;
-    gap: 24px;
+    flex-wrap: wrap;
+    gap: 8px 24px;
     margin: 0;
+  }
+  .sent {
+    display: grid;
+    gap: 8px;
+  }
+  .sent h3 {
+    margin: 0;
+    font-size: 13px;
+  }
+  .sent ul {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 13px;
   }
   dt {
     font-size: 12px;

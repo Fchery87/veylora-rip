@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { deriveJobTabs } from "../jobTabs";
   import Tabs from "../components/Tabs.svelte";
   import JobLedger from "../components/JobLedger.svelte";
   import EmptyState from "../components/EmptyState.svelte";
@@ -25,21 +24,21 @@
 
   const job = $derived(store.job);
   const caps = $derived(store.caps);
-  const tabs = $derived(job ? deriveJobTabs(job) : []);
 </script>
 
 <div class="jobs">
   <JobLedger jobs={store.jobs} selectedId={job?.id ?? null} onSelect={(id) => store.selectJob(id)} />
   <section class="detail" aria-label="Job detail">
-    {#if job && caps}
-      <JobHeader {store} {job} {caps} />
-      <Tabs {tabs} value={store.tab} onValueChange={(v) => (store.tab = v as JobTabId)}>
+    {#if job && caps && store.views}
+      {@const views = store.views}
+      <JobHeader {store} {job} {caps} actions={views.actions} preflight={views.preflight} />
+      <Tabs tabs={store.tabs} value={store.tab} onValueChange={(v) => (store.tab = v as JobTabId)}>
         {#snippet panel(id)}
-          {#if id === "review"}<ReviewPanel {store} {job} />
+          {#if id === "review"}<ReviewPanel {store} view={views.review} />
           {:else if id === "import"}<ImportPanel {candidates} />
           {:else if id === "sheet"}<SheetPanel {store} {job} {caps} />
-          {:else if id === "inspect"}<InspectPanel {job} {caps} />
-          {:else if id === "preflight"}<PreflightPanel {store} {job} />
+          {:else if id === "inspect"}<InspectPanel {store} {job} />
+          {:else if id === "preflight"}<PreflightPanel {store} {job} view={views.preflight} />
           {:else if id === "attempts"}<AttemptsPanel attempts={job.attempts} freshIds={store.freshAttemptIds} />
           {:else if id === "provenance"}<ProvenancePanel {job} />
           {/if}

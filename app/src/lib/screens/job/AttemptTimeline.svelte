@@ -40,7 +40,8 @@
     background: var(--accent-soft);
   }
   li.ambiguous,
-  li.kept-in-review {
+  li.kept-in-review,
+  li.held {
     border-left-color: var(--review-fg);
   }
   li.finished {
