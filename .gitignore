@@ -4,3 +4,8 @@ dist/
 .svelte-kit/
 *.log
 crates/veylora-app/gen/
+
+# Local environment: never commit; the template is .env.example
+.env
+.env.*
+!.env.example
