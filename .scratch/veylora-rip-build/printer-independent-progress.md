@@ -36,7 +36,10 @@ These rulings preserve the original requested scope. They may require additional
 - Tasks 2-3 and 5-12 pending, including the coverage corrections above.
 - Initial Task 1 contract inspection found hash-only layout/recipe references insufficient without retained typed content or a validated resolver. Worker instructed to supply typed values, creation metadata and consistency tests before acceptance.
 - Task 1 intermediate commit e6f1e27 independently passed domain tests, including six snapshot tests, two lifecycle tests and three compile-fail immutability examples. Not integrated: recipe and layout remain unresolved hash references. Worker resumed for typed retained configuration and creation metadata correction.
-- Original Task 6.3 documentation in progress: worker session_cow_1794170453042_d57d14b8342c5d84 in C:\Coding-Projects\dtf-epson-quality. Owns only quality protocol, empty baseline template and physical-fixture README. No physical results authorized or claimed.
+- Original Task 6.3 documentation accepted and integrated as 3d9fb66 (worker 6ae4e29). Coordinator reviewed protocol, empty baseline template and physical-fixture README, verified relative links and committed whitespace. Actual baseline measurements, tolerance freeze, specimens and acceptance remain pending.
+- Task 1 correction 2aa764d adds retained typed policies. Review identified missing crop extents; worker is correcting explicit crop geometry and tests before acceptance. No domain correction integrated yet.
+- Task 4 worker resumed after failure. Independent test run on 2026-11-08 observed red-stage compilation failure for the new untagged-policy API. Worker notified; this is not passing acceptance evidence.
+- Original Task 9.3 executable license checks dispatched independently to session_crocodile_1794171072270_ca663c86f8fa592f in C:\Coding-Projects\dtf-epson-licenses, based on 3d9fb66. Inventory drift and unknown permissions must block release rather than imply clearance.
 - Device-mode dispatch acceptance brief retained in device-modes-brief.md. Broader observable review checklist retained in offline-acceptance.md.
 
 ## Acceptance policy
