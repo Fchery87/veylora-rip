@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Veylora RIP">
+  <!-- Veylora RIP mark: a V built from independently offset ink layers.
+       Ink values come from design.md section 5.2; the background is the dark bg token.
+       Original work for this project; not trademark or domain cleared. -->
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="#0b0f17"/>
+  <g fill="none" stroke-width="116" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M330 338 L512 678 L694 338" stroke="#00a0c6" transform="translate(-72 -40)"/>
+    <path d="M330 338 L512 678 L694 338" stroke="#d4307a" transform="translate(-24 -13)"/>
+    <path d="M330 338 L512 678 L694 338" stroke="#e8c200" transform="translate(24 13)"/>
+    <path d="M330 338 L512 678 L694 338" stroke="#f4f4ef" transform="translate(72 40)"/>
+  </g>
+</svg>

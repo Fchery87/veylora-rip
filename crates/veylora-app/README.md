@@ -17,12 +17,14 @@ Add `%USERPROFILE%\.cargo\bin` to PATH if a shell does not see `cargo`.
 
 ## Icons
 
-`icons/` is generated from `icons-src/placeholder-icon.png`, a generated
-placeholder with no brand meaning. Replace the source with real artwork (1024 px
-square PNG) and regenerate from `app/`:
+`icons/` is generated from `icons-src/veylora-mark.svg`: a V built from offset
+C, M, Y and W layers, using the ink values in `docs/design.md` section 5.2. It is
+an original mark for this project and has not been trademark or domain cleared
+(see `docs/veylora-rip-brand.md`). To change it, edit the SVG and regenerate from
+`app/`:
 
 ```powershell
-npx pnpm@12.18.0 exec tauri icon ..\crates\veylora-app\icons-src\<source>.png --output ..\crates\veylora-app\icons
+npx pnpm@12.18.0 exec tauri icon ..\crates\veylora-app\icons-src\veylora-mark.svg --output ..\crates\veylora-app\icons
 ```
 
 ## Running
