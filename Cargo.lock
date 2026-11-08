@@ -3621,6 +3621,12 @@ dependencies = [
 [[package]]
 name = "veylora-domain"
 version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
 
 [[package]]
 name = "vswhom"
