@@ -15,7 +15,11 @@
       <section class="card" aria-label={group.title}>
         <h2>{group.title}</h2>
         {#each group.findings as f (f.id)}
-          <FindingItem finding={f} onAcknowledge={() => store.acknowledgeFinding(job.id, f.id)} />
+          <FindingItem
+            finding={f}
+            onAcknowledge={() => store.acknowledgeFinding(job.id, f.id)}
+            onShowPlacement={(id) => store.showPlacement(id)}
+          />
         {/each}
       </section>
     {/each}

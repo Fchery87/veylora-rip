@@ -4,7 +4,7 @@
   import Tag from "../../components/Tag.svelte";
   import type { AppStore } from "../../store.svelte";
   import { WHITE_MASK_SOURCES, type CapabilityState, type JobDetail } from "../../services/types";
-  import { simulationSource, STAGES, type StageId } from "../../status";
+  import { simulationSource, stageChipText, STAGES, type StageId } from "../../status";
 
   let { store, job, caps }: { store: AppStore; job: JobDetail; caps: CapabilityState } = $props();
 
@@ -26,7 +26,10 @@
 
 <div class="layout">
   <div class="stage-col">
-    <div class="chip-row"><StageChip {stage} source={simulationSource(caps.dataSource)} /></div>
+    <div class="chip-row"><StageChip
+        source={simulationSource(caps.dataSource)}
+        text={stageChipText(stage, simulationSource(caps.dataSource))}
+      /></div>
     <div class="surround">
       <div
         class="sheet stage-{stage}"
@@ -38,6 +41,7 @@
           <div
             class="placement"
             class:clipped={p.clipped}
+            class:selected={store.selectedPlacementId === p.id}
             style="left:{(p.xMm / size.w) * 100}%; top:{(p.yMm / size.h) * 100}%; width:{(p.widthMm / size.w) * 100}%; height:{(p.heightMm / size.h) * 100}%"
           ></div>
         {/each}
@@ -57,10 +61,17 @@
     <ul>
       {#each job.placements as p (p.id)}
         <li>
-          <span>{p.name}</span>
-          <span class="mono" class:bad={p.clipped}>
-            {p.xMm} , {p.yMm} mm · {p.widthMm} x {p.heightMm} mm{p.clipped ? " · clipped" : ""}
-          </span>
+          <button
+            type="button"
+            class="row"
+            aria-pressed={store.selectedPlacementId === p.id}
+            onclick={() => store.selectPlacement(p.id)}
+          >
+            <span>{p.name}</span>
+            <span class="mono" class:bad={p.clipped}>
+              {p.xMm} , {p.yMm} mm · {p.widthMm} x {p.heightMm} mm{p.clipped ? " · clipped" : ""}
+            </span>
+          </button>
         </li>
       {/each}
     </ul>
@@ -161,6 +172,24 @@
     background: var(--placement-fill);
     outline: 1px solid var(--select-inner);
     box-shadow: 0 0 0 1px var(--select-outer);
+  }
+  .placement.selected {
+    outline-width: 2px;
+    box-shadow: 0 0 0 3px var(--select-outer);
+  }
+  .row {
+    display: grid;
+    width: 100%;
+    text-align: left;
+    padding: 4px 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .row[aria-pressed="true"] {
+    font-weight: 600;
   }
   .placement.clipped {
     background: var(--clip-hatch);

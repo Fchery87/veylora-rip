@@ -32,8 +32,6 @@ export function isReviewState(state: JobState): boolean {
   return state === "ambiguous" || state === "needs-review";
 }
 
-/** Where a preview came from. "fixture" is a simulation produced from mocked fixture data. */
-
 /** Source for a simulated preview, given what the app is currently running on. */
 export function simulationSource(dataSource: DataSource): PreviewSource {
   return dataSource === "fixture" ? "fixture" : "simulation";
@@ -62,9 +60,13 @@ export const STAGES: { id: StageId; label: string; sublabel: string; chip: strin
   { id: "screened", label: "Screened", sublabel: "Device truth", chip: "Screened device raster" },
 ];
 
-export function stageChipText(stage: StageId, source: PreviewSource): string {
+export const COMPOSITE_LABEL = "Composite simulation of retained planes";
+
+export function stageChipText(stage: StageId, source: PreviewSource, composite = false): string {
   const def = STAGES.find((s) => s.id === stage)!;
-  const parts = [def.chip, source === "retained" ? "retained artifact" : "simulation"];
+  const parts = [def.chip];
+  if (composite) parts.push(COMPOSITE_LABEL);
+  parts.push(source === "retained" ? "retained artifact" : "simulation");
   if (source === "fixture") parts.push("Fixture data");
   // Not in the design.md 6.3 vocabulary alone: the plan requires every preview to say so.
   parts.push("Not physical output");

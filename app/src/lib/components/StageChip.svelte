@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { stageChipText, type PreviewSource, type StageId } from "../status";
+  import type { PreviewSource } from "../status";
 
-  /** `text` is the label built by Rust; the local text is the mocked fallback. */
-  let { stage, source, text }: { stage: StageId; source: PreviewSource; text?: string } = $props();
+  /** `text` is the finished label. Rust builds it for Inspect. */
+  let { source, text }: { source: PreviewSource; text: string } = $props();
 </script>
 
-<span class="chip {source}" data-testid="stage-chip">{text ?? stageChipText(stage, source)}</span>
+<span class="chip {source}" data-testid="stage-chip">{text}</span>
 
 <style>
   .chip {

@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::state::DataSource;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Tone {
@@ -41,6 +43,13 @@ pub enum Severity {
     Info,
 }
 
+/// Who acknowledged a confirm-level finding, and when.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Acknowledgement {
+    pub operator: String,
+    pub at: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Finding {
@@ -50,7 +59,12 @@ pub struct Finding {
     pub cause: String,
     /// Exact correction. Every blocking finding must show one.
     pub fix: String,
+    /// The placement this finding points at, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placement_id: Option<String>,
     pub acknowledged: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledgement: Option<Acknowledgement>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -78,8 +92,12 @@ pub enum AttemptOutcome {
     Pending,
     Ambiguous,
     Finished,
+    /// Operator recorded that nothing printed.
     Reprint,
+    PrintedBadly,
     KeptInReview,
+    /// Created by a reprint choice. Never sent until an operator releases it.
+    Held,
 }
 
 impl AttemptOutcome {
@@ -99,6 +117,14 @@ pub struct Attempt {
     pub note: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sink_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spool_job_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bytes_written: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bytes_intended: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,12 +146,28 @@ pub struct ProvenanceRow {
     pub value: String,
 }
 
+/// A white policy a print mode can offer. Wire names are the display names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WhitePolicyKind {
+    Underbase,
+    #[serde(rename = "No white")]
+    NoWhite,
+}
+
+/// Where the white mask comes from. Wire names are the display names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MaskSource {
+    #[serde(rename = "Auto from alpha")]
+    AutoFromAlpha,
+    #[serde(rename = "Whole placement")]
+    WholePlacement,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WhitePolicy {
-    /// Mask source.
-    pub source: String,
-    pub policy: String,
+    pub source: MaskSource,
+    pub policy: WhitePolicyKind,
     pub invert_mask: bool,
     pub choke_mm: f64,
 }
@@ -154,7 +196,12 @@ pub struct FindingView {
     pub cause: String,
     /// Never empty for a blocking finding.
     pub correction: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placement_id: Option<String>,
     pub acknowledged: bool,
+    /// "Acknowledged by <operator> at <time>", once acknowledged.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledgement: Option<String>,
     pub can_acknowledge: bool,
 }
 
@@ -195,7 +242,8 @@ pub enum StageId {
     Screened,
 }
 
-/// A logical plane. Not a physical slot or protocol channel.
+/// A plane choice in Inspect. `W` is the logical white plane; `W1` and `W2` are
+/// the physical white slots it splits into. Neither is a protocol channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Plane {
     C,
@@ -203,14 +251,38 @@ pub enum Plane {
     Y,
     K,
     W,
+    W1,
+    W2,
 }
 
 impl Plane {
-    pub const ALL: [Plane; 5] = [Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W];
+    const LOGICAL: [Plane; 5] = [Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W];
+    const SLOTS: [Plane; 6] = [Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W1, Plane::W2];
+
+    /// The planes a stage offers: logical white, or the two physical white slots.
+    pub fn for_stage(stage: StageId) -> &'static [Plane] {
+        match stage {
+            StageId::Slots | StageId::Screened => &Self::SLOTS,
+            _ => &Self::LOGICAL,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::C => "C",
+            Self::M => "M",
+            Self::Y => "Y",
+            Self::K => "K",
+            Self::W => "W",
+            Self::W1 => "W1",
+            Self::W2 => "W2",
+        }
+    }
 }
 
 /// Where a preview came from. `Fixture` is a simulation produced from fixture data.
-/// `Retained` is reserved for real retained artifacts, which no backend emits yet.
+/// `Retained` is reserved for the gated backend: no backend emits it yet, and
+/// the labels already handle it so the UI needs no change when one does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PreviewSource {
@@ -222,7 +294,10 @@ pub enum PreviewSource {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InspectSelection {
     pub stage: StageId,
+    /// One plane at a time by default; empty when none or composite is selected.
     pub planes: Vec<Plane>,
+    /// Composite simulation of all retained planes. Replaces the plane choice.
+    pub composite: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -240,10 +315,32 @@ pub struct PlaneOption {
     pub pressed: bool,
 }
 
+/// How a metadata value is styled: identifiers and hashes are monospace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MetaKind {
+    Text,
+    Identifier,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MetaRow {
     pub label: String,
     pub value: String,
+    pub kind: MetaKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CompositeOption {
+    pub label: String,
+    pub pressed: bool,
+}
+
+/// A panel that has no data until a raster exists. It shows `message`, no numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct InfoPanel {
+    pub title: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -252,12 +349,19 @@ pub struct InspectView {
     pub selection: InspectSelection,
     pub stages: Vec<StageOption>,
     pub planes: Vec<PlaneOption>,
+    pub composite: CompositeOption,
     /// Always says simulation or retained, and always "Not physical output".
     pub chip: String,
     pub source: PreviewSource,
+    /// Says whether the metadata values are fixture data.
+    pub metadata_note: String,
     pub metadata: Vec<MetaRow>,
-    /// False until retained artifacts exist; the UI shows `placeholder` instead.
+    /// Coverage and loupe stubs.
+    pub panels: Vec<InfoPanel>,
+    /// Reserved for retained artifacts: always false until a backend emits a
+    /// raster, and the UI shows `placeholder` instead.
     pub raster_shown: bool,
+    pub viewport_label: String,
     pub placeholder: String,
 }
 
@@ -319,8 +423,24 @@ pub struct ReviewChoiceView {
 #[serde(rename_all = "camelCase")]
 pub struct ReviewAttemptView {
     pub id: String,
-    pub last_signal: String,
-    pub source: String,
+    pub source: DataSource,
+    /// Operator-facing label for `source`.
+    pub source_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReviewFact {
+    pub label: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhatWasSent {
+    pub artifact_hash: String,
+    pub artifact_size: String,
+    pub snapshot_hash: String,
+    pub placements: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -329,7 +449,11 @@ pub struct ReviewView {
     pub headline: String,
     pub body: String,
     pub attempt: ReviewAttemptView,
+    /// Bytes written / intended, spool job ID, last signal, source.
+    pub facts: Vec<ReviewFact>,
+    pub what_was_sent: WhatWasSent,
     pub choices: Vec<ReviewChoiceView>,
     /// True while this attempt is unresolved. Nothing may be sent to the printer.
+    /// Reserved: always true today, because only an unresolved attempt has a view.
     pub printer_blocked: bool,
 }

@@ -51,7 +51,10 @@ export interface Finding {
   cause: string;
   /** Exact correction. Every blocking finding must have one. */
   fix: string;
+  /** The placement this finding points at, if any. */
+  placementId?: string;
   acknowledged: boolean;
+  acknowledgement?: { operator: string; at: string };
 }
 
 export interface Placement {
@@ -65,7 +68,15 @@ export interface Placement {
 }
 
 export type AttemptKind = "file-sink" | "printer";
-export type AttemptOutcome = "pending" | "ambiguous" | "finished" | "reprint" | "kept-in-review";
+export type AttemptOutcome =
+  | "pending"
+  | "ambiguous"
+  | "finished"
+  | "reprint"
+  | "printed-badly"
+  | "kept-in-review"
+  /** A reprint attempt created by a review choice. Never sent until released. */
+  | "held";
 
 export interface Attempt {
   id: string;
@@ -75,6 +86,10 @@ export interface Attempt {
   note: string;
   /** Present for file-sink attempts. */
   sinkPath?: string;
+  spoolJobId?: string;
+  bytesWritten?: number;
+  bytesIntended?: number;
+  artifactHash?: string;
 }
 
 export interface JobSummary {
@@ -168,12 +183,18 @@ export interface AppServices {
   getPreflightView(jobId: string): Promise<PreflightView>;
   getJobActions(jobId: string): Promise<JobActionsView>;
   /** Rejects until the job is rendered, or for a stage the mode cannot inspect. */
-  getInspectView(jobId: string, selection: InspectSelection): Promise<InspectView>;
-  /** Toggling a plane always returns to the logical stage. */
+  getInspectView(jobId: string, selection?: InspectSelection): Promise<InspectView>;
+  /** Selecting a plane shows it alone and keeps the stage. */
   toggleInspectPlane(
     jobId: string,
     selection: InspectSelection,
     plane: Plane,
+    on: boolean,
+  ): Promise<InspectView>;
+  /** The composite option replaces the single plane. */
+  setInspectComposite(
+    jobId: string,
+    selection: InspectSelection,
     on: boolean,
   ): Promise<InspectView>;
   /** Null when the job has no attempt waiting for review. */
@@ -219,7 +240,10 @@ export interface FindingView {
   cause: string;
   /** Never empty for a blocking finding. */
   correction: string;
+  placementId?: string;
   acknowledged: boolean;
+  /** "Acknowledged by <operator> at <time>". */
+  acknowledgement?: string;
   canAcknowledge: boolean;
 }
 
@@ -245,30 +269,47 @@ export interface JobActionsView {
 }
 
 export type StageId = "garment" | "film" | "logical" | "slots" | "screened";
-export type Plane = "C" | "M" | "Y" | "K" | "W";
+/** W is the logical white plane; W1 and W2 are the physical white slots. */
+export type Plane = "C" | "M" | "Y" | "K" | "W" | "W1" | "W2";
 export type PreviewSource = "simulation" | "retained" | "fixture";
 
 export interface InspectSelection {
   stage: StageId;
   planes: Plane[];
+  /** Composite simulation of all retained planes. Replaces the plane choice. */
+  composite: boolean;
 }
 
 export interface InspectView {
   selection: InspectSelection;
   stages: { id: StageId; label: string; disabled: boolean; reason?: string }[];
   planes: { plane: Plane; pressed: boolean }[];
+  composite: { label: string; pressed: boolean };
   /** Always says simulation or retained, and always "Not physical output". */
   chip: string;
   source: PreviewSource;
-  metadata: { label: string; value: string }[];
+  /** Says whether the metadata values are fixture data. */
+  metadataNote: string;
+  metadata: { label: string; value: string; kind: "text" | "identifier" }[];
+  /** Coverage and loupe stubs shown until a raster exists. */
+  panels: { title: string; message: string }[];
   rasterShown: boolean;
+  viewportLabel: string;
   placeholder: string;
 }
 
 export interface ReviewView {
   headline: string;
   body: string;
-  attempt: { id: string; lastSignal: string; source: string };
+  attempt: { id: string; source: DataSource; sourceLabel: string };
+  /** Bytes written / intended, spool job ID, last signal, source. */
+  facts: { label: string; value: string }[];
+  whatWasSent: {
+    artifactHash: string;
+    artifactSize: string;
+    snapshotHash: string;
+    placements: string[];
+  };
   choices: { outcome: ReviewOutcome; label: string; confirmLabel: string; effect: string }[];
   /** True while the attempt is unresolved. Nothing may be sent to the printer. */
   printerBlocked: boolean;

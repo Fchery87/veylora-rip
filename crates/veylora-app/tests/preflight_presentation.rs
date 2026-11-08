@@ -12,7 +12,9 @@ fn blocking(id: &str, fix: &str) -> Finding {
         title: "Placement is outside the printable area".to_owned(),
         cause: "sleeve.png extends past the left edge.".to_owned(),
         fix: fix.to_owned(),
+        placement_id: None,
         acknowledged: false,
+        acknowledgement: None,
     }
 }
 
@@ -22,7 +24,7 @@ fn every_blocking_fixture_finding_has_a_visible_correction() {
     let mut seen_blocking = 0;
     for summary in store.list() {
         let job = store.get(&summary.id).unwrap();
-        let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+        let view = preflight::present(&job, &CapabilityState::fixture());
         for group in &view.groups {
             for finding in &group.findings {
                 if finding.severity == Severity::Blocking {
@@ -30,6 +32,12 @@ fn every_blocking_fixture_finding_has_a_visible_correction() {
                     assert!(
                         !finding.correction.trim().is_empty(),
                         "finding {} has no correction",
+                        finding.id
+                    );
+                    assert_ne!(
+                        finding.correction,
+                        preflight::NO_AUTOMATIC_FIX,
+                        "fixture finding {} must carry a concrete fix, not the generic fallback",
                         finding.id
                     );
                 }
@@ -46,7 +54,7 @@ fn every_blocking_fixture_finding_has_a_visible_correction() {
 fn a_blocking_finding_without_a_fix_still_shows_a_correction() {
     let mut job = JobStore::fixture().get("J-0144").unwrap();
     job.findings = vec![blocking("f9", "   ")];
-    let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&job, &CapabilityState::fixture());
     let finding = &view.groups[0].findings[0];
     assert!(!finding.correction.trim().is_empty());
     assert!(finding.correction.contains("no automatic fix"));
@@ -55,7 +63,7 @@ fn a_blocking_finding_without_a_fix_still_shows_a_correction() {
 #[test]
 fn blocking_findings_use_the_authored_fix_and_group_first_with_a_bad_summary() {
     let job = JobStore::fixture().get("J-0144").unwrap();
-    let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&job, &CapabilityState::fixture());
     assert_eq!(view.groups[0].title, "Blocking");
     assert_eq!(
         view.groups[0].findings[0].correction,
@@ -72,12 +80,58 @@ fn blocking_findings_use_the_authored_fix_and_group_first_with_a_bad_summary() {
 #[test]
 fn only_confirm_findings_can_be_acknowledged() {
     let job = JobStore::fixture().get("J-0145").unwrap();
-    let view = preflight::present(&job, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&job, &CapabilityState::fixture());
     assert!(view.groups[0].findings[0].can_acknowledge);
     assert_eq!(view.summary.text, "1 to confirm");
     let blocked = JobStore::fixture().get("J-0144").unwrap();
-    let view = preflight::present(&blocked, "Home bench rev 3", "PM-exp-01");
+    let view = preflight::present(&blocked, &CapabilityState::fixture());
     assert!(!view.groups[0].findings[0].can_acknowledge);
+}
+
+#[test]
+fn findings_that_point_at_a_placement_carry_its_id() {
+    let job = JobStore::fixture().get("J-0144").unwrap();
+    let view = preflight::present(&job, &CapabilityState::fixture());
+    let id = view.groups[0].findings[0].placement_id.as_deref().unwrap();
+    assert!(job.placements.iter().any(|p| p.id == id));
+}
+
+#[test]
+fn acknowledging_a_confirm_finding_records_who_and_when() {
+    let mut store = JobStore::fixture();
+    let before = preflight::present(&store.get("J-0145").unwrap(), &CapabilityState::fixture());
+    assert_eq!(before.groups[0].findings[0].acknowledgement, None);
+    let job = store.acknowledge_finding("J-0145", "f2").unwrap();
+    let ack = job.findings[0].acknowledgement.as_ref().unwrap();
+    assert_eq!(ack.operator, "Fixture operator");
+    assert!(!ack.at.is_empty());
+    let view = preflight::present(&job, &CapabilityState::fixture());
+    let text = view.groups[0].findings[0]
+        .acknowledgement
+        .as_deref()
+        .unwrap();
+    assert_eq!(
+        text,
+        format!("Acknowledged by Fixture operator at {}", ack.at)
+    );
+}
+
+#[test]
+fn white_policy_wire_names_are_unchanged_and_unknown_values_are_rejected() {
+    use veylora_app_lib::view_models::{MaskSource, WhitePolicyKind};
+    let job = JobStore::fixture().get("J-0145").unwrap();
+    let json = serde_json::to_value(&job.white_policy).unwrap();
+    assert_eq!(json["policy"], "Underbase");
+    assert_eq!(json["source"], "Auto from alpha");
+    assert_eq!(
+        serde_json::from_value::<WhitePolicyKind>("No white".into()).unwrap(),
+        WhitePolicyKind::NoWhite
+    );
+    assert_eq!(
+        serde_json::from_value::<MaskSource>("Whole placement".into()).unwrap(),
+        MaskSource::WholePlacement
+    );
+    assert!(serde_json::from_value::<WhitePolicyKind>("Highlight".into()).is_err());
 }
 
 // ---- Step 2: plane toggles and metadata ----
@@ -90,19 +144,84 @@ fn selection(stage: StageId, planes: &[Plane]) -> InspectSelection {
     InspectSelection {
         stage,
         planes: planes.to_vec(),
+        composite: false,
     }
 }
 
 #[test]
-fn toggling_a_plane_returns_to_logical_stage_in_canonical_order() {
+fn inspect_starts_on_one_logical_plane() {
+    let default = inspect::default_selection();
+    assert_eq!(default, selection(StageId::Logical, &[Plane::K]));
+}
+
+#[test]
+fn toggling_a_plane_keeps_the_stage_and_shows_one_plane_at_a_time() {
     let start = selection(StageId::Slots, &[Plane::K]);
     let next = inspect::toggle_plane(&start, Plane::C, true);
-    assert_eq!(next.stage, StageId::Logical);
-    assert_eq!(next.planes, vec![Plane::C, Plane::K]);
-    let off = inspect::toggle_plane(&next, Plane::K, false);
-    assert_eq!(off.planes, vec![Plane::C]);
-    let again = inspect::toggle_plane(&off, Plane::C, true);
-    assert_eq!(again.planes, vec![Plane::C], "no duplicates");
+    assert_eq!(next.stage, StageId::Slots, "the stage does not jump");
+    assert_eq!(
+        next.planes,
+        vec![Plane::C],
+        "selecting replaces, never adds"
+    );
+    let again = inspect::toggle_plane(&next, Plane::C, true);
+    assert_eq!(again.planes, vec![Plane::C]);
+    let off = inspect::toggle_plane(&next, Plane::C, false);
+    assert_eq!(off.planes, Vec::<Plane>::new());
+    assert_eq!(off.stage, StageId::Slots);
+}
+
+#[test]
+fn composite_is_a_labeled_simulation_that_replaces_the_single_plane() {
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let start = selection(StageId::Slots, &[Plane::K]);
+    let composite = inspect::set_composite(&start, true);
+    assert!(composite.composite && composite.planes.is_empty());
+    assert_eq!(composite.stage, StageId::Slots);
+    let view = inspect::present(&job, &caps, &composite).unwrap();
+    assert!(view.composite.pressed);
+    assert_eq!(
+        view.composite.label,
+        "Composite simulation of retained planes"
+    );
+    assert!(view.planes.iter().all(|p| !p.pressed));
+    assert!(view
+        .chip
+        .contains("Composite simulation of retained planes"));
+    assert!(view.chip.ends_with("Not physical output"));
+    let back = inspect::toggle_plane(&composite, Plane::M, true);
+    assert!(!back.composite);
+    assert_eq!(back.planes, vec![Plane::M]);
+    let plain = inspect::present(&job, &caps, &start).unwrap();
+    assert!(!plain.composite.pressed);
+    assert!(!plain.chip.contains("Composite"));
+}
+
+#[test]
+fn slots_and_screened_offer_both_white_slots_and_logical_offers_one_white_plane() {
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let names = |stage| {
+        inspect::present(&job, &caps, &selection(stage, &[]))
+            .unwrap()
+            .planes
+            .iter()
+            .map(|p| p.plane)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        names(StageId::Logical),
+        vec![Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W]
+    );
+    let slots = vec![Plane::C, Plane::M, Plane::Y, Plane::K, Plane::W1, Plane::W2];
+    assert_eq!(names(StageId::Slots), slots);
+    assert_eq!(names(StageId::Screened), slots);
+    let view = inspect::present(&job, &caps, &selection(StageId::Slots, &[Plane::W])).unwrap();
+    assert!(
+        view.selection.planes.is_empty(),
+        "a logical W is not a physical slot"
+    );
 }
 
 #[test]
@@ -130,6 +249,52 @@ fn inspect_view_lists_every_plane_and_the_stage_options() {
 }
 
 #[test]
+fn metadata_covers_the_design_fields_and_is_labeled_fixture() {
+    use veylora_app_lib::view_models::MetaKind;
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let view = inspect::present(&job, &caps, &selection(StageId::Slots, &[Plane::K])).unwrap();
+    let labels: Vec<_> = view.metadata.iter().map(|m| m.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        vec![
+            "Job",
+            "Dimensions",
+            "Plane",
+            "Mode ID",
+            "Setup ID",
+            "Recipe ID",
+            "Profile hash",
+            "Screen ID",
+            "Transform ownership",
+            "Artifact hash",
+            "Orientation"
+        ]
+    );
+    let row = |label: &str| view.metadata.iter().find(|m| m.label == label).unwrap();
+    assert_eq!(row("Job").kind, MetaKind::Identifier);
+    assert_eq!(row("Orientation").kind, MetaKind::Text);
+    assert_eq!(row("Plane").value, "Physical slot K");
+    assert!(row("Artifact hash").value.starts_with("sha256:fixture"));
+    assert!(row("Profile hash").value.starts_with("sha256:fixture"));
+    assert!(row("Dimensions").value.contains("297 x 420 mm"));
+    assert!(view.metadata_note.contains("Fixture data"));
+    assert!(row("Transform ownership").value.contains("PM-exp-01"));
+}
+
+#[test]
+fn coverage_and_loupe_are_stubs_without_numbers_until_a_raster_exists() {
+    let caps = CapabilityState::fixture();
+    let job = JobStore::fixture().get("J-0143").unwrap();
+    let view = inspect::present(&job, &caps, &selection(StageId::Logical, &[Plane::K])).unwrap();
+    let titles: Vec<_> = view.panels.iter().map(|p| p.title.as_str()).collect();
+    assert_eq!(titles, vec!["Coverage", "Loupe"]);
+    for panel in &view.panels {
+        assert_eq!(panel.message, "Available when a raster exists");
+    }
+}
+
+#[test]
 fn metadata_names_job_mode_and_orientation_per_stage() {
     let caps = CapabilityState::fixture();
     let job = JobStore::fixture().get("J-0143").unwrap();
@@ -144,7 +309,7 @@ fn metadata_names_job_mode_and_orientation_per_stage() {
             .clone()
     };
     assert_eq!(value(&logical, "Job"), "J-0143");
-    assert_eq!(value(&logical, "Mode"), "PM-exp-01");
+    assert_eq!(value(&logical, "Mode ID"), "PM-exp-01");
     assert_eq!(value(&logical, "Orientation"), "Artwork orientation");
     assert_eq!(
         value(&slots, "Orientation"),
@@ -245,7 +410,19 @@ fn release_to_printer_is_refused_until_the_physical_gate_passes() {
         .as_deref()
         .unwrap()
         .contains("physical gate passes"));
-    assert!(store.release_to_printer("J-0143").is_err());
+    let draft = store.get("J-0145").unwrap();
+    assert_eq!(
+        store.release_to_printer("J-0145").unwrap_err(),
+        job_actions::release_to_printer(&caps, &draft)
+            .reason
+            .unwrap(),
+        "a draft job is refused for the presenter's reason too"
+    );
+    assert_eq!(
+        store.release_to_printer("J-0143").unwrap_err(),
+        actions.release_to_printer.reason.unwrap(),
+        "the command refuses with exactly the reason the presenter shows"
+    );
     assert_eq!(
         store.get("J-0143").unwrap().attempts.len(),
         0,
@@ -278,9 +455,16 @@ fn an_open_review_blocks_the_printer_and_surfaces_in_capabilities() {
         (open.job_id.as_str(), open.attempt_id.as_str()),
         ("J-0142", "A-0142-1")
     );
-    let view = review::present(&store.get("J-0142").unwrap()).unwrap();
+    let view = review::present(&caps, &store.get("J-0142").unwrap()).unwrap();
     assert!(view.printer_blocked);
     assert_eq!(view.attempt.id, "A-0142-1");
+    assert_eq!(view.attempt.source, DataSource::Fixture);
+    assert_eq!(view.attempt.source_label, "Fixture data");
+    let mut live = caps.clone();
+    live.data_source = DataSource::Live;
+    let live_view = review::present(&live, &store.get("J-0142").unwrap()).unwrap();
+    assert_eq!(live_view.attempt.source, DataSource::Live);
+    assert_ne!(live_view.attempt.source_label, "Fixture data");
     let outcomes: Vec<_> = view.choices.iter().map(|c| c.outcome).collect();
     assert_eq!(
         outcomes,
@@ -295,7 +479,92 @@ fn an_open_review_blocks_the_printer_and_surfaces_in_capabilities() {
         .choices
         .iter()
         .all(|c| !c.effect.is_empty() && !c.confirm_label.is_empty()));
-    assert!(review::present(&store.get("J-0143").unwrap()).is_none());
+    assert!(review::present(&caps, &store.get("J-0143").unwrap()).is_none());
+}
+
+#[test]
+fn review_shows_the_facts_and_what_was_sent() {
+    let store = JobStore::fixture();
+    let caps = store.capabilities();
+    let view = review::present(&caps, &store.get("J-0142").unwrap()).unwrap();
+    let facts: Vec<_> = view
+        .facts
+        .iter()
+        .map(|f| (f.label.as_str(), f.value.as_str()))
+        .collect();
+    assert_eq!(
+        facts,
+        vec![
+            ("Bytes written / intended", "1048576 / 4194304"),
+            ("Spool job ID", "SPOOL-0142"),
+            ("Last signal", "09:14:02"),
+            ("Source", "Fixture data"),
+        ]
+    );
+    let sent = &view.what_was_sent;
+    assert_eq!(sent.artifact_hash, "sha256:fixture-artifact-0142");
+    assert_eq!(sent.artifact_size, "4194304 bytes");
+    assert_eq!(sent.snapshot_hash, "sha256:fixture-0000");
+    assert_eq!(
+        sent.placements,
+        vec!["artwork.png \u{b7} 20, 30 mm \u{b7} 180 x 240 mm"]
+    );
+}
+
+#[test]
+fn unrecorded_review_facts_say_so_instead_of_inventing_values() {
+    let store = JobStore::fixture();
+    let caps = store.capabilities();
+    let mut job = store.get("J-0142").unwrap();
+    let attempt = &mut job.attempts[0];
+    attempt.spool_job_id = None;
+    attempt.bytes_written = None;
+    attempt.bytes_intended = None;
+    attempt.artifact_hash = None;
+    let view = review::present(&caps, &job).unwrap();
+    assert_eq!(view.facts[0].value, "Not recorded");
+    assert_eq!(view.facts[1].value, "Not recorded");
+    assert_eq!(view.what_was_sent.artifact_hash, "Not recorded");
+    assert_eq!(view.what_was_sent.artifact_size, "Not recorded");
+}
+
+#[test]
+fn a_reprint_creates_one_held_attempt_that_is_never_sent_or_retried() {
+    for (outcome, recorded) in [
+        (ReviewOutcome::Reprint, AttemptOutcome::Reprint),
+        (ReviewOutcome::PrintedBadly, AttemptOutcome::PrintedBadly),
+    ] {
+        let mut store = JobStore::fixture();
+        store.resolve_review("A-0142-1", outcome).unwrap();
+        let job = store.get("J-0142").unwrap();
+        assert_eq!(job.attempts.len(), 2, "{outcome:?} appends one attempt");
+        assert_eq!(job.attempts[0].outcome, recorded, "the original is kept");
+        let reprint = &job.attempts[1];
+        assert_eq!(reprint.id, "A-0142-2");
+        assert_eq!(reprint.kind, AttemptKind::Printer);
+        assert_eq!(reprint.outcome, AttemptOutcome::Held);
+        assert!(reprint.note.contains("not been sent"));
+        assert_eq!(job.summary.state, JobState::Held);
+        // Nothing after the resolution sends or retries it.
+        assert!(store.release_to_printer("J-0142").is_err());
+        assert!(store.resolve_review("A-0142-2", outcome).is_err());
+        let after = store.get("J-0142").unwrap();
+        assert_eq!(after.attempts, job.attempts, "attempts are append-only");
+        assert!(store.capabilities().open_review.is_none());
+        assert!(after.attempts.iter().all(|a| !matches!(
+            a.outcome,
+            AttemptOutcome::Pending | AttemptOutcome::Ambiguous
+        )));
+    }
+}
+
+#[test]
+fn finished_and_decide_later_create_no_reprint_attempt() {
+    for outcome in [ReviewOutcome::Finished, ReviewOutcome::DecideLater] {
+        let mut store = JobStore::fixture();
+        store.resolve_review("A-0142-1", outcome).unwrap();
+        assert_eq!(store.get("J-0142").unwrap().attempts.len(), 1);
+    }
 }
 
 #[test]
@@ -309,7 +578,15 @@ fn resolving_a_review_never_retries_or_sends_anything() {
         let mut store = JobStore::fixture();
         store.resolve_review("A-0142-1", outcome).unwrap();
         let job = store.get("J-0142").unwrap();
-        assert_eq!(job.attempts.len(), 1, "{outcome:?} must not add an attempt");
+        let expected = if matches!(
+            outcome,
+            ReviewOutcome::Reprint | ReviewOutcome::PrintedBadly
+        ) {
+            2
+        } else {
+            1
+        };
+        assert_eq!(job.attempts.len(), expected, "{outcome:?} attempt count");
         assert!(
             job.attempts
                 .iter()
@@ -383,7 +660,7 @@ fn every_preview_label_says_it_is_not_physical_output() {
             PreviewSource::Fixture,
             PreviewSource::Retained,
         ] {
-            let chip = inspect::stage_chip_text(stage, source);
+            let chip = inspect::stage_chip_text(stage, source, false);
             assert!(chip.ends_with("Not physical output"), "{chip}");
             let lower = chip.to_lowercase();
             assert!(!lower.contains("final"), "{chip}");
@@ -396,19 +673,19 @@ fn every_preview_label_says_it_is_not_physical_output() {
 #[test]
 fn simulations_and_fixtures_are_labeled_and_never_called_retained() {
     for stage in ALL_STAGES {
-        let sim = inspect::stage_chip_text(stage, PreviewSource::Simulation);
+        let sim = inspect::stage_chip_text(stage, PreviewSource::Simulation, false);
         assert!(
             sim.contains("simulation") && !sim.contains("retained"),
             "{sim}"
         );
-        let fixture = inspect::stage_chip_text(stage, PreviewSource::Fixture);
+        let fixture = inspect::stage_chip_text(stage, PreviewSource::Fixture, false);
         assert!(
             fixture.contains("simulation") && fixture.contains("Fixture data"),
             "{fixture}"
         );
     }
     assert_eq!(
-        inspect::stage_chip_text(StageId::Logical, PreviewSource::Fixture),
+        inspect::stage_chip_text(StageId::Logical, PreviewSource::Fixture, false),
         "Logical planes: C M Y K W \u{b7} continuous tone \u{b7} simulation \u{b7} Fixture data \u{b7} Not physical output"
     );
 }
@@ -431,8 +708,7 @@ fn view_models_serialize_with_the_frontend_field_names() {
     let store = JobStore::fixture();
     let caps = store.capabilities();
     let job = store.get("J-0144").unwrap();
-    let json =
-        serde_json::to_value(preflight::present(&job, "Home bench rev 3", "PM-exp-01")).unwrap();
+    let json = serde_json::to_value(preflight::present(&job, &caps)).unwrap();
     assert_eq!(json["groups"][0]["findings"][0]["canAcknowledge"], false);
     assert_eq!(json["groups"][0]["tone"], "bad");
     assert_eq!(json["openCount"], 1);
@@ -459,17 +735,21 @@ fn view_models_serialize_with_the_frontend_field_names() {
 #[test]
 fn white_policy_edits_respect_frozen_snapshots_and_mode_support() {
     let mut store = JobStore::fixture();
-    let err = store.set_white_policy("J-0143", "No white").unwrap_err();
+    use veylora_app_lib::view_models::{MaskSource, WhitePolicyKind};
+    let err = store
+        .set_white_policy("J-0143", WhitePolicyKind::NoWhite)
+        .unwrap_err();
     assert_eq!(err, "Snapshot frozen. Duplicate the job to edit.");
-    let job = store.set_white_policy("J-0145", "No white").unwrap();
-    assert_eq!(job.white_policy.policy, "No white");
-    assert!(store.set_white_policy("J-0145", "Highlight").is_err());
+    let job = store
+        .set_white_policy("J-0145", WhitePolicyKind::NoWhite)
+        .unwrap();
+    assert_eq!(job.white_policy.policy, WhitePolicyKind::NoWhite);
     assert!(store
-        .set_white_mask("J-0145", "Whole placement", true)
+        .set_white_mask("J-0145", MaskSource::WholePlacement, true)
         .is_err());
     let job = store
-        .set_white_mask("J-0145", "Whole placement", false)
+        .set_white_mask("J-0145", MaskSource::WholePlacement, false)
         .unwrap();
-    assert_eq!(job.white_policy.source, "Whole placement");
+    assert_eq!(job.white_policy.source, MaskSource::WholePlacement);
     assert!(store.set_white_choke("J-0145", 0.5).is_err());
 }

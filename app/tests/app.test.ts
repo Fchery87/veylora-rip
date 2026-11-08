@@ -329,3 +329,60 @@ describe("attempt timeline", () => {
     expect(within(list).getByRole("listitem")).not.toHaveAttribute("data-fresh");
   });
 });
+
+describe("review fixes for task 8.3", () => {
+  it("keeps the Preflight badge in step with the open count after acknowledging", async () => {
+    const { user } = await openApp();
+    await openJob(user, /Pocket print/);
+    expect(screen.getByRole("tab", { name: /Preflight/ })).toHaveTextContent("1");
+    await user.click(screen.getByRole("tab", { name: /Preflight/ }));
+    await user.click(screen.getByRole("button", { name: "Acknowledge finding" }));
+    await screen.findByText(/Acknowledged by Fixture operator/);
+    expect(screen.getByRole("tab", { name: /Preflight/ })).not.toHaveTextContent("1");
+  });
+
+  it("selects the placement on the Sheet tab when a finding is clicked", async () => {
+    const { user } = await openApp();
+    await openJob(user, /Hoodie sleeve/);
+    await user.click(screen.getByRole("tab", { name: /Preflight/ }));
+    await user.click(screen.getByRole("button", { name: "Show on sheet" }));
+    expect(screen.getByRole("tab", { name: "Sheet" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: /sleeve\.png/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("shows one plane at a time, a composite option, metadata and raster stubs in Inspect", async () => {
+    const { user } = await openApp();
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    await screen.findByRole("button", { name: "Plane K" });
+    await user.click(screen.getByRole("button", { name: "Plane C" }));
+    expect(screen.getByRole("button", { name: "Plane C" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Plane K" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await user.click(screen.getByRole("radio", { name: "Slots" }));
+    expect(await screen.findByRole("button", { name: "Plane W1" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Composite" }));
+    expect(screen.getByTestId("stage-chip")).toHaveTextContent(
+      "Composite simulation of retained planes",
+    );
+    expect(screen.getByText("Artifact hash")).toBeInTheDocument();
+    expect(screen.getAllByText("Available when a raster exists")).toHaveLength(2);
+  });
+
+  it("shows review facts, what was sent, and creates a held reprint attempt", async () => {
+    const { user } = await openApp();
+    await user.click(screen.getByRole("button", { name: "Review now" }));
+    await screen.findByText("Check the printer before printing anything else");
+    expect(screen.getByText("SPOOL-0142")).toBeInTheDocument();
+    expect(screen.getByText("sha256:fixture-artifact-0142")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Nothing printed, reprint" }));
+    await user.click(screen.getByRole("button", { name: "Create reprint attempt" }));
+    await screen.findByLabelText("Attempt history");
+    expect(screen.getByText(/Printer · held/)).toBeInTheDocument();
+  });
+});

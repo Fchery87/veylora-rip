@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { deriveJobTabs } from "../jobTabs";
   import Tabs from "../components/Tabs.svelte";
   import JobLedger from "../components/JobLedger.svelte";
   import EmptyState from "../components/EmptyState.svelte";
@@ -25,7 +24,6 @@
 
   const job = $derived(store.job);
   const caps = $derived(store.caps);
-  const tabs = $derived(job ? deriveJobTabs(job, store.views?.preflight.openCount) : []);
 </script>
 
 <div class="jobs">
@@ -34,7 +32,7 @@
     {#if job && caps && store.views}
       {@const views = store.views}
       <JobHeader {store} {job} {caps} actions={views.actions} preflight={views.preflight} />
-      <Tabs {tabs} value={store.tab} onValueChange={(v) => (store.tab = v as JobTabId)}>
+      <Tabs tabs={store.tabs} value={store.tab} onValueChange={(v) => (store.tab = v as JobTabId)}>
         {#snippet panel(id)}
           {#if id === "review"}<ReviewPanel {store} view={views.review} />
           {:else if id === "import"}<ImportPanel {candidates} />

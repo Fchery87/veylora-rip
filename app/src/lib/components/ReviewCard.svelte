@@ -22,10 +22,22 @@
   <h2>{view?.headline ?? "Check the printer before printing anything else"}</h2>
   <p>{view?.body ?? "No attempt is waiting for review."}</p>
   {#if view}
-    <dl class="facts">
-      <div><dt>Last signal</dt><dd class="mono">{view.attempt.lastSignal}</dd></div>
-      <div><dt>Source</dt><dd>{view.attempt.source}</dd></div>
+    <dl class="facts" aria-label="Facts">
+      {#each view.facts as fact (fact.label)}
+        <div><dt>{fact.label}</dt><dd class="mono">{fact.value}</dd></div>
+      {/each}
     </dl>
+    <section class="sent" aria-label="What was sent">
+      <h3>What was sent</h3>
+      <dl class="facts">
+        <div><dt>Artifact hash</dt><dd class="mono">{view.whatWasSent.artifactHash}</dd></div>
+        <div><dt>Artifact size</dt><dd class="mono">{view.whatWasSent.artifactSize}</dd></div>
+        <div><dt>Snapshot hash</dt><dd class="mono">{view.whatWasSent.snapshotHash}</dd></div>
+      </dl>
+      <ul>
+        {#each view.whatWasSent.placements as placement (placement)}<li>{placement}</li>{/each}
+      </ul>
+    </section>
     <div class="choices">
       {#each view.choices as choice (choice.outcome)}
         <Button onclick={() => (pending = choice)}>{choice.label}</Button>
@@ -50,8 +62,22 @@
   }
   .facts {
     display: flex;
-    gap: 24px;
+    flex-wrap: wrap;
+    gap: 8px 24px;
     margin: 0;
+  }
+  .sent {
+    display: grid;
+    gap: 8px;
+  }
+  .sent h3 {
+    margin: 0;
+    font-size: 13px;
+  }
+  .sent ul {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 13px;
   }
   dt {
     font-size: 12px;

@@ -20,7 +20,11 @@ describe("fallback presentation views", () => {
   it("never labels an inspect preview as final or physical output", async () => {
     const services = createMockServices("working-day");
     for (const stage of ["logical", "slots", "screened"] as const) {
-      const view = await services.getInspectView("J-0143", { stage, planes: ["W"] });
+      const view = await services.getInspectView("J-0143", {
+        stage,
+        planes: ["W"],
+        composite: false,
+      });
       expect(view.chip).toMatch(/simulation/);
       expect(view.chip).toMatch(/Fixture data/);
       expect(view.chip).toMatch(/Not physical output$/);
@@ -28,17 +32,35 @@ describe("fallback presentation views", () => {
     }
   });
 
-  it("returns to the logical stage when a plane is toggled and refuses unrendered jobs", async () => {
+  it("keeps the stage when a plane is toggled, shows one plane, and refuses unrendered jobs", async () => {
     const services = createMockServices("working-day");
     const view = await services.toggleInspectPlane(
       "J-0143",
-      { stage: "slots", planes: ["K"] },
+      { stage: "slots", planes: ["K"], composite: false },
       "C",
       true,
     );
-    expect(view.selection).toEqual({ stage: "logical", planes: ["C", "K"] });
+    expect(view.selection).toEqual({ stage: "slots", planes: ["C"], composite: false });
     await expect(
-      services.getInspectView("J-0145", { stage: "logical", planes: [] }),
+      services.getInspectView("J-0145", { stage: "logical", planes: [], composite: false }),
     ).rejects.toThrow(/Render the job/);
+  });
+
+  it("opens inspect on the default selection chosen by the presenter", async () => {
+    const services = createMockServices("working-day");
+    const view = await services.getInspectView("J-0143");
+    expect(view.selection).toEqual({ stage: "logical", planes: ["K"], composite: false });
+  });
+
+  it("never gives a blocking fixture finding the generic fallback correction", async () => {
+    const services = createMockServices("working-day");
+    for (const job of await services.listJobs()) {
+      const view = await services.getPreflightView(job.id);
+      for (const finding of view.groups.flatMap((g) => g.findings)) {
+        if (finding.severity === "blocking") {
+          expect(finding.correction).not.toMatch(/no automatic fix/);
+        }
+      }
+    }
   });
 });

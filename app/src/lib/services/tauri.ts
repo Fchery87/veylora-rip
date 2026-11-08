@@ -24,6 +24,8 @@ export function createTauriServices(invoke: Invoke, fallback: AppServices): AppS
     getInspectView: (jobId, selection) => invoke("get_inspect_view", { jobId, selection }),
     toggleInspectPlane: (jobId, selection, plane, on) =>
       invoke("toggle_inspect_plane", { jobId, selection, plane, on }),
+    setInspectComposite: (jobId, selection, on) =>
+      invoke("set_inspect_composite", { jobId, selection, on }),
     getReviewView: (jobId) => invoke("get_review_view", { jobId }),
     acknowledgeFinding: (jobId, findingId) => invoke("acknowledge_finding", { jobId, findingId }),
     renderAndHold: (jobId) => invoke("render_and_hold", { jobId }),
