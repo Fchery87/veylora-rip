@@ -28,7 +28,7 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 | --- | --- | --- | --- |
 | 0.1 | Workspace, domain version, CLI, Rust CI | None | Complete, ee05451 |
 | 0.2 | IDs, hashes, provenance | 0.1 | Complete, merged 6930740 |
-| 0.3 | Errors and validation severity | 0.2 | In progress |
+| 0.3 | Errors and validation severity | 0.2 | Complete, 3cb3df9 |
 | 1.1 | Device setup, distinct channels, bench template | 0.2, 0.3 | In progress |
 | 1.2 | Deterministic diagnostic targets | 0.2, 0.3 | In progress |
 | 1.3 | File-only investigation CLI and observations | 1.1, 1.2 | Pending |
