@@ -84,6 +84,7 @@ impl LogicalChannelMap {
 
     pub(crate) fn hash_bytes(&self, output: &mut Vec<u8>) {
         output.extend_from_slice(&self.version.to_le_bytes());
+        output.extend_from_slice(&(self.bindings.len() as u64).to_le_bytes());
         for binding in &self.bindings {
             output.push(binding.logical as u8);
             output.push(binding.slot.0);

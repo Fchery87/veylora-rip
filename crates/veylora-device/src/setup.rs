@@ -46,6 +46,7 @@ pub enum VerificationState {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChannelEvidence {
+    pub target_label: String,
     pub slot: PhysicalSlotId,
     pub protocol: ProtocolChannel,
     pub expected_logical: LogicalChannel,
@@ -53,36 +54,16 @@ pub struct ChannelEvidence {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct EvidenceRecord {
+    pub operator: String,
     pub setup_id: DeviceSetupId,
     pub revision: u32,
     pub setup_hash: ContentHash,
     pub map_version: u32,
     pub channels: Vec<ChannelEvidence>,
+    pub target_id: String,
+    pub observed_at: String,
+    pub artifact_hash: ContentHash,
     pub evidence_hash: ContentHash,
-}
-impl EvidenceRecord {
-    pub fn complete(setup: &DeviceSetup) -> Self {
-        let channels = setup
-            .details
-            .channel_map
-            .bindings()
-            .iter()
-            .map(|b| ChannelEvidence {
-                slot: b.slot,
-                protocol: b.protocol,
-                expected_logical: b.logical,
-                observed_logical: b.logical,
-            })
-            .collect();
-        Self {
-            setup_id: setup.id,
-            revision: setup.revision,
-            setup_hash: setup.content_hash,
-            map_version: setup.details.channel_map.version(),
-            channels,
-            evidence_hash: ContentHash::digest(b"synthetic physical evidence fixture"),
-        }
-    }
 }
 #[derive(Clone, Debug)]
 pub struct DeviceSetup {
@@ -92,6 +73,7 @@ pub struct DeviceSetup {
     origin: SetupOrigin,
     verification: VerificationState,
     content_hash: ContentHash,
+    evidence: Option<EvidenceRecord>,
 }
 impl DeviceSetup {
     pub fn new(
@@ -125,7 +107,7 @@ impl DeviceSetup {
                 "Every channel-map slot must have physical inventory.",
             ));
         }
-        let content_hash = hash_details(&details, origin, 1);
+        let content_hash = hash_details(id, &details, origin, 1);
         Ok(Self {
             id,
             revision: 1,
@@ -133,6 +115,7 @@ impl DeviceSetup {
             origin,
             verification: VerificationState::Unverified,
             content_hash,
+            evidence: None,
         })
     }
     pub fn id(&self) -> DeviceSetupId {
@@ -153,6 +136,9 @@ impl DeviceSetup {
     pub fn verification(&self) -> &VerificationState {
         &self.verification
     }
+    pub fn evidence(&self) -> Option<&EvidenceRecord> {
+        self.evidence.as_ref()
+    }
     pub fn mark_experimental(&mut self, reason: impl Into<String>) -> Result<(), Finding> {
         let reason = reason.into();
         if reason.trim().is_empty() {
@@ -172,6 +158,22 @@ impl DeviceSetup {
         }
     }
     pub fn verify(&mut self, evidence: EvidenceRecord) -> Result<(), Finding> {
+        if evidence.target_id.trim().is_empty()
+            || evidence.observed_at.trim().is_empty()
+            || evidence.operator.trim().is_empty()
+        {
+            return Err(invalid(
+                "Physical evidence requires a target ID and observation timestamp.",
+            ));
+        }
+        let mut labels = std::collections::BTreeSet::new();
+        for channel in &evidence.channels {
+            if channel.target_label.trim().is_empty() || !labels.insert(&channel.target_label) {
+                return Err(invalid(
+                    "Every physical observation requires a distinct printed target label.",
+                ));
+            }
+        }
         if evidence.setup_id != self.id
             || evidence.revision != self.revision
             || evidence.setup_hash != self.content_hash
@@ -199,19 +201,43 @@ impl DeviceSetup {
         self.verification = VerificationState::Verified {
             evidence_hash: evidence.evidence_hash,
         };
+        self.evidence = Some(evidence);
         Ok(())
     }
-    pub fn revise(&mut self, details: SetupDetails) -> Result<(), Finding> {
+    pub fn revise(&self, details: SetupDetails) -> Result<Self, Finding> {
+        let old_map = &self.details.channel_map;
+        let new_map = &details.channel_map;
+        if new_map.version() < old_map.version()
+            || (new_map.bindings() != old_map.bindings() && new_map.version() <= old_map.version())
+        {
+            return Err(invalid(
+                "Changed channel bindings require an increasing map version.",
+            ));
+        }
         let next = Self::new(self.id, details, self.origin)?;
-        self.revision += 1;
-        self.details = next.details;
-        self.content_hash = hash_details(&self.details, self.origin, self.revision);
-        self.verification = VerificationState::Unverified;
-        Ok(())
+        let revision = self
+            .revision
+            .checked_add(1)
+            .ok_or_else(|| invalid("Setup revision overflow."))?;
+        let content_hash = hash_details(self.id, &next.details, self.origin, revision);
+        Ok(Self {
+            id: self.id,
+            revision,
+            details: next.details,
+            origin: self.origin,
+            verification: VerificationState::Unverified,
+            content_hash,
+            evidence: None,
+        })
     }
 }
 
-fn hash_details(details: &SetupDetails, origin: SetupOrigin, revision: u32) -> ContentHash {
+fn hash_details(
+    id: DeviceSetupId,
+    details: &SetupDetails,
+    origin: SetupOrigin,
+    revision: u32,
+) -> ContentHash {
     let mut bytes = b"veylora-device-setup-v1\0".to_vec();
     bytes.extend_from_slice(&revision.to_le_bytes());
     bytes.push(origin as u8);
@@ -219,12 +245,17 @@ fn hash_details(details: &SetupDetails, origin: SetupOrigin, revision: u32) -> C
         out.extend_from_slice(&(value.len() as u64).to_le_bytes());
         out.extend_from_slice(value.as_bytes());
     };
+    let optional = |out: &mut Vec<u8>, value: Option<&str>| match value {
+        Some(value) => {
+            out.push(1);
+            text(out, value);
+        }
+        None => out.push(0),
+    };
+    text(&mut bytes, &id.to_string());
     text(&mut bytes, &details.identity.model);
-    text(
-        &mut bytes,
-        details.identity.serial_or_local_id.as_deref().unwrap_or(""),
-    );
-    text(&mut bytes, details.firmware.as_deref().unwrap_or(""));
+    optional(&mut bytes, details.identity.serial_or_local_id.as_deref());
+    optional(&mut bytes, details.firmware.as_deref());
     for value in [
         &details.connection,
         &details.operating_system,
@@ -237,10 +268,8 @@ fn hash_details(details: &SetupDetails, origin: SetupOrigin, revision: u32) -> C
     ] {
         text(&mut bytes, value);
     }
-    text(
-        &mut bytes,
-        details.installation_date.as_deref().unwrap_or(""),
-    );
+    optional(&mut bytes, details.installation_date.as_deref());
+    bytes.extend_from_slice(&(details.physical_slots.len() as u64).to_le_bytes());
     for slot in &details.physical_slots {
         bytes.push(slot.id.0);
         text(&mut bytes, &slot.tank_label);
