@@ -452,3 +452,7 @@ If native independent process/white addressing cannot be demonstrated, the proje
 Commercial reference tools may be used for comparison, controlled reference prints, or research. Their feature lists and outputs must not be represented as evidence that Veylora supports the same behavior.
 
 The project should create ADRs for consequential decisions such as the selected desktop UI framework, persistence format, ICC engine and redistribution strategy, ET-8550 protocol model, artifact format, and the first validated screening method.
+
+## Progress
+
+- 2026-11-07: Task 8.2 (Tauri 2 + Svelte + Bits UI shell, mocked services) implemented on `integration/task-8.2-ui-shell`. Frontend: 40 Vitest tests, `vp check`, `vp build` pass. Rust crate `crates/veylora-app` is written but NOT compiled (no toolchain); needs `tauri icon`. Not merged to `main`. Remaining: Task 8.3, design-doc components (Select, MeasureField, ConfirmDialog, Tooltip, Progress), real Tauri bridge.

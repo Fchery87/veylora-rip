@@ -1,0 +1,31 @@
+name: app
+
+on:
+  push:
+    paths: ["app/**", ".github/workflows/app.yml"]
+  pull_request:
+    paths: ["app/**", ".github/workflows/app.yml"]
+
+jobs:
+  frontend:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      # Keep in step with "packageManager" in app/package.json. Vite+ is pinned
+      # by app/package.json (vite-plus 1.5.0) and app/pnpm-lock.yaml.
+      PNPM: pnpm@12.18.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx $env:PNPM install --frozen-lockfile
+        shell: pwsh
+      - run: npx $env:PNPM exec vp check
+        shell: pwsh
+      - run: npx $env:PNPM exec vp test run
+        shell: pwsh
+      - run: npx $env:PNPM exec vp build
+        shell: pwsh
