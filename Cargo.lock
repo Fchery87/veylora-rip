@@ -3614,6 +3614,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "veylora-device"
+version = "0.0.0"
+dependencies = [
+ "veylora-domain",
+]
+
+[[package]]
 name = "veylora-diagnostics"
 version = "0.0.0"
 dependencies = [
