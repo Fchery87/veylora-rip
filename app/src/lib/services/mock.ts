@@ -19,6 +19,7 @@ import {
   jobActionsView,
   preflightView,
   reviewView,
+  setInspectComposite,
   toggleInspectSelection,
 } from "./presentation";
 
@@ -49,6 +50,7 @@ const finding = (id: string, over: Partial<Finding>): Finding => ({
   title: "",
   cause: "",
   fix: "",
+  placementId: "p1",
   acknowledged: false,
   ...over,
 });
@@ -81,6 +83,10 @@ function workingDayJobs(): JobDetail[] {
     at: "09:14:02",
     outcome: "ambiguous",
     note: "Spool ended before confirmation. Fixture data.",
+    spoolJobId: "SPOOL-0142",
+    bytesWritten: 1_048_576,
+    bytesIntended: 4_194_304,
+    artifactHash: "sha256:fixture-artifact-0142",
   };
   return [
     baseJob({
@@ -304,7 +310,9 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
         capabilities(jobs, setup, modeId),
         toggleInspectSelection(selection, plane, on),
       ),
-    getReviewView: async (id) => reviewView(find(id)),
+    setInspectComposite: async (id, selection, on) =>
+      inspectView(find(id), capabilities(jobs, setup, modeId), setInspectComposite(selection, on)),
+    getReviewView: async (id) => reviewView(find(id), capabilities(jobs, setup, modeId)),
     getDeviceSetup: async () => setup,
     createDeviceSetup: async (name) => {
       setup = newSetup(name);
@@ -399,7 +407,15 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
     acknowledgeFinding: async (id, findingId) =>
       update(id, (j) => ({
         ...j,
-        findings: j.findings.map((f) => (f.id === findingId ? { ...f, acknowledged: true } : f)),
+        findings: j.findings.map((f) =>
+          f.id === findingId
+            ? {
+                ...f,
+                acknowledged: true,
+                acknowledgement: { operator: "Fixture operator", at: "just now" },
+              }
+            : f,
+        ),
       })),
     writeToFileSink: async (id) => {
       sinkCounter += 1;
@@ -422,15 +438,27 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
         const map = {
           finished: { attempt: "finished", state: "operator-confirmed-finished" },
           reprint: { attempt: "reprint", state: "held" },
-          "printed-badly": { attempt: "reprint", state: "held" },
+          "printed-badly": { attempt: "printed-badly", state: "held" },
           "decide-later": { attempt: "kept-in-review", state: "needs-review" },
         } as const;
         const m = map[outcome];
-        update(owner.id, (j) => ({
-          ...j,
-          state: m.state,
-          attempts: j.attempts.map((a) => (a.id === attemptId ? { ...a, outcome: m.attempt } : a)),
-        }));
+        update(owner.id, (j) => {
+          const attempts = j.attempts.map((a) =>
+            a.id === attemptId ? { ...a, outcome: m.attempt } : a,
+          );
+          // A reprint choice appends one held attempt. It is never sent or retried.
+          if (outcome === "reprint" || outcome === "printed-badly") {
+            const printerAttempts = attempts.filter((a) => a.kind === "printer").length;
+            attempts.push({
+              id: `A-${j.id.slice(2)}-${printerAttempts + 1}`,
+              kind: "printer",
+              at: "now",
+              outcome: "held",
+              note: "Reprint attempt created held. It has not been sent and is never retried automatically; release it explicitly.",
+            });
+          }
+          return { ...j, state: m.state, attempts };
+        });
       }
       return capabilities(jobs, setup, modeId);
     },

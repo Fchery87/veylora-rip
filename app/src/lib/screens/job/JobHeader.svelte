@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Button from "../../components/Button.svelte";
+  import Button from "../../components/Button.svelte";
   import StatusBadge from "../../components/StatusBadge.svelte";
   import PreflightSummary from "../../components/PreflightSummary.svelte";
   import type { AppStore } from "../../store.svelte";
@@ -14,7 +14,7 @@
     store,
     job,
     caps,
-    actions: commands,
+    actions,
     preflight,
   }: {
     store: AppStore;
@@ -43,30 +43,30 @@
     <span class="spacer"></span>
 
     <div class="action">
-      {#if !commands.writeToFileSink.enabled && commands.writeToFileSink.reason && job.rendered}
-        <span class="reason">{commands.writeToFileSink.reason}</span>
+      {#if !actions.writeToFileSink.enabled && actions.writeToFileSink.reason && job.rendered}
+        <span class="reason">{actions.writeToFileSink.reason}</span>
       {/if}
       <Button
-        disabled={!commands.writeToFileSink.enabled}
+        disabled={!actions.writeToFileSink.enabled}
         onclick={() => (confirming = "file-sink")}>Write to file sink</Button
       >
     </div>
 
     {#if !job.rendered}
       <div class="action">
-        {#if commands.renderAndHold.reason}<span class="reason">{commands.renderAndHold.reason}</span>{/if}
+        {#if actions.renderAndHold.reason}<span class="reason">{actions.renderAndHold.reason}</span>{/if}
         <Button
           variant="primary"
-          disabled={!commands.renderAndHold.enabled}
+          disabled={!actions.renderAndHold.enabled}
           onclick={() => store.renderAndHold(job.id)}>Render and hold</Button
         >
       </div>
     {:else}
       <div class="action">
-        {#if commands.releaseToPrinter.reason}<span class="reason">{commands.releaseToPrinter.reason}</span>{/if}
+        {#if actions.releaseToPrinter.reason}<span class="reason">{actions.releaseToPrinter.reason}</span>{/if}
         <Button
           variant="primary"
-          disabled={!commands.releaseToPrinter.enabled}
+          disabled={!actions.releaseToPrinter.enabled}
           onclick={() => (confirming = "printer")}>Release to printer</Button
         >
       </div>

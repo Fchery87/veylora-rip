@@ -1,8 +1,9 @@
 <script lang="ts">
+  import type { Plane } from "../services/types";
   import { Toggle } from "bits-ui";
 
   interface Props {
-    plane: "C" | "M" | "Y" | "K" | "W";
+    plane: Plane;
     pressed: boolean;
     onPressedChange: (pressed: boolean) => void;
     disabled?: boolean;
@@ -47,5 +48,7 @@
   .ink-M { background: var(--ink-m); }
   .ink-Y { background: var(--ink-y); }
   .ink-K { background: var(--ink-k); }
-  .ink-W { background: var(--ink-w); outline: 1px solid var(--line-strong); }
+  .ink-W,
+  .ink-W1,
+  .ink-W2 { background: var(--ink-w); outline: 1px solid var(--line-strong); }
 </style>

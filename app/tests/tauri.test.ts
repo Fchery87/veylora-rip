@@ -39,12 +39,16 @@ describe("tauri adapter", () => {
 
   it("sends inspect selections and plane toggles to Rust instead of deciding locally", async () => {
     const { calls, services } = connected();
-    const selection: InspectSelection = { stage: "logical", planes: ["K"] };
+    const selection: InspectSelection = { stage: "logical", planes: ["K"], composite: false };
     await services.getInspectView("J-1", selection);
     await services.toggleInspectPlane("J-1", selection, "C", true);
+    await services.setInspectComposite("J-1", selection, true);
+    await services.getInspectView("J-1");
     expect(calls).toEqual([
       { command: "get_inspect_view", args: { jobId: "J-1", selection } },
       { command: "toggle_inspect_plane", args: { jobId: "J-1", selection, plane: "C", on: true } },
+      { command: "set_inspect_composite", args: { jobId: "J-1", selection, on: true } },
+      { command: "get_inspect_view", args: { jobId: "J-1", selection: undefined } },
     ]);
   });
 
