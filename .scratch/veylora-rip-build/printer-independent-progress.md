@@ -40,6 +40,8 @@ These rulings preserve the original requested scope. They may require additional
 - Task 1 correction 2aa764d adds retained typed policies. Review identified missing crop extents; worker is correcting explicit crop geometry and tests before acceptance. No domain correction integrated yet.
 - Task 4 worker resumed after failure. Independent test run on 2026-11-08 observed red-stage compilation failure for the new untagged-policy API. Worker notified; this is not passing acceptance evidence.
 - Original Task 9.3 executable license checks dispatched independently to session_crocodile_1794171072270_ca663c86f8fa592f in C:\Coding-Projects\dtf-epson-licenses, based on 3d9fb66. Inventory drift and unknown permissions must block release rather than imply clearance.
+- Task 9.3 accepted and integrated as 6343f92. The PowerShell 7.2 checker fails closed on the current tree because frontend dependencies are absent from the lock graph and component notices/licenses remain unresolved. Windows PowerShell 5.1 is intentionally unsupported by the script's #Requires declaration; pwsh is available in the validation environment.
+- Fresh recovery workers dispatched from 6343f92: domain contract recovery in C:\Coding-Projects\dtf-epson-domain-recovery, bounded PNG recovery in C:\Coding-Projects\dtf-epson-image-recovery, and device modes plus durable persistence in C:\Coding-Projects\dtf-epson-modes. None is accepted until coordinator review and independent checks pass.
 - Device-mode dispatch acceptance brief retained in device-modes-brief.md. Broader observable review checklist retained in offline-acceptance.md.
 
 ## Acceptance policy
