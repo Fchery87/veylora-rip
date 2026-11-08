@@ -104,6 +104,10 @@ impl JobStore {
             outcome: AttemptOutcome::Ambiguous,
             note: "Spool ended before confirmation. Fixture data.".to_owned(),
             sink_path: None,
+            spool_job_id: Some("SPOOL-0142".to_owned()),
+            bytes_written: Some(1_048_576),
+            bytes_intended: Some(4_194_304),
+            artifact_hash: Some("sha256:fixture-artifact-0142".to_owned()),
         }];
 
         let mut held = base_job("J-0143", "Front chest logo");
@@ -227,6 +231,10 @@ impl JobStore {
             outcome: AttemptOutcome::Finished,
             note: "Written to the file sink. Not physical output.".to_owned(),
             sink_path: Some(format!(r"C:\Veylora\sink\{job_id}-{sink_number}.vrip")),
+            spool_job_id: None,
+            bytes_written: None,
+            bytes_intended: None,
+            artifact_hash: None,
         });
         job.summary.state = JobState::Held;
         Ok(job.clone())
@@ -245,7 +253,8 @@ impl JobStore {
     }
 
     /// Records the operator's outcome for an attempt in review. It never
-    /// retries, sends, or adds an attempt, and a recorded outcome is final.
+    /// retries or sends, and a recorded outcome is final. A reprint choice
+    /// appends one new attempt, held: it needs an explicit release.
     pub fn resolve_review(
         &mut self,
         attempt_id: &str,
@@ -261,9 +270,8 @@ impl JobStore {
                 AttemptOutcome::Finished,
                 JobState::OperatorConfirmedFinished,
             ),
-            ReviewOutcome::Reprint | ReviewOutcome::PrintedBadly => {
-                (AttemptOutcome::Reprint, JobState::Held)
-            }
+            ReviewOutcome::Reprint => (AttemptOutcome::Reprint, JobState::Held),
+            ReviewOutcome::PrintedBadly => (AttemptOutcome::PrintedBadly, JobState::Held),
             ReviewOutcome::DecideLater => (AttemptOutcome::KeptInReview, JobState::NeedsReview),
         };
         let attempt = job
@@ -276,6 +284,29 @@ impl JobStore {
         }
         attempt.outcome = attempt_outcome;
         job.summary.state = state;
+        if matches!(
+            outcome,
+            ReviewOutcome::Reprint | ReviewOutcome::PrintedBadly
+        ) {
+            let printer_attempts = job
+                .attempts
+                .iter()
+                .filter(|a| a.kind == AttemptKind::Printer)
+                .count();
+            let number = job.summary.id.trim_start_matches("J-").to_owned();
+            job.attempts.push(Attempt {
+                id: format!("A-{number}-{}", printer_attempts + 1),
+                kind: AttemptKind::Printer,
+                at: "now".to_owned(),
+                outcome: AttemptOutcome::Held,
+                note: "Reprint attempt created held. It has not been sent and is never retried automatically; release it explicitly.".to_owned(),
+                sink_path: None,
+                spool_job_id: None,
+                bytes_written: None,
+                bytes_intended: None,
+                artifact_hash: None,
+            });
+        }
         Ok(self.capabilities())
     }
 }

@@ -483,6 +483,91 @@ fn an_open_review_blocks_the_printer_and_surfaces_in_capabilities() {
 }
 
 #[test]
+fn review_shows_the_facts_and_what_was_sent() {
+    let store = JobStore::fixture();
+    let caps = store.capabilities();
+    let view = review::present(&caps, &store.get("J-0142").unwrap()).unwrap();
+    let facts: Vec<_> = view
+        .facts
+        .iter()
+        .map(|f| (f.label.as_str(), f.value.as_str()))
+        .collect();
+    assert_eq!(
+        facts,
+        vec![
+            ("Bytes written / intended", "1048576 / 4194304"),
+            ("Spool job ID", "SPOOL-0142"),
+            ("Last signal", "09:14:02"),
+            ("Source", "Fixture data"),
+        ]
+    );
+    let sent = &view.what_was_sent;
+    assert_eq!(sent.artifact_hash, "sha256:fixture-artifact-0142");
+    assert_eq!(sent.artifact_size, "4194304 bytes");
+    assert_eq!(sent.snapshot_hash, "sha256:fixture-0000");
+    assert_eq!(
+        sent.placements,
+        vec!["artwork.png \u{b7} 20, 30 mm \u{b7} 180 x 240 mm"]
+    );
+}
+
+#[test]
+fn unrecorded_review_facts_say_so_instead_of_inventing_values() {
+    let store = JobStore::fixture();
+    let caps = store.capabilities();
+    let mut job = store.get("J-0142").unwrap();
+    let attempt = &mut job.attempts[0];
+    attempt.spool_job_id = None;
+    attempt.bytes_written = None;
+    attempt.bytes_intended = None;
+    attempt.artifact_hash = None;
+    let view = review::present(&caps, &job).unwrap();
+    assert_eq!(view.facts[0].value, "Not recorded");
+    assert_eq!(view.facts[1].value, "Not recorded");
+    assert_eq!(view.what_was_sent.artifact_hash, "Not recorded");
+    assert_eq!(view.what_was_sent.artifact_size, "Not recorded");
+}
+
+#[test]
+fn a_reprint_creates_one_held_attempt_that_is_never_sent_or_retried() {
+    for (outcome, recorded) in [
+        (ReviewOutcome::Reprint, AttemptOutcome::Reprint),
+        (ReviewOutcome::PrintedBadly, AttemptOutcome::PrintedBadly),
+    ] {
+        let mut store = JobStore::fixture();
+        store.resolve_review("A-0142-1", outcome).unwrap();
+        let job = store.get("J-0142").unwrap();
+        assert_eq!(job.attempts.len(), 2, "{outcome:?} appends one attempt");
+        assert_eq!(job.attempts[0].outcome, recorded, "the original is kept");
+        let reprint = &job.attempts[1];
+        assert_eq!(reprint.id, "A-0142-2");
+        assert_eq!(reprint.kind, AttemptKind::Printer);
+        assert_eq!(reprint.outcome, AttemptOutcome::Held);
+        assert!(reprint.note.contains("not been sent"));
+        assert_eq!(job.summary.state, JobState::Held);
+        // Nothing after the resolution sends or retries it.
+        assert!(store.release_to_printer("J-0142").is_err());
+        assert!(store.resolve_review("A-0142-2", outcome).is_err());
+        let after = store.get("J-0142").unwrap();
+        assert_eq!(after.attempts, job.attempts, "attempts are append-only");
+        assert!(store.capabilities().open_review.is_none());
+        assert!(after.attempts.iter().all(|a| !matches!(
+            a.outcome,
+            AttemptOutcome::Pending | AttemptOutcome::Ambiguous
+        )));
+    }
+}
+
+#[test]
+fn finished_and_decide_later_create_no_reprint_attempt() {
+    for outcome in [ReviewOutcome::Finished, ReviewOutcome::DecideLater] {
+        let mut store = JobStore::fixture();
+        store.resolve_review("A-0142-1", outcome).unwrap();
+        assert_eq!(store.get("J-0142").unwrap().attempts.len(), 1);
+    }
+}
+
+#[test]
 fn resolving_a_review_never_retries_or_sends_anything() {
     for outcome in [
         ReviewOutcome::Finished,
@@ -493,7 +578,15 @@ fn resolving_a_review_never_retries_or_sends_anything() {
         let mut store = JobStore::fixture();
         store.resolve_review("A-0142-1", outcome).unwrap();
         let job = store.get("J-0142").unwrap();
-        assert_eq!(job.attempts.len(), 1, "{outcome:?} must not add an attempt");
+        let expected = if matches!(
+            outcome,
+            ReviewOutcome::Reprint | ReviewOutcome::PrintedBadly
+        ) {
+            2
+        } else {
+            1
+        };
+        assert_eq!(job.attempts.len(), expected, "{outcome:?} attempt count");
         assert!(
             job.attempts
                 .iter()

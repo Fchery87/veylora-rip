@@ -92,8 +92,12 @@ pub enum AttemptOutcome {
     Pending,
     Ambiguous,
     Finished,
+    /// Operator recorded that nothing printed.
     Reprint,
+    PrintedBadly,
     KeptInReview,
+    /// Created by a reprint choice. Never sent until an operator releases it.
+    Held,
 }
 
 impl AttemptOutcome {
@@ -113,6 +117,14 @@ pub struct Attempt {
     pub note: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sink_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spool_job_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bytes_written: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bytes_intended: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -411,10 +423,24 @@ pub struct ReviewChoiceView {
 #[serde(rename_all = "camelCase")]
 pub struct ReviewAttemptView {
     pub id: String,
-    pub last_signal: String,
     pub source: DataSource,
     /// Operator-facing label for `source`.
     pub source_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReviewFact {
+    pub label: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhatWasSent {
+    pub artifact_hash: String,
+    pub artifact_size: String,
+    pub snapshot_hash: String,
+    pub placements: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -423,6 +449,9 @@ pub struct ReviewView {
     pub headline: String,
     pub body: String,
     pub attempt: ReviewAttemptView,
+    /// Bytes written / intended, spool job ID, last signal, source.
+    pub facts: Vec<ReviewFact>,
+    pub what_was_sent: WhatWasSent,
     pub choices: Vec<ReviewChoiceView>,
     /// True while this attempt is unresolved. Nothing may be sent to the printer.
     /// Reserved: always true today, because only an unresolved attempt has a view.
