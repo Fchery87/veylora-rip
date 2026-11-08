@@ -24,7 +24,7 @@ an original mark for this project and has not been trademark or domain cleared
 `app/`:
 
 ```powershell
-npx pnpm@12.18.0 exec tauri icon ..\crates\veylora-app\icons-src\veylora-mark.svg --output ..\crates\veylora-app\icons
+pnpm exec tauri icon ..\crates\veylora-app\icons-src\veylora-mark.svg --output ..\crates\veylora-app\icons
 ```
 
 ## Running
@@ -36,17 +36,18 @@ Run from `crates/veylora-app` so the Tauri hooks resolve paths correctly:
 ..\..\app\node_modules\.bin\tauri build    # release bundle
 ```
 
-`tauri.conf.json` runs the frontend through `npx pnpm@12.18.0` in `../../app`
-(the global `pnpm` on this machine is broken, so it is not used). The Tauri CLI
-is pinned in `app/package.json`.
+`tauri.conf.json` runs the frontend through `pnpm` in `../../app`. `pnpm` must be
+on PATH; it honors the `packageManager` pin (12.18.0) in `app/package.json`. The
+Tauri CLI is pinned there too. CI still uses `npx pnpm@12.18.0` because runners
+don't have a Corepack setup.
 
 ## Frontend commands (from `app/`)
 
 ```powershell
-npx pnpm@12.18.0 install --frozen-lockfile
-npx pnpm@12.18.0 exec vp check
-npx pnpm@12.18.0 exec vp test run
-npx pnpm@12.18.0 exec vp build
+pnpm install --frozen-lockfile
+pnpm exec vp check
+pnpm exec vp test run
+pnpm exec vp build
 ```
 
 ## Connected commands

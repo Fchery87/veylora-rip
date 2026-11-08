@@ -5,12 +5,12 @@
   "identifier": "app.veylora.rip",
   "build": {
     "beforeDevCommand": {
-      "script": "npx pnpm@12.18.0 dev",
+      "script": "pnpm dev",
       "cwd": "../../app",
       "wait": false
     },
     "beforeBuildCommand": {
-      "script": "npx pnpm@12.18.0 build",
+      "script": "pnpm build",
       "cwd": "../../app",
       "wait": true
     },
