@@ -3615,6 +3615,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "veylora-color"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "veylora-domain",
+]
+
+[[package]]
 name = "veylora-device"
 version = "0.0.0"
 dependencies = [
@@ -3638,6 +3648,15 @@ dependencies = [
  "serde_json",
  "sha2",
  "uuid",
+]
+
+[[package]]
+name = "veylora-persistence"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "veylora-color",
+ "veylora-domain",
 ]
 
 [[package]]

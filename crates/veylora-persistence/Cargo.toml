@@ -1,0 +1,12 @@
+[package]
+name = "veylora-persistence"
+description = "Printer-independent immutable calibration and recipe storage"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+veylora-color = { path = "../veylora-color" }
+veylora-domain = { path = "../veylora-domain" }
+serde_json = "1"
