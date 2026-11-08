@@ -68,4 +68,5 @@ No print, firmware, maintenance, payment or external upload is authorized as a s
 
 ## Verification log
 
+- Baseline frontend: `pnpm run check` (including Svelte type checks), `pnpm test`, and `pnpm run build` passed.
 - Baseline: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` passed.
