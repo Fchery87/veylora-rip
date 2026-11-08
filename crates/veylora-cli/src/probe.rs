@@ -9,6 +9,8 @@ use std::{
 };
 use veylora_domain::provenance::ContentHash;
 
+mod svg;
+
 const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 
@@ -39,7 +41,7 @@ fn execute(args: &[OsString]) -> Result<(), String> {
     };
     let options = parse_options(&args[1..], allowed)?;
     match action {
-        "--help" => println!("veylora-cli probe\n  inspect-reference --input <file>\n  record-observation --input <request.json> --output <new.json>\n  render-bounded-target --output <new.json>\n  decode-candidate [--experimental]\nFile-only diagnostic investigation. NOT printer-ready. Input limit 8 MiB, output limit 1 MiB. No established protocol. No hardware operations."),
+        "--help" => println!("veylora-cli probe\n  inspect-reference --input <file>\n  record-observation --input <request.json> --output <new.json>\n  render-bounded-target --output <new.json|new.svg>\n    SVG also creates <new.svg>.manifest.json\n  decode-candidate [--experimental]\nFile-only diagnostic investigation. NOT printer-ready. Input limit 8 MiB, output limit 1 MiB per file. No established protocol. No hardware operations."),
         "inspect-reference" => {
             let input = &options["--input"];
             let bytes = read_bounded(input)?;
@@ -51,13 +53,32 @@ fn execute(args: &[OsString]) -> Result<(), String> {
         "render-bounded-target" => {
             let output = &options["--output"];
             if output.exists() { return Err("refusing to overwrite existing output".into()); }
-            if output.extension().and_then(|s| s.to_str()) != Some("json") {
-                return Err("diagnostic export supports .json only, not SVG, raster or printer-ready encoding".into());
+            if !matches!(output.extension().and_then(|s| s.to_str()), Some("json" | "svg")) {
+                return Err("diagnostic export supports .json or .svg only, not printer-ready encoding".into());
             }
             use veylora_diagnostics::targets::{generate_target, PhysicalSize, TargetKind};
             let target = generate_target(TargetKind::ChannelIdentity, PhysicalSize::new(100.0, 100.0).map_err(|e| e.to_string())?);
             let artifact = serde_json::json!({"schema_version":1, "software_version":veylora_domain::version(), "label":"DIAGNOSTIC ONLY - NOT PRINTER-READY", "printer_ready":false, "target_sha256":target.stable_hash(), "target":target});
-            write_new(output, &encode(&artifact)?)?;
+            if output.extension().and_then(|s| s.to_str()) == Some("svg") {
+                let rendered = svg::render(&target)?;
+                let mut manifest = artifact;
+                manifest["artifact_sha256"] = serde_json::json!(ContentHash::digest(rendered.as_bytes()));
+                manifest["artifact_byte_count"] = serde_json::json!(rendered.len());
+                manifest["visualization_version"] = serde_json::json!(1);
+                manifest["visualization_policy"] = serde_json::json!("approximate RGB from CMYK; white on gray; K+W black; viewer sans-serif text; not physical output");
+                let encoded = encode(&manifest)?;
+                let mut sidecar = output.as_os_str().to_os_string();
+                sidecar.push(".manifest.json");
+                let sidecar = PathBuf::from(sidecar);
+                if sidecar.exists() { return Err("refusing to overwrite existing manifest".into()); }
+                // Reserve both names before writing. Failures retain incomplete files, never replace them.
+                let mut svg_file = OpenOptions::new().write(true).create_new(true).open(output).map_err(|e| format!("refusing to overwrite SVG: {e}"))?;
+                let mut manifest_file = OpenOptions::new().write(true).create_new(true).open(&sidecar).map_err(|e| format!("refusing to overwrite manifest; empty SVG reservation retained: {e}"))?;
+                svg_file.write_all(rendered.as_bytes()).and_then(|()| svg_file.sync_all()).map_err(|e| format!("incomplete SVG/manifest retained: {e}"))?;
+                manifest_file.write_all(&encoded).and_then(|()| manifest_file.sync_all()).map_err(|e| format!("incomplete manifest retained: {e}"))?;
+            } else {
+                write_new(output, &encode(&artifact)?)?;
+            }
         }
         _ => unreachable!(),
     }

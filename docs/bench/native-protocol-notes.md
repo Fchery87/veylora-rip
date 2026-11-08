@@ -12,6 +12,7 @@ Run from the repository using `cargo run -p veylora-cli -- probe --help`.
 veylora-cli probe inspect-reference --input reference.bin
 veylora-cli probe record-observation --input request.json --output observation.json
 veylora-cli probe render-bounded-target --output target.json
+veylora-cli probe render-bounded-target --output target.svg
 ```
 
 Inspection emits JSON on stdout containing the path, exact byte count, SHA-256,
@@ -21,8 +22,15 @@ new file when retaining it. It does not parse framing or infer channel IDs.
 Target export uses the public `veylora-diagnostics` generator: channel identity
 at 100 x 100 mm, logical coverage and geometry only. The deterministic JSON
 contains the generated target, its stable hash, software version, and
-`DIAGNOSTIC ONLY - NOT PRINTER-READY`. This command supports `.json` only.
-It does not rasterize, screen, encode, or submit. SVG/raster export is unsupported.
+`DIAGNOSTIC ONLY - NOT PRINTER-READY`. The `.svg` alternative visualizes those
+same generated rectangles, labels, asymmetric marker and millimetre rulers.
+It also creates `target.svg.manifest.json` with exact SVG SHA-256, byte count,
+target geometry/hash, software version and visualization policy/version.
+Both artifacts are deterministic. SVG uses approximate RGB colors, white on a
+gray background and black for K+W overlap. Text uses the viewer's sans-serif
+font fitted to the declared boxes, not fixed production glyphs. These limitations
+are explicit in the SVG and manifest. It does not rasterize, screen, encode,
+or submit. Raster export is unsupported.
 The dimensions are generator dimensions, not verified printer media limits.
 
 `decode-candidate` and `submit` always fail explicitly. `--experimental` is a
@@ -72,6 +80,10 @@ Output is capped at 1 MiB. Text fields and setting counts are additionally
 bounded. Output paths use exclusive creation, never replacement, including
 concurrent attempts. A failed write retains an explicitly incomplete file for
 inspection and reports failure. Choose a new path after investigating it.
+SVG and sidecar names are exclusively reserved before content is written.
+The pair is not an atomic filesystem transaction: interruption can leave an
+empty reservation or incomplete pair. A successful command and matching manifest
+hash are required before using the visualization. Neither file is overwritten.
 
 Hashes identify the bytes read, not an atomic filesystem snapshot. Do not edit
 reference evidence during inspection. Evidence bytes are not copied into the

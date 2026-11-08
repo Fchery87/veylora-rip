@@ -5,6 +5,61 @@ fn cli() -> Command {
 }
 
 #[test]
+fn svg_visualization_has_geometry_labels_and_exact_manifest_hash() {
+    let dir = tempfile_dir("svg");
+    for name in ["first.svg", "second.svg"] {
+        let result = cli()
+            .args(["probe", "render-bounded-target", "--output"])
+            .arg(dir.join(name))
+            .output()
+            .unwrap();
+        assert!(result.status.success(), "{result:?}");
+    }
+    let bytes = fs::read(dir.join("first.svg")).unwrap();
+    assert_eq!(bytes, fs::read(dir.join("second.svg")).unwrap());
+    let svg = String::from_utf8(bytes.clone()).unwrap();
+    for text in [
+        "width=\"100mm\"",
+        "viewBox=\"0 0 100 100\"",
+        "DIAGNOSTIC ONLY",
+        "NOT PRINTER-READY",
+        "TOP LEFT R 123",
+        "Isolated W",
+        "K + W overlap",
+        "<rect",
+        "<path",
+    ] {
+        assert!(svg.contains(text), "missing {text}");
+    }
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(dir.join("first.svg.manifest.json")).unwrap()).unwrap();
+    assert_eq!(
+        manifest["artifact_sha256"],
+        veylora_domain::provenance::ContentHash::digest(&bytes).to_string()
+    );
+    assert_eq!(manifest["artifact_byte_count"], bytes.len());
+    assert_eq!(manifest["printer_ready"], false);
+    assert_eq!(manifest["target"]["kind"], "channel_identity");
+}
+
+#[test]
+fn existing_svg_manifest_blocks_export_without_replacing_either_file() {
+    let dir = tempfile_dir("svg-existing");
+    fs::write(dir.join("target.svg.manifest.json"), b"retain").unwrap();
+    let result = cli()
+        .args(["probe", "render-bounded-target", "--output"])
+        .arg(dir.join("target.svg"))
+        .output()
+        .unwrap();
+    assert!(!result.status.success());
+    assert!(!dir.join("target.svg").exists());
+    assert_eq!(
+        fs::read(dir.join("target.svg.manifest.json")).unwrap(),
+        b"retain"
+    );
+}
+
+#[test]
 fn probe_help_describes_safe_actions() {
     let output = cli().args(["probe", "--help"]).output().unwrap();
     assert!(output.status.success());
