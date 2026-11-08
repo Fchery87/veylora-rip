@@ -35,6 +35,9 @@ These rulings preserve the original requested scope. They may require additional
 - Task 4 (original 3.1) in progress independently: worker session_chipmunk_1794170342800_ca79030abfdccb9e in C:\Coding-Projects\dtf-epson-image, branch feat/bounded-png-import. Uses existing IDs/hashes only; coordinator merges workspace manifests serially.
 - Tasks 2-3 and 5-12 pending, including the coverage corrections above.
 - Initial Task 1 contract inspection found hash-only layout/recipe references insufficient without retained typed content or a validated resolver. Worker instructed to supply typed values, creation metadata and consistency tests before acceptance.
+- Task 1 intermediate commit e6f1e27 independently passed domain tests, including six snapshot tests, two lifecycle tests and three compile-fail immutability examples. Not integrated: recipe and layout remain unresolved hash references. Worker resumed for typed retained configuration and creation metadata correction.
+- Original Task 6.3 documentation in progress: worker session_cow_1794170453042_d57d14b8342c5d84 in C:\Coding-Projects\dtf-epson-quality. Owns only quality protocol, empty baseline template and physical-fixture README. No physical results authorized or claimed.
+- Device-mode dispatch acceptance brief retained in device-modes-brief.md. Broader observable review checklist retained in offline-acceptance.md.
 
 ## Acceptance policy
 
