@@ -88,6 +88,32 @@ fn exports_deterministic_shared_diagnostic_target() {
 }
 
 #[test]
+fn concurrent_exports_do_not_replace_each_other() {
+    let dir = tempfile_dir("concurrent");
+    let path = dir.join("target.json");
+    let mut first = cli()
+        .args(["probe", "render-bounded-target", "--output"])
+        .arg(&path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut second = cli()
+        .args(["probe", "render-bounded-target", "--output"])
+        .arg(&path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    assert_ne!(
+        first.wait().unwrap().success(),
+        second.wait().unwrap().success()
+    );
+    let artifact: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    assert_eq!(artifact["printer_ready"], false);
+}
+
+#[test]
 fn rejects_unknown_duplicate_missing_flags_and_submission() {
     for args in [
         vec!["inspect-reference", "--input", "missing", "--unsafe"],
