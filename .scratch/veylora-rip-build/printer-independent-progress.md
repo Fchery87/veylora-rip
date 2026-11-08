@@ -32,7 +32,9 @@ These rulings preserve the original requested scope. They may require additional
 - Design committed: 0dea505.
 - Execution grouping committed: d4c8cb2.
 - Task 1 in progress: worker session_chick_1794170144594_0019d6b64bf19eda. No implementation accepted yet.
-- Tasks 2-12 pending, including the coverage corrections above.
+- Task 4 (original 3.1) in progress independently: worker session_chipmunk_1794170342800_ca79030abfdccb9e in C:\Coding-Projects\dtf-epson-image, branch feat/bounded-png-import. Uses existing IDs/hashes only; coordinator merges workspace manifests serially.
+- Tasks 2-3 and 5-12 pending, including the coverage corrections above.
+- Initial Task 1 contract inspection found hash-only layout/recipe references insufficient without retained typed content or a validated resolver. Worker instructed to supply typed values, creation metadata and consistency tests before acceptance.
 
 ## Acceptance policy
 

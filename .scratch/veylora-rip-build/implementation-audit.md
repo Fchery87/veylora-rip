@@ -62,7 +62,7 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 
 ## Gate policy
 
-Gate A after Task 1.3 explicitly requires a pause if a native command path cannot be established. The plan's implementation-order section also describes renderer/encoder work before physical proof. Resolve this tension conservatively: implement the ready foundation and investigation tools, retain truthful diagnostics, and do not invent protocol fields, validated mode facts or physical results to close later tasks. Later production phases stay open until the evidence prerequisite is met. The existing explicitly permitted UI fixture work is not grounds to bypass this rule.
+On 2026-11-08 the user explicitly authorized completion of all printer-independent tasks while the printer is not configured. Continue domain, persistence, import, color, layout, separation, rendering, calibration-data tooling, fake transport, services, CLI, UI integration, bundles and packaging in dependency order. Gate A still blocks native support claims, evidence-dependent protocol fields, actual printer submission and physical promotion, not offline software implementation. Synthetic configurations and measurements must remain labeled and cannot establish device truth. See `printer-independent-progress.md` for execution status and scope rulings.
 
 No print, firmware, maintenance, payment or external upload is authorized as a side effect of implementation. A staged physical experiment needs actual setup facts and operator coordination.
 
