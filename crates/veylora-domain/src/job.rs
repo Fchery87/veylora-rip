@@ -131,6 +131,10 @@ impl JobSnapshot {
         &self.0
     }
 
+    pub fn job_id(&self) -> JobId {
+        self.0.id
+    }
+
     /// Uses the same versioned compact-JSON contract as PrintRecipe. Lifecycle
     /// state and later artifacts are deliberately not part of the input hash.
     pub fn content_hash(&self) -> ContentHash {
@@ -181,3 +185,39 @@ impl RenderingSnapshot {
 /// Schema 1 makes invalid freeze operations unrepresentable. Kept as the error
 /// type of the planned fallible boundary without inventing a failure condition.
 pub type SnapshotError = std::convert::Infallible;
+
+/// Recorded transport state, not proof of physical output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttemptState {
+    Submitting,
+    Submitted,
+    Ambiguous,
+    Failed,
+    Cancelled,
+    OperatorConfirmedFinished,
+}
+
+impl AttemptState {
+    pub const fn is_terminal(self) -> bool {
+        !matches!(self, Self::Submitting)
+    }
+
+    pub const fn is_ambiguous(self) -> bool {
+        matches!(self, Self::Ambiguous)
+    }
+}
+
+/// An event retained by the append-only attempt store.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubmissionAttempt {
+    pub attempt_id: crate::ids::AttemptId,
+    pub job_id: JobId,
+    pub snapshot_hash: ContentHash,
+    pub sequence: u32,
+    pub state: AttemptState,
+    pub bytes_written: u64,
+    pub note: String,
+    pub recorded_at: String,
+}

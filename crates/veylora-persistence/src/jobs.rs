@@ -215,10 +215,10 @@ impl FileJobStore {
 
 impl JobStore for FileJobStore {
     fn create_snapshot(&self, job: JobSnapshot) -> PersistenceResult<()> {
-        let path = self.job_path(job.job_id);
+        let path = self.job_path(job.job_id());
         if path.exists() {
             return Err(PersistenceError::ImmutableRecordExists {
-                id: job.job_id.to_string(),
+                id: job.job_id().to_string(),
             });
         }
         let payload = serde_json::to_vec_pretty(&SnapshotEnvelope {

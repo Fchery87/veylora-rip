@@ -1,7 +1,13 @@
 use std::path::PathBuf;
-use veylora_domain::ids::{AssetId, AttemptId, DeviceSetupId, JobId, PrintModeId, RecipeId};
-use veylora_domain::job::{AssetRef, AttemptState, JobSnapshot, LayoutSnapshot, SubmissionAttempt};
+use veylora_domain::ids::{
+    AssetId, AttemptId, DeviceSetupId, JobId, PlacementId, PrintModeId, RecipeId,
+};
+use veylora_domain::job::{
+    AssetReference, AttemptState, JobSnapshot, JobSnapshotInput, SubmissionAttempt,
+};
+use veylora_domain::layout::{LayoutInput, LayoutSnapshot, Placement, Rotation};
 use veylora_domain::provenance::{ContentHash, Provenance};
+use veylora_domain::recipe::*;
 use veylora_persistence::{current_schema_version, FileJobStore, JobStore, PersistenceError};
 
 fn tmp_dir(label: &str) -> PathBuf {
@@ -27,25 +33,96 @@ fn provenance() -> Provenance {
 }
 
 fn snapshot(job_id: JobId) -> JobSnapshot {
-    JobSnapshot::seal(
-        job_id,
-        vec![AssetRef {
-            id: AssetId::new(),
-            label: "asset".into(),
+    let asset_id = AssetId::new();
+    let reference = || VersionedReference {
+        version: 1,
+        content_hash: ContentHash::digest(b"synthetic"),
+    };
+    JobSnapshot::new(JobSnapshotInput {
+        schema_version: 1,
+        id: job_id,
+        created_at_ms: 1,
+        assets: vec![AssetReference {
+            id: asset_id,
             content_hash: ContentHash::digest(b"asset"),
         }],
-        LayoutSnapshot {
-            label: "flat".into(),
-            layout_hash: ContentHash::digest(b"layout"),
-            width_px: 1,
-            height_px: 1,
-        },
-        DeviceSetupId::new(),
-        PrintModeId::new(),
-        RecipeId::new(),
-        provenance(),
-        "2026-11-08T22:00:00Z",
-    )
+        masks: vec![],
+        layout: LayoutSnapshot::new(LayoutInput {
+            schema_version: 1,
+            page_width_um: 1000,
+            page_height_um: 1000,
+            mirror: false,
+            placements: vec![Placement {
+                id: PlacementId::new(),
+                asset_id,
+                mask_id: None,
+                x_um: 0,
+                y_um: 0,
+                width_um: 1000,
+                height_um: 1000,
+                rotation: Rotation::Deg0,
+                crop_x_px: 0,
+                crop_y_px: 0,
+                crop_width_px: 1,
+                crop_height_px: 1,
+            }],
+        })
+        .unwrap(),
+        device_setup_id: DeviceSetupId::new(),
+        device_setup: reference(),
+        print_mode_id: PrintModeId::new(),
+        print_mode: reference(),
+        recipe: PrintRecipe::new(PrintRecipeInput {
+            schema_version: 1,
+            id: RecipeId::new(),
+            revision: 1,
+            created_at_ms: 1,
+            status: RecipeStatus::Experimental,
+            white: WhitePolicy {
+                source: WhiteSource::Disabled,
+                combine: MaskCombination::Replace,
+                density_percent: 0,
+                spread_um: 0,
+                response: vec![0, 65535],
+            },
+            calibration: CalibrationPolicy {
+                revision: 1,
+                process_curves: std::array::from_fn(|_| vec![0, 65535]),
+                channel_limits_percent: [100; 4],
+                total_coverage_percent: 300,
+            },
+            color: ColorPolicy {
+                profile: None,
+                rendering_intent: RenderingIntent::Perceptual,
+                black_point_compensation: false,
+                untagged_rgb_policy: UntaggedRgbPolicy::Reject,
+            },
+            screen: ScreenPolicy {
+                algorithm: ScreenAlgorithm::OrderedThreshold,
+                revision: 1,
+                seed: 0,
+                phase_x: 0,
+                phase_y: 0,
+                cell_width: 1,
+                cell_height: 1,
+                thresholds: vec![32768],
+            },
+            finish: FinishPolicy {
+                ink_id: "synthetic".into(),
+                film_id: "synthetic".into(),
+                powder_id: "synthetic".into(),
+                garment: "synthetic".into(),
+                cure_temperature_c: 1,
+                cure_seconds: 1,
+                press_temperature_c: 1,
+                press_seconds: 1,
+                press_pressure_pa: 1,
+                peel: PeelCondition::Cold,
+            },
+        })
+        .unwrap(),
+        provenance: provenance(),
+    })
     .unwrap()
 }
 
@@ -57,7 +134,7 @@ fn attempt(
 ) -> SubmissionAttempt {
     SubmissionAttempt {
         attempt_id,
-        job_id: job.job_id,
+        job_id: job.job_id(),
         snapshot_hash: job.content_hash(),
         sequence,
         state,
@@ -185,7 +262,7 @@ fn ambiguous_attempt_blocks_automatic_retry_but_allows_operator_confirmation() {
             AttemptState::OperatorConfirmedFinished,
         ))
         .unwrap();
-    let views = store.list_attempts(snap.job_id).unwrap();
+    let views = store.list_attempts(snap.job_id()).unwrap();
     assert_eq!(
         views.last().unwrap().state,
         AttemptState::OperatorConfirmedFinished
@@ -244,6 +321,6 @@ fn corrupt_attempt_log_entry_is_surfaced() {
         .unwrap();
     f.write_all(b"{not valid json}\n").unwrap();
     drop(f);
-    let err = store.list_attempts(snap.job_id).unwrap_err();
+    let err = store.list_attempts(snap.job_id()).unwrap_err();
     assert!(matches!(err, PersistenceError::Corrupt { .. }));
 }
