@@ -1,6 +1,7 @@
 //! White generation with the declared precedence:
 //! source -> combination -> response curve and density -> choke/spread -> clear mask.
 use crate::{
+    clear_mask::ClearMask,
     morphology::{dilate, erode, MAX_MORPHOLOGY_RADIUS_PX},
     Plane, SeparationError,
 };
@@ -18,9 +19,19 @@ pub struct SuppliedMask {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeparationInput {
     pub alpha: Plane,
-    pub tonal: Plane,
+    /// Needs a color engine to derive; None makes a tonal white source an error.
+    pub tonal: Option<Plane>,
     pub supplied_mask: Option<SuppliedMask>,
-    pub clear_mask: Option<Plane>,
+    pub clear_mask: Option<ClearMask>,
+}
+impl SuppliedMask {
+    /// Imports a Gray8 asset as the supplied white mask it was loaded as.
+    pub fn from_asset(asset: &veylora_image::SourceAsset) -> Result<Self, SeparationError> {
+        Ok(Self {
+            id: asset.id,
+            plane: crate::source::mask_plane(asset)?,
+        })
+    }
 }
 /// Physical size of one raster pixel in micrometres, used to turn `spread_um` into pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,13 +76,15 @@ pub fn generate_white(
     }
     let (radius, choke) = radius_px(policy.spread_um, pitch)?;
     input.alpha.validate()?;
-    input.tonal.validate()?;
-    if !input.alpha.same_size(&input.tonal) {
-        return Err(SeparationError::DimensionMismatch);
+    if let Some(tonal) = &input.tonal {
+        tonal.validate()?;
+        if !tonal.same_size(&input.alpha) {
+            return Err(SeparationError::DimensionMismatch);
+        }
     }
     for optional in [
         input.supplied_mask.as_ref().map(|m| &m.plane),
-        input.clear_mask.as_ref(),
+        input.clear_mask.as_ref().map(ClearMask::retained),
     ]
     .into_iter()
     .flatten()
@@ -84,7 +97,7 @@ pub fn generate_white(
     let supplied = input.supplied_mask.as_ref();
     let mut out = match &policy.source {
         WhiteSource::Alpha => input.alpha.clone(),
-        WhiteSource::Tonal => input.tonal.clone(),
+        WhiteSource::Tonal => input.tonal.clone().ok_or(SeparationError::MissingTonal)?,
         WhiteSource::Supplied { mask_id } => match supplied {
             None => return Err(SeparationError::MissingSuppliedMask),
             Some(mask) if mask.id != *mask_id => return Err(SeparationError::SuppliedMaskMismatch),
@@ -128,8 +141,8 @@ pub fn generate_white(
         };
     }
     if let Some(clear) = &input.clear_mask {
-        for (v, c) in out.pixels.iter_mut().zip(&clear.pixels) {
-            *v *= c.clamp(0.0, 1.0);
+        for (v, c) in out.pixels.iter_mut().zip(&clear.retained().pixels) {
+            *v *= c;
         }
     }
     Ok(out)

@@ -61,6 +61,14 @@ pub enum SeparationError {
     /// A supplied mask was provided, but not the one the policy references.
     SuppliedMaskMismatch,
     InvalidPolicy,
+    /// A knockout or perforation rule has non-finite, out-of-range or inconsistent values.
+    InvalidRule,
+    /// The tonal plane needs a color engine and was not supplied.
+    MissingTonal,
+    /// Decoded samples do not match the declared dimensions and layout.
+    MalformedSource,
+    /// The source layout cannot be used for this purpose (for example an RGB supplied mask).
+    UnsupportedSource,
     /// Choke/spread needs equal horizontal and vertical pixel pitch; it is never approximated.
     AnisotropicPitch,
 }

@@ -10,3 +10,4 @@ publish.workspace = true
 serde = { version = "1", features = ["derive"] }
 veylora-device = { path = "../veylora-device" }
 veylora-domain = { path = "../veylora-domain" }
+veylora-image = { path = "../veylora-image" }

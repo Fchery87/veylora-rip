@@ -3741,6 +3741,7 @@ dependencies = [
  "serde",
  "veylora-device",
  "veylora-domain",
+ "veylora-image",
 ]
 
 [[package]]

@@ -3,7 +3,7 @@ use veylora_domain::{
     recipe::{MaskCombination, WhitePolicy, WhiteSource},
 };
 use veylora_separation::{
-    generate_white, PixelPitch, Plane, SeparationError, SeparationInput, SuppliedMask,
+    generate_white, ClearMask, PixelPitch, Plane, SeparationError, SeparationInput, SuppliedMask,
     MAX_MORPHOLOGY_RADIUS_PX,
 };
 
@@ -18,7 +18,7 @@ fn row(values: &[f32]) -> Plane {
 fn input(alpha: &[f32]) -> SeparationInput {
     SeparationInput {
         alpha: row(alpha),
-        tonal: row(&vec![0.5; alpha.len()]),
+        tonal: Some(row(&vec![0.5; alpha.len()])),
         supplied_mask: None,
         clear_mask: None,
     }
@@ -119,7 +119,7 @@ fn a_response_that_lifts_zero_never_inks_transparent_pixels() {
 #[test]
 fn spread_and_choke_use_physical_units_with_sign() {
     let mut i2 = input(&[1.0; 5]);
-    i2.tonal = row(&[0.0, 0.0, 1.0, 0.0, 0.0]);
+    i2.tonal = Some(row(&[0.0, 0.0, 1.0, 0.0, 0.0]));
     let mut p = policy(WhiteSource::Tonal);
     p.spread_um = 100;
     close(&white(&i2, &p), &[0.0, 1.0, 1.0, 1.0, 0.0]);
@@ -198,13 +198,25 @@ fn invalid_recipe_values_and_inputs_are_errors_not_panics() {
 #[test]
 fn clear_mask_is_final_so_spread_cannot_reintroduce_white() {
     let mut i = input(&[0.0, 1.0, 0.0]);
-    i.clear_mask = Some(row(&[0.0, 1.0, 0.0]));
+    i.clear_mask = Some(ClearMask::from_plane(row(&[0.0, 1.0, 0.0])).unwrap());
     let mut p = policy(WhiteSource::Alpha);
     p.spread_um = 100;
     close(&white(&i, &p), &[0.0, 1.0, 0.0]);
-    i.clear_mask = Some(Plane::new(4, 1, 1.0));
+    i.clear_mask = Some(ClearMask::open(4, 1));
     assert_eq!(
         generate_white(&i, &p, PITCH),
         Err(SeparationError::DimensionMismatch)
     );
+}
+
+#[test]
+fn tonal_source_without_a_tonal_plane_is_an_error() {
+    let mut i = input(&[1.0, 1.0]);
+    i.tonal = None;
+    assert_eq!(
+        generate_white(&i, &policy(WhiteSource::Tonal), PITCH),
+        Err(SeparationError::MissingTonal)
+    );
+    // Other sources do not need it.
+    assert!(generate_white(&i, &policy(WhiteSource::Alpha), PITCH).is_ok());
 }
