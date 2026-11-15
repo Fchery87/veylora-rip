@@ -5,6 +5,7 @@
 //! owns no rendering, persistence, or transport logic.
 
 pub mod editing;
+pub mod gang_sheet;
 pub mod geometry;
 pub mod transforms;
 pub mod validate;
@@ -13,6 +14,7 @@ pub use editing::{
     align, distribute, resize_width_locked, rotate_quarter_turns, set_size, Alignment, Axis,
     EditError,
 };
+pub use gang_sheet::{block_nest, duplicate_row, subset, GangSheet, NestConstraints, SheetError};
 pub use geometry::Rect;
 pub use transforms::{resolve_transform, LayoutError, ResolvedLayout, ResolvedPlacement};
 pub use validate::{validate_layout, LayoutPolicy};
