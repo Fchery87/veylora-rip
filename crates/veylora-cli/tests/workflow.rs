@@ -783,3 +783,57 @@ fn recover_settles_a_crashed_submission_for_review() {
         (&"submitting".into(), &"review".into())
     );
 }
+
+#[test]
+fn resource_limits_are_options_on_preflight_and_render() {
+    let ws = dir("cli-limits");
+    let job = rendered_job(&ws);
+    let ok = json(&cli(&ws, &["job", "preflight", "--job", &job]));
+    assert_eq!(ok["can_render"], true);
+    assert_eq!(ok["policy"]["max_page_pixels"], 1u64 << 26);
+    assert!(ok["policy"]["disk_budget_bytes"].is_null());
+
+    let small = json(&cli(
+        &ws,
+        &["job", "preflight", "--job", &job, "--max-page-pixels", "3"],
+    ));
+    assert_eq!(small["can_render"], false);
+    assert_eq!(small["policy"]["max_page_pixels"], 3);
+    let broke = json(&cli(
+        &ws,
+        &[
+            "job",
+            "preflight",
+            "--job",
+            &job,
+            "--disk-budget-bytes",
+            "1",
+        ],
+    ));
+    assert_eq!(broke["can_render"], false);
+    assert_eq!(broke["policy"]["disk_budget_bytes"], 1);
+
+    // Render takes the same limits and refuses.
+    assert!(!cli(
+        &ws,
+        &["job", "render", "--job", &job, "--max-page-pixels", "3"]
+    )
+    .status
+    .success());
+    assert!(!cli(
+        &ws,
+        &["job", "render", "--job", &job, "--disk-budget-bytes", "1"]
+    )
+    .status
+    .success());
+    assert!(!cli(
+        &ws,
+        &["job", "render", "--job", &job, "--max-page-pixels", "x"]
+    )
+    .status
+    .success());
+    json(&cli(
+        &ws,
+        &["job", "render", "--job", &job, "--max-page-pixels", "4"],
+    ));
+}

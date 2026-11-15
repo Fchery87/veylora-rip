@@ -50,8 +50,8 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 | 6.1 | Calibration and recipe storage | 2.3, 3.2, 4.4, native gate | Complete, 79a050f and 4b3b3fb (durable recipe and calibration store, recipe-to-calibration limit check) |
 | 6.2 | Chart export and measurements | 1.2, 6.1 | Complete, 79a050f |
 | 6.3 | Physical quality baseline | physical samples and supplies | Documentation accepted, 3d9fb66. Baseline blocked on hardware |
-| 7.1 | Preflight services | 2.1, 2.2, 3.x, 4.x | Pending, presenter is not service |
-| 7.2 | Durable lifecycle | 2.3, 5.2, 7.1 | Pending, fixture actions are not durable |
+| 7.1 | Preflight services | 2.1, 2.2, 3.x, 4.x | Complete in `veylora-workflow`: missing/altered sources, profile, clipping, limits, stated disk budget, unverified setup (ADR 0006) |
+| 7.2 | Durable lifecycle | 2.3, 5.2, 7.1 | Complete: append-only lifecycle store, submission service with fault injection, recover, operator review. Fake transport only; no encoder (ADR 0006) |
 | 7.3 | Diagnostics/support archives | 2.3, 7.2 | Pending |
 | 8.1 | Complete headless workflow | 4.5, 5.x, 7.x | 8.1a and 8.1b done for what can be real offline: setup create/verify (operator evidence), target generate, read-only job review. `job submit` and `job reprint` are refused by design (no encoder, no submission path). Recording an operator review decision waits for 7.2 |
 | 8.2 | Desktop shell | approved mock exception | Shell done, real file-sink integration pending |

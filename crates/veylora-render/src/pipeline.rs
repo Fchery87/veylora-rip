@@ -433,6 +433,15 @@ fn plan(
     ))
 }
 
+/// Bytes a render retains: five logical planes, then a physical and a screened plane for every
+/// bound channel, plus the manifest. Used to refuse early when the known capacity is too small.
+pub fn estimate_artifact_bytes(page_pixels: u64, bound_channels: usize) -> u64 {
+    page_pixels * 4 * 5
+        + page_pixels * 4 * bound_channels as u64
+        + page_pixels * 2 * bound_channels as u64
+        + 64 * 1024
+}
+
 struct Sinks {
     logical: Vec<Box<dyn ArtifactSink>>,
     physical: BTreeMap<ProtocolChannel, Box<dyn ArtifactSink>>,
@@ -493,10 +502,7 @@ fn run(
     let bindings = request.channel_map.bindings();
 
     // Refuse early when the known capacity cannot hold the output.
-    let estimate = page_pixels * 4 * 5
-        + page_pixels * 4 * bindings.len() as u64
-        + page_pixels * 2 * bindings.len() as u64
-        + 64 * 1024;
+    let estimate = estimate_artifact_bytes(page_pixels, bindings.len());
     if store.remaining_bytes().is_some_and(|free| free < estimate) {
         return Err(RenderError::Artifact(ArtifactError::NoSpace));
     }

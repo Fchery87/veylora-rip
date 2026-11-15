@@ -18,7 +18,7 @@
 mod axis;
 mod page;
 
-pub use page::{compose_page, ComposeError, ComposeInput, ComposedPage};
+pub use page::{compose_page, page_size_px, ComposeError, ComposeInput, ComposedPage};
 
 /// Identifies the resampling and compositing arithmetic for provenance.
 pub const ALGORITHM: &str = "veylora-compose-area-v1";

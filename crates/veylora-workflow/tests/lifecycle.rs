@@ -190,12 +190,13 @@ fn an_unacknowledged_confirmation_does_not_fail_the_job() {
 #[test]
 fn a_failed_render_can_be_released_and_retried() {
     let e = env(false);
-    let starved = RenderOptions {
-        max_page_pixels: 1,
-        ..Default::default()
-    };
-    assert!(e.ws.render(e.job, &starved).is_err());
+    // A file where the job's artifact folder should be, as a damaged disk might leave.
+    let blocker = e.ws.root().join("artifacts").join(e.job.to_string());
+    std::fs::create_dir_all(blocker.parent().unwrap()).unwrap();
+    std::fs::write(&blocker, b"in the way").unwrap();
+    assert!(e.ws.render(e.job, &RenderOptions::default()).is_err());
     assert_eq!(e.ws.state(e.job).unwrap(), JobState::Failed);
+    std::fs::remove_file(&blocker).unwrap();
     // Nothing from the failed run is reported as a render.
     assert!(e.ws.report(e.job).unwrap().renders.is_empty());
     e.ws.render(e.job, &RenderOptions::default()).unwrap();

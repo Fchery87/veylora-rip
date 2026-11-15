@@ -3661,6 +3661,7 @@ dependencies = [
  "veylora-diagnostics",
  "veylora-domain",
  "veylora-image",
+ "veylora-persistence",
  "veylora-workflow",
 ]
 
@@ -3793,6 +3794,8 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "uuid",
+ "veylora-compose",
  "veylora-device",
  "veylora-domain",
  "veylora-image",
@@ -3800,6 +3803,7 @@ dependencies = [
  "veylora-persistence",
  "veylora-render",
  "veylora-separation",
+ "veylora-transport",
 ]
 
 [[package]]

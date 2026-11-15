@@ -59,3 +59,13 @@ fn quota_counts_every_byte_and_rollback_frees_it() {
         None
     );
 }
+
+#[test]
+fn the_artifact_estimate_counts_every_retained_plane() {
+    // Five logical f32 planes, an f32 and a u16 plane per bound channel, and 64 KiB for the manifest.
+    assert_eq!(
+        veylora_render::estimate_artifact_bytes(4, 6),
+        4 * 4 * 5 + 4 * 4 * 6 + 4 * 2 * 6 + 64 * 1024
+    );
+    assert_eq!(veylora_render::estimate_artifact_bytes(0, 0), 64 * 1024);
+}

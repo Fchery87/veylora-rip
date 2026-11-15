@@ -205,3 +205,53 @@ pub fn evidence_for_record(
         evidence_hash: hash(b"evidence"),
     }
 }
+
+/// A Gray8 PNG built by hand (stored zlib blocks), so tests can supply masks without fixtures.
+pub fn gray_png(width: u32, height: u32, samples: &[u8]) -> Vec<u8> {
+    assert_eq!(samples.len(), (width * height) as usize);
+    fn crc(data: &[u8]) -> u32 {
+        let mut c = 0xffff_ffffu32;
+        for &b in data {
+            c ^= u32::from(b);
+            for _ in 0..8 {
+                c = if c & 1 == 1 {
+                    0xedb8_8320 ^ (c >> 1)
+                } else {
+                    c >> 1
+                };
+            }
+        }
+        !c
+    }
+    fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+        out.extend((data.len() as u32).to_be_bytes());
+        let mut body = kind.to_vec();
+        body.extend(data);
+        out.extend(&body);
+        out.extend(crc(&body).to_be_bytes());
+    }
+    let mut raw = Vec::new();
+    for row in samples.chunks(width as usize) {
+        raw.push(0);
+        raw.extend(row);
+    }
+    let (mut a, mut b) = (1u32, 0u32);
+    for &x in &raw {
+        a = (a + u32::from(x)) % 65521;
+        b = (b + a) % 65521;
+    }
+    let mut z = vec![0x78, 0x01, 0x01];
+    z.extend((raw.len() as u16).to_le_bytes());
+    z.extend((!(raw.len() as u16)).to_le_bytes());
+    z.extend(&raw);
+    z.extend(((b << 16) | a).to_be_bytes());
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    let mut ihdr = Vec::new();
+    ihdr.extend(width.to_be_bytes());
+    ihdr.extend(height.to_be_bytes());
+    ihdr.extend([8, 0, 0, 0, 0]);
+    chunk(&mut png, b"IHDR", &ihdr);
+    chunk(&mut png, b"IDAT", &z);
+    chunk(&mut png, b"IEND", &[]);
+    png
+}

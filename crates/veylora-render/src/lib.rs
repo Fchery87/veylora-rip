@@ -11,7 +11,7 @@ pub use artifacts::{
     StageArtifact,
 };
 pub use pipeline::{
-    render, AcknowledgedFinding, CancellationToken, RenderArtifacts, RenderError, RenderLimits,
-    RenderManifest, RenderRequest, RenderStats, MANIFEST_NAME,
+    estimate_artifact_bytes, render, AcknowledgedFinding, CancellationToken, RenderArtifacts,
+    RenderError, RenderLimits, RenderManifest, RenderRequest, RenderStats, MANIFEST_NAME,
 };
 pub use process::{ProcessBand, ProcessSeparator, SeparatorError, WhiteOnly};

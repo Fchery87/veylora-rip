@@ -79,6 +79,14 @@ fn page_px(um: u32, pitch_nm: u32) -> usize {
     ((n * 2 + p) / (p * 2)) as usize
 }
 
+/// The page size in pixels that composing would produce, so a caller can check limits first.
+pub fn page_size_px(width_um: u32, height_um: u32, pitch: PixelPitch) -> (usize, usize) {
+    (
+        page_px(width_um, pitch.x_nm),
+        page_px(height_um, pitch.y_nm),
+    )
+}
+
 fn check_samples(a: &SourceAsset) -> Result<(), ComposeError> {
     let n = match a.decoded.layout {
         SampleLayout::Gray8 => 1,
