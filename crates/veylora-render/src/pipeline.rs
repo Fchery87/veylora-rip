@@ -7,9 +7,11 @@
 //! the band's own rows are kept. Everything else is pointwise, and screening uses absolute page
 //! coordinates, so the output does not depend on the band height.
 //!
-//! Layout scope: only an identity layout is rendered (one placement at the page origin, no
-//! rotation, mirror or crop, source pixels at the device pitch). Anything else is refused with
-//! `UnsupportedLayout` until layout transforms exist.
+//! Layout: the job's layout is resolved against the device's mirror ownership, then every
+//! placement is resampled and composited into one page raster (`veylora-compose`) before the
+//! band chain runs. The composed page is held in memory, bounded by `max_page_pixels`; the
+//! chain itself still streams bands to disk. The compose algorithm and composed-page hash are
+//! recorded in the manifest. The perforation eligible mask is page-sized and is not transformed.
 use crate::{
     artifacts::{ArtifactError, ArtifactFile, ArtifactSink, ArtifactStore},
     process::{ProcessSeparator, SeparatorError},
@@ -24,15 +26,19 @@ use std::{
         Arc,
     },
 };
-use veylora_device::channels::{LogicalChannelMap, ProtocolChannel};
+use veylora_compose::{compose_page, ComposeError, ComposeInput, ComposedPage};
+use veylora_device::{
+    capability::MirrorOwner,
+    channels::{LogicalChannelMap, ProtocolChannel},
+};
 use veylora_domain::{
     ids::{AssetId, JobId},
     job::{AssetReference, RenderingSnapshot},
-    layout::Rotation,
     provenance::ContentHash,
     recipe::WhiteSource,
 };
 use veylora_image::SourceAsset;
+use veylora_layout::{resolve_transform, LayoutError};
 use veylora_screen::{
     apply_calibration, screen_band, CalibrationError, PageOrigin, ScreenError, ScreenSpec,
 };
@@ -61,7 +67,7 @@ impl CancellationToken {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RenderLimits {
-    /// Cap on page pixels (width x height) of the source.
+    /// Cap on page pixels (width x height) of the composed page.
     pub max_page_pixels: usize,
     /// Rows rendered per band, before halos.
     pub band_height: usize,
@@ -76,7 +82,8 @@ pub enum RenderError {
     InvalidBandHeight,
     /// A supplied input is not the one the job snapshot retains, or is inconsistent with it.
     InputMismatch(&'static str),
-    UnsupportedLayout(&'static str),
+    Layout(LayoutError),
+    Compose(ComposeError),
     InvalidDotLevel,
     Separation(SeparationError),
     Calibration(CalibrationError),
@@ -93,15 +100,18 @@ macro_rules! from_error {
         }
     )*};
 }
-from_error!(SeparationError => Separation, CalibrationError => Calibration,
+from_error!(LayoutError => Layout, ComposeError => Compose, SeparationError => Separation, CalibrationError => Calibration,
     AllocationError => Allocation, ScreenError => Screen, SeparatorError => Separator,
     ArtifactError => Artifact);
 
 pub struct RenderRequest<'a> {
     pub snapshot: &'a RenderingSnapshot,
-    pub source: &'a SourceAsset,
-    /// The grayscale mask the recipe's white source names, if it names one.
-    pub supplied_mask: Option<&'a SourceAsset>,
+    /// Every image the layout's placements draw from.
+    pub images: &'a [SourceAsset],
+    /// Who mirrors the sheet; a layout mirror is refused unless this is the RIP.
+    pub mirror_owner: MirrorOwner,
+    /// The grayscale masks placements reference, normally the recipe's supplied white mask.
+    pub supplied_masks: &'a [SourceAsset],
     /// The grayscale mask the recipe's perforation names as its eligible area, if any.
     pub eligible_mask: Option<&'a SourceAsset>,
     pub separator: &'a dyn ProcessSeparator,
@@ -138,7 +148,13 @@ pub struct RenderManifest {
     pub job_id: JobId,
     pub snapshot_hash: ContentHash,
     pub recipe_hash: ContentHash,
-    pub source: ManifestAsset,
+    pub layout_hash: ContentHash,
+    /// Each distinct image the layout draws from, in first-use order.
+    pub sources: Vec<ManifestAsset>,
+    /// Resampling and compositing arithmetic that produced the page.
+    pub compose_algorithm: String,
+    /// Hash of the composed RGBA page the band chain separated.
+    pub composed_page_hash: ContentHash,
     pub supplied_mask: Option<ManifestAsset>,
     pub eligible_mask: Option<ManifestAsset>,
     pub channel_map_version: u32,
@@ -184,115 +200,148 @@ fn find(list: &[AssetReference], id: AssetId) -> Option<&AssetReference> {
     list.iter().find(|a| a.id == id)
 }
 
+/// Mask the job snapshot retains for `id`, matched against what the caller supplied.
 fn check_mask(
-    request_mask: Option<&SourceAsset>,
-    needed: Option<AssetId>,
+    supplied: &[SourceAsset],
+    id: AssetId,
     snapshot_masks: &[AssetReference],
-    source: &SourceAsset,
     what: &'static str,
-) -> Result<Option<ManifestAsset>, RenderError> {
-    match (needed, request_mask) {
-        (None, None) => Ok(None),
-        (None, Some(_)) => Err(RenderError::InputMismatch(
-            "a mask was supplied that the recipe does not reference",
-        )),
-        (Some(_), None) => Err(RenderError::InputMismatch(what)),
-        (Some(id), Some(mask)) => {
-            let retained = find(snapshot_masks, id).ok_or(RenderError::InputMismatch(what))?;
-            if mask.id != id || mask.original_hash != retained.content_hash {
-                return Err(RenderError::InputMismatch(
-                    "mask is not the mask the job snapshot retains",
-                ));
-            }
-            if mask.metadata.width != source.metadata.width
-                || mask.metadata.height != source.metadata.height
-            {
-                return Err(RenderError::InputMismatch(
-                    "mask dimensions differ from the source",
-                ));
-            }
-            Ok(Some(ManifestAsset {
-                id,
-                content_hash: mask.original_hash,
-            }))
-        }
+) -> Result<ManifestAsset, RenderError> {
+    let retained = find(snapshot_masks, id).ok_or(RenderError::InputMismatch(what))?;
+    let mask = supplied
+        .iter()
+        .find(|m| m.id == id)
+        .ok_or(RenderError::InputMismatch(what))?;
+    if mask.original_hash != retained.content_hash {
+        return Err(RenderError::InputMismatch(
+            "mask is not the mask the job snapshot retains",
+        ));
     }
+    Ok(ManifestAsset {
+        id,
+        content_hash: mask.original_hash,
+    })
 }
 
-fn plan(
-    request: &RenderRequest<'_>,
-) -> Result<
-    (
-        Plan,
-        ManifestAsset,
-        Option<ManifestAsset>,
-        Option<ManifestAsset>,
-    ),
-    RenderError,
-> {
+/// Everything verified before any pixel is composed.
+struct Verified {
+    sources: Vec<ManifestAsset>,
+    supplied: Option<ManifestAsset>,
+    white_supplied: Option<AssetId>,
+    eligible: Option<AssetId>,
+}
+
+fn verify(request: &RenderRequest<'_>) -> Result<Verified, RenderError> {
     let job = request.snapshot.snapshot().inputs();
     let recipe = job.recipe.inputs();
-    let source = request.source;
-    let (width, height) = (
-        source.metadata.width as usize,
-        source.metadata.height as usize,
-    );
-
-    let retained = find(&job.assets, source.id).ok_or(RenderError::InputMismatch(
-        "source is not an asset of the job snapshot",
-    ))?;
-    if retained.content_hash != source.original_hash {
-        return Err(RenderError::InputMismatch(
-            "source bytes differ from the job snapshot",
-        ));
-    }
-
-    // Identity layout only.
     let layout = job.layout.inputs();
-    let [placement] = layout.placements.as_slice() else {
-        return Err(RenderError::UnsupportedLayout(
-            "exactly one placement is required",
-        ));
-    };
-    let pitch = request.pitch;
-    let um = |px: usize, nm: u32| (px as u64 * u64::from(nm) + 500) / 1000;
-    if layout.mirror
-        || placement.rotation != Rotation::Deg0
-        || (placement.x_um, placement.y_um) != (0, 0)
-        || placement.asset_id != source.id
-        || placement.mask_id.is_some()
-        || (placement.crop_x_px, placement.crop_y_px) != (0, 0)
-        || placement.crop_width_px as usize != width
-        || placement.crop_height_px as usize != height
-        || u64::from(placement.width_um) != um(width, pitch.x_nm)
-        || u64::from(placement.height_um) != um(height, pitch.y_nm)
-        || layout.page_width_um != placement.width_um
-        || layout.page_height_um != placement.height_um
-    {
-        return Err(RenderError::UnsupportedLayout(
-            "only an unrotated, unmirrored, uncropped placement filling the page at the device pitch",
-        ));
+
+    // Each placement must draw from an image the snapshot retains, byte for byte.
+    let mut sources: Vec<ManifestAsset> = Vec::new();
+    for placement in &layout.placements {
+        let retained = find(&job.assets, placement.asset_id).ok_or(RenderError::InputMismatch(
+            "a placement's asset is not an asset of the job snapshot",
+        ))?;
+        let image = request
+            .images
+            .iter()
+            .find(|i| i.id == placement.asset_id)
+            .ok_or(RenderError::InputMismatch(
+                "an image the layout draws from was not supplied",
+            ))?;
+        if image.original_hash != retained.content_hash {
+            return Err(RenderError::InputMismatch(
+                "source bytes differ from the job snapshot",
+            ));
+        }
+        if !sources.iter().any(|s| s.id == placement.asset_id) {
+            sources.push(ManifestAsset {
+                id: placement.asset_id,
+                content_hash: image.original_hash,
+            });
+        }
     }
 
+    // A supplied white mask rides with its placements: every placement names it, or none does.
     let white_supplied = match &recipe.white.source {
         WhiteSource::Supplied { mask_id } => Some(*mask_id),
         _ => None,
     };
-    let eligible = recipe.clear.perforation.and_then(|p| p.eligible_mask_id);
-    let supplied = check_mask(
-        request.supplied_mask,
+    match white_supplied {
+        Some(id) => {
+            if layout.placements.iter().any(|p| p.mask_id != Some(id)) {
+                return Err(RenderError::InputMismatch(
+                    "every placement must carry the recipe's supplied white mask",
+                ));
+            }
+        }
+        None => {
+            if layout.placements.iter().any(|p| p.mask_id.is_some()) {
+                return Err(RenderError::InputMismatch(
+                    "a placement references a mask the recipe does not",
+                ));
+            }
+            if !request.supplied_masks.is_empty() {
+                return Err(RenderError::InputMismatch(
+                    "a mask was supplied that the recipe does not reference",
+                ));
+            }
+        }
+    }
+    let supplied = white_supplied
+        .map(|id| {
+            check_mask(
+                request.supplied_masks,
+                id,
+                &job.masks,
+                "the recipe's supplied white mask is missing",
+            )
+        })
+        .transpose()?;
+    Ok(Verified {
+        sources,
+        supplied,
         white_supplied,
-        &job.masks,
-        source,
-        "the recipe's supplied white mask is missing",
-    )?;
-    let eligible_asset = check_mask(
-        request.eligible_mask,
-        eligible,
-        &job.masks,
-        source,
-        "the recipe's perforation eligible mask is missing",
-    )?;
+        eligible: recipe.clear.perforation.and_then(|p| p.eligible_mask_id),
+    })
+}
+
+/// Limits and sizes, known once the page is composed.
+fn plan(
+    request: &RenderRequest<'_>,
+    page: &ComposedPage,
+    verified: &Verified,
+) -> Result<(Plan, Option<ManifestAsset>), RenderError> {
+    let job = request.snapshot.snapshot().inputs();
+    let recipe = job.recipe.inputs();
+    let (width, height) = (page.width_px, page.height_px);
+
+    let eligible_ref = match (verified.eligible, request.eligible_mask) {
+        (None, None) => None,
+        (None, Some(_)) => {
+            return Err(RenderError::InputMismatch(
+                "a mask was supplied that the recipe does not reference",
+            ))
+        }
+        (Some(id), _) => {
+            let eligible = std::slice::from_ref(request.eligible_mask.ok_or(
+                RenderError::InputMismatch("the recipe's perforation eligible mask is missing"),
+            )?);
+            let r = check_mask(
+                eligible,
+                id,
+                &job.masks,
+                "the recipe's perforation eligible mask is missing",
+            )?;
+            let mask = &eligible[0];
+            if mask.metadata.width as usize != width || mask.metadata.height as usize != height {
+                return Err(RenderError::InputMismatch(
+                    "mask dimensions differ from the page",
+                ));
+            }
+            Some(r)
+        }
+    };
 
     if request.dot_level == 0 {
         return Err(RenderError::InvalidDotLevel);
@@ -306,6 +355,7 @@ fn plan(
     if request.limits.band_height == 0 {
         return Err(RenderError::InvalidBandHeight);
     }
+    let pitch = request.pitch;
     let white_halo = pitch.radius_px(recipe.white.spread_um.unsigned_abs())?;
     let edge_halo = match &recipe.clear.perforation {
         Some(p) => pitch.radius_px(p.edge_protection_um)?,
@@ -325,15 +375,10 @@ fn plan(
             height,
             halo,
             band_height,
-            white_supplied,
-            eligible,
+            white_supplied: verified.white_supplied,
+            eligible: verified.eligible,
         },
-        ManifestAsset {
-            id: source.id,
-            content_hash: source.original_hash,
-        },
-        supplied,
-        eligible_asset,
+        eligible_ref,
     ))
 }
 
@@ -370,9 +415,27 @@ fn run(
     if request.cancellation.is_cancelled() {
         return Err(RenderError::Cancelled);
     }
-    let (plan, source_ref, supplied_ref, eligible_ref) = plan(request)?;
+    let verified = verify(request)?;
     let job = request.snapshot.snapshot().inputs();
     let recipe = job.recipe.inputs();
+    let layout = resolve_transform(&job.layout, request.mirror_owner)?;
+    let cancelled = || request.cancellation.is_cancelled();
+    let page = compose_page(
+        &ComposeInput {
+            layout: &layout,
+            images: &request.images.iter().collect::<Vec<_>>(),
+            masks: &request.supplied_masks.iter().collect::<Vec<_>>(),
+            pitch: request.pitch,
+            max_page_pixels: request.limits.max_page_pixels,
+        },
+        &cancelled,
+    )
+    .map_err(|e| match e {
+        ComposeError::Cancelled => RenderError::Cancelled,
+        ComposeError::PageTooLarge => RenderError::LimitExceeded("page exceeds the pixel limit"),
+        other => RenderError::Compose(other),
+    })?;
+    let (plan, eligible_ref) = plan(request, &page, &verified)?;
     let (width, height) = (plan.width, plan.height);
     let page_pixels = (width * height) as u64;
     let bindings = request.channel_map.bindings();
@@ -425,18 +488,18 @@ fn run(
         peak = peak.max((width * (h1 - h0)) as u64);
 
         // Halo-wide inputs for the operations that read neighboring rows.
-        let alpha_halo = alpha_rows(request.source, h0..h1)?;
+        let alpha_halo = alpha_rows(&page.image, h0..h1)?;
         let mask_band = |asset: Option<&SourceAsset>, id: Option<AssetId>| match (asset, id) {
             (Some(asset), Some(id)) => {
                 mask_rows(asset, h0..h1).map(|plane| Some(SuppliedMask { id, plane }))
             }
             _ => Ok(None),
         };
-        let supplied = mask_band(request.supplied_mask, plan.white_supplied)?;
+        let supplied = mask_band(page.mask.as_ref(), plan.white_supplied)?;
         let eligible = mask_band(request.eligible_mask, plan.eligible)?;
         let clear_halo = build_clear_mask(
             &MaskInput {
-                source: request.source,
+                source: &page.image,
                 rows: Some(h0..h1),
                 eligible_mask: eligible.as_ref(),
                 origin_px: (0, 0),
@@ -461,7 +524,7 @@ fn run(
         let clear = ClearMask::from_plane(crop_rows(clear_halo.retained(), own.clone()))?;
         let white = crop_rows(&white_halo, own);
 
-        let process = request.separator.separate(request.source, y0..y1)?;
+        let process = request.separator.separate(&page.image, y0..y1)?;
         let band_size = (width, rows);
         let mut process_planes = [process.c, process.m, process.y, process.k];
         for plane in &mut process_planes {
@@ -543,8 +606,11 @@ fn run(
         job_id: job.id,
         snapshot_hash: request.snapshot.content_hash(),
         recipe_hash: job.recipe.content_hash(),
-        source: source_ref,
-        supplied_mask: supplied_ref,
+        layout_hash: job.layout.content_hash(),
+        sources: verified.sources,
+        compose_algorithm: veylora_compose::ALGORITHM.into(),
+        composed_page_hash: page.image.original_hash,
+        supplied_mask: verified.supplied,
         eligible_mask: eligible_ref,
         channel_map_version: request.channel_map.version(),
         pitch_x_nm: request.pitch.x_nm,

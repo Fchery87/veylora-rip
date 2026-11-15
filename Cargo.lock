@@ -3744,9 +3744,11 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "veylora-compose",
  "veylora-device",
  "veylora-domain",
  "veylora-image",
+ "veylora-layout",
  "veylora-screen",
  "veylora-separation",
 ]

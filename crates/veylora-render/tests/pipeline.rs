@@ -1,7 +1,10 @@
 mod common;
 use common::*;
 use std::sync::{atomic::AtomicU32, Arc};
+use veylora_compose::ComposeError;
+use veylora_device::capability::MirrorOwner;
 use veylora_domain::{provenance::ContentHash, recipe::WhiteSource};
+use veylora_layout::LayoutError;
 use veylora_render::{
     render, ArtifactError, CancellationToken, DirectoryStore, ProcessBand, ProcessSeparator,
     RenderError, SeparatorError, Stage, WhiteOnly, MANIFEST_NAME,
@@ -150,7 +153,9 @@ fn artifacts_are_exact_bytes_and_the_manifest_describes_them() {
     let parsed: veylora_render::RenderManifest = serde_json::from_slice(&on_disk).unwrap();
     assert_eq!(&parsed, m);
     // Inputs are pinned by hash.
-    assert_eq!(m.source.content_hash, job.source.original_hash);
+    assert_eq!(m.sources.len(), 1);
+    assert_eq!(m.sources[0].content_hash, job.source.original_hash);
+    assert_eq!(m.compose_algorithm, veylora_compose::ALGORITHM);
     assert_eq!(
         m.recipe_hash,
         job.snapshot.snapshot().inputs().recipe.content_hash()
@@ -505,9 +510,14 @@ fn inputs_must_match_the_job_snapshot() {
         Err(RenderError::InputMismatch(_))
     ));
     assert!(matches!(
-        attempt(
-            &|j| j.eligible = Some(eligible_mask_with_id(j.eligible.as_ref().unwrap().id, 5, 5))
-        ),
+        attempt(&|j| {
+            // Same id and retained hash, wrong size: only the dimension check can catch it.
+            let old = j.eligible.as_ref().unwrap();
+            let (id, hash) = (old.id, old.original_hash);
+            let mut wrong = eligible_mask_with_id(id, 5, 5);
+            wrong.original_hash = hash;
+            j.eligible = Some(wrong);
+        }),
         Err(RenderError::InputMismatch(_))
     ));
 }
@@ -526,16 +536,148 @@ fn eligible_mask_with_id(
     m
 }
 
+fn plain_job(mutate: impl FnOnce(&mut veylora_domain::layout::LayoutInput)) -> Job {
+    // No perforation: its eligible mask is page-sized and untransformed, so transform
+    // equivalences below compare only the operations that are symmetric under flips and turns.
+    let recipe = recipe(
+        veylora_domain::recipe::ClearPolicy::default(),
+        white_policy(WhiteSource::Alpha, 200),
+    );
+    job_with(artwork(), None, None, recipe, mutate)
+}
+const PLANES: [&str; 5] = [
+    "logical-c.f32",
+    "logical-m.f32",
+    "logical-y.f32",
+    "logical-k.f32",
+    "logical-w.f32",
+];
+fn logical(dir: &TempDir, name: &str) -> Vec<f32> {
+    f32s(&dir.read(name))
+}
+
 #[test]
-fn only_identity_layouts_are_rendered() {
+fn sheet_mirror_flips_every_plane_exactly_once() {
+    let (plain_dir, _) = run(&plain_job(|_| {}), 4);
+    let (mirror_dir, art) = run(&plain_job(|l| l.mirror = true), 4);
+    assert_eq!(art.manifest.page_width_px, W);
+    for name in PLANES {
+        let (a, b) = (logical(&plain_dir, name), logical(&mirror_dir, name));
+        for y in 0..H {
+            for x in 0..W {
+                assert_eq!(b[y * W + (W - 1 - x)], a[y * W + x], "{name} ({x},{y})");
+            }
+        }
+    }
+    assert_ne!(
+        logical(&plain_dir, PLANES[4]),
+        logical(&mirror_dir, PLANES[4])
+    );
+}
+
+#[test]
+fn mirror_without_rip_ownership_is_refused_and_leaves_nothing() {
+    let job = plain_job(|l| l.mirror = true);
+    let token = CancellationToken::new();
+    for owner in [MirrorOwner::Operator, MirrorOwner::None] {
+        let dir = TempDir::new();
+        let mut store = DirectoryStore::new(dir.path(), None);
+        let mut req = request(&job, &SyntheticSeparator, 4, &token);
+        req.mirror_owner = owner;
+        assert!(matches!(
+            render(&req, &mut store),
+            Err(RenderError::Layout(LayoutError::MirrorOwnerConflict { .. }))
+        ));
+        assert!(dir.files().is_empty(), "left {:?}", dir.files());
+    }
+}
+
+#[test]
+fn quarter_turn_rotates_every_plane() {
+    let (plain_dir, _) = run(&plain_job(|_| {}), 4);
+    let (turn_dir, art) = run(
+        &plain_job(|l| {
+            l.placements[0].rotation = veylora_domain::layout::Rotation::Deg90;
+            std::mem::swap(&mut l.page_width_um, &mut l.page_height_um);
+        }),
+        5,
+    );
+    assert_eq!(
+        (art.manifest.page_width_px, art.manifest.page_height_px),
+        (H, W)
+    );
+    for name in PLANES {
+        let (a, b) = (logical(&plain_dir, name), logical(&turn_dir, name));
+        for sy in 0..H {
+            for sx in 0..W {
+                // Clockwise: source (sx, sy) lands at (H - 1 - sy, sx).
+                assert_eq!(
+                    b[sx * H + (H - 1 - sy)],
+                    a[sy * W + sx],
+                    "{name} ({sx},{sy})"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn layout_transforms_do_not_depend_on_the_band_height() {
+    let make = || {
+        plain_job(|l| {
+            l.mirror = true;
+            l.placements[0].rotation = veylora_domain::layout::Rotation::Deg270;
+            std::mem::swap(&mut l.page_width_um, &mut l.page_height_um);
+        })
+    };
+    let (_a, whole) = run(&make(), 100);
+    let (_b, banded) = run(&make(), 3);
+    assert_eq!(
+        whole.manifest.logical_planes.hash,
+        banded.manifest.logical_planes.hash
+    );
+    assert_eq!(
+        whole.manifest.physical_planes.hash,
+        banded.manifest.physical_planes.hash
+    );
+    assert_eq!(
+        whole.manifest.screened_planes.hash,
+        banded.manifest.screened_planes.hash
+    );
+    assert_eq!(
+        whole.manifest.composed_page_hash,
+        banded.manifest.composed_page_hash
+    );
+}
+
+#[test]
+fn placement_offset_and_crop_change_the_page_and_the_manifest() {
+    // A page one pixel wider with the artwork shifted right by one pixel: column 0 is empty.
+    let (dir, art) = run(
+        &plain_job(|l| {
+            l.page_width_um += 100;
+            l.placements[0].x_um = 100;
+        }),
+        4,
+    );
+    assert_eq!(art.manifest.page_width_px, W + 1);
+    // Process ink never prints where nothing is placed. White may spread into the margin.
+    for name in &PLANES[..4] {
+        let plane = logical(&dir, name);
+        for y in 0..H {
+            assert_eq!(plane[y * (W + 1)], 0.0, "{name} row {y}");
+        }
+    }
+    let layout_hash = art.manifest.layout_hash;
+    let (_d, other) = run(&plain_job(|_| {}), 4);
+    assert_ne!(other.manifest.layout_hash, layout_hash);
+}
+
+#[test]
+fn layouts_the_composer_refuses_are_errors_and_leave_nothing() {
     let token = CancellationToken::new();
     let try_layout = |mutate: fn(&mut veylora_domain::layout::LayoutInput)| {
-        let eligible = eligible_mask();
-        let recipe = recipe(
-            clear_policy(Some(eligible.id)),
-            white_policy(WhiteSource::Alpha, 200),
-        );
-        let job = job_with(artwork(), None, Some(eligible), recipe, mutate);
+        let job = plain_job(mutate);
         let dir = TempDir::new();
         let mut store = DirectoryStore::new(dir.path(), None);
         let r = render(&request(&job, &SyntheticSeparator, 4, &token), &mut store);
@@ -547,29 +689,20 @@ fn only_identity_layouts_are_rendered() {
         r
     };
     assert!(try_layout(|_| {}).is_ok());
-    assert!(matches!(
-        try_layout(|l| l.mirror = true),
-        Err(RenderError::UnsupportedLayout(_))
-    ));
-    assert!(matches!(
-        try_layout(|l| l.placements[0].rotation = veylora_domain::layout::Rotation::Deg90),
-        Err(RenderError::UnsupportedLayout(_))
-    ));
+    // Clipped: shifted right without widening the page.
     assert!(matches!(
         try_layout(|l| l.placements[0].x_um = 100),
-        Err(RenderError::UnsupportedLayout(_))
+        Err(RenderError::Compose(ComposeError::OutsidePage(_)))
     ));
+    // Rotated into a page of the old shape.
+    assert!(matches!(
+        try_layout(|l| l.placements[0].rotation = veylora_domain::layout::Rotation::Deg90),
+        Err(RenderError::Compose(ComposeError::OutsidePage(_)))
+    ));
+    // Crop beyond the source.
     assert!(matches!(
         try_layout(|l| l.placements[0].crop_x_px = 1),
-        Err(RenderError::UnsupportedLayout(_))
-    ));
-    assert!(matches!(
-        try_layout(|l| l.page_width_um += 100),
-        Err(RenderError::UnsupportedLayout(_))
-    ));
-    assert!(matches!(
-        try_layout(|l| l.placements[0].width_um += 1),
-        Err(RenderError::UnsupportedLayout(_))
+        Err(RenderError::Compose(ComposeError::CropOutsideSource(_)))
     ));
 }
 
@@ -620,5 +753,97 @@ fn edge_protection_needs_its_own_halo_when_white_does_not_spread() {
             whole.manifest.screened_planes.hash, other.manifest.screened_planes.hash,
             "screened, band {band}"
         );
+    }
+}
+
+#[test]
+fn scaled_and_repeated_placements_render_and_pin_each_source_once() {
+    // Half-size copy at the origin plus a second half-size copy of the same asset beside it.
+    let (dir, art) = run(
+        &plain_job(|l| {
+            let mut first = l.placements[0].clone();
+            first.width_um /= 2;
+            first.height_um /= 2;
+            let mut second = first.clone();
+            second.id = veylora_domain::ids::PlacementId::new();
+            second.x_um = i64::from(first.width_um);
+            l.page_width_um = first.width_um * 2;
+            l.page_height_um = first.height_um;
+            l.placements = vec![first, second];
+        }),
+        4,
+    );
+    let m = &art.manifest;
+    assert_eq!((m.page_width_px, m.page_height_px), (12, 12));
+    assert_eq!(m.sources.len(), 1, "one asset used twice is pinned once");
+    // Both halves are the same resampled artwork.
+    let c = logical(&dir, "logical-c.f32");
+    for y in 0..12 {
+        for x in 0..6 {
+            assert_eq!(c[y * 12 + x], c[y * 12 + x + 6], "({x},{y})");
+        }
+    }
+    assert!(c.iter().any(|v| *v > 0.0));
+}
+
+#[test]
+fn every_placement_asset_must_be_retained_and_supplied_unmodified() {
+    let token = CancellationToken::new();
+    let job = plain_job(|_| {});
+    let dir = TempDir::new();
+    let mut store = DirectoryStore::new(dir.path(), None);
+    // Not supplied at all.
+    let mut req = request(&job, &SyntheticSeparator, 4, &token);
+    req.images = &[];
+    assert!(matches!(
+        render(&req, &mut store),
+        Err(RenderError::InputMismatch(_))
+    ));
+    assert!(dir.files().is_empty());
+}
+
+#[test]
+fn a_supplied_white_mask_must_ride_with_every_placement() {
+    let token = CancellationToken::new();
+    // Recipe names a mask but the placement does not carry it.
+    let job = {
+        let mask = white_mask();
+        let recipe = recipe(
+            veylora_domain::recipe::ClearPolicy::default(),
+            white_policy(WhiteSource::Supplied { mask_id: mask.id }, 100),
+        );
+        job_with(artwork(), Some(mask), None, recipe, |l| {
+            l.placements[0].mask_id = None
+        })
+    };
+    let dir = TempDir::new();
+    let mut store = DirectoryStore::new(dir.path(), None);
+    assert!(matches!(
+        render(&request(&job, &SyntheticSeparator, 4, &token), &mut store),
+        Err(RenderError::InputMismatch(_))
+    ));
+    assert!(dir.files().is_empty());
+    // A placement names a mask but the recipe does not use one.
+    let job = job_with(
+        artwork(),
+        Some(white_mask()),
+        None,
+        recipe(
+            veylora_domain::recipe::ClearPolicy::default(),
+            white_policy(WhiteSource::Alpha, 100),
+        ),
+        |_| {},
+    );
+    let mut store = DirectoryStore::new(dir.path(), None);
+    for supply in [true, false] {
+        let mut req = request(&job, &SyntheticSeparator, 4, &token);
+        if !supply {
+            req.supplied_masks = &[];
+        }
+        assert!(matches!(
+            render(&req, &mut store),
+            Err(RenderError::InputMismatch(_))
+        ));
+        assert!(dir.files().is_empty());
     }
 }

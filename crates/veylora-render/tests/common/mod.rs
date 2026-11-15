@@ -6,8 +6,11 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU32, Ordering},
 };
-use veylora_device::channels::{
-    ChannelBinding, LogicalChannel, LogicalChannelMap, PhysicalSlotId, ProtocolChannel,
+use veylora_device::{
+    capability::MirrorOwner,
+    channels::{
+        ChannelBinding, LogicalChannel, LogicalChannelMap, PhysicalSlotId, ProtocolChannel,
+    },
 };
 use veylora_domain::{
     ids::{AssetId, DeviceSetupId, JobId, PlacementId, PrintModeId, RecipeId},
@@ -296,7 +299,10 @@ pub fn job_with(
             content_hash: source.original_hash,
         }],
         masks,
-        layout: identity_layout(&source, layout),
+        layout: identity_layout(&source, |l| {
+            l.placements[0].mask_id = supplied.as_ref().map(|m| m.id);
+            layout(l);
+        }),
         device_setup_id: DeviceSetupId::new(),
         device_setup: reference(),
         print_mode_id: PrintModeId::new(),
@@ -366,8 +372,9 @@ pub fn request<'a>(
 ) -> RenderRequest<'a> {
     RenderRequest {
         snapshot: &job.snapshot,
-        source: &job.source,
-        supplied_mask: job.supplied.as_ref(),
+        images: std::slice::from_ref(&job.source),
+        mirror_owner: MirrorOwner::Rip,
+        supplied_masks: job.supplied.as_slice(),
         eligible_mask: job.eligible.as_ref(),
         separator,
         channel_map: &job.map,
