@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/veylora-app", "crates/veylora-domain", "crates/veylora-cli", "crates/veylora-device", "crates/veylora-diagnostics", "crates/veylora-persistence"]
+members = ["crates/veylora-app", "crates/veylora-domain", "crates/veylora-cli", "crates/veylora-device", "crates/veylora-diagnostics", "crates/veylora-persistence", "crates/veylora-image"]
 
 [workspace.package]
 edition = "2021"
