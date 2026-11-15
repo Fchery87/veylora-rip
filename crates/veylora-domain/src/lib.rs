@@ -1,5 +1,6 @@
 //! Platform-independent domain contracts for Veylora RIP.
 
+pub mod color;
 pub mod errors;
 pub mod ids;
 pub mod job;
