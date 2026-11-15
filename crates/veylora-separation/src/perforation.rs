@@ -1,10 +1,6 @@
 //! Deterministic perforation in physical units. Holes sit on a square grid anchored to absolute
 //! page coordinates, so any band or tile of a page gets the same holes.
-use crate::{
-    clear_mask::{pitch_um, MaskInput},
-    morphology::{erode, MAX_MORPHOLOGY_RADIUS_PX},
-    Plane, SeparationError,
-};
+use crate::{clear_mask::MaskInput, morphology::erode, Plane, SeparationError};
 use veylora_domain::recipe::PerforationPolicy;
 
 /// Erodes eligibility treating everything outside the plane as ineligible, so the page edge is
@@ -31,9 +27,10 @@ pub(crate) fn holes(
     rule: &PerforationPolicy,
     width: usize,
     height: usize,
+    first_row: usize,
     input: &MaskInput<'_>,
 ) -> Result<Plane, SeparationError> {
-    let pitch = u64::from(pitch_um(input.pitch)?);
+    let pitch = input.pitch.isotropic_nm()?;
     if rule.diameter_um == 0 || rule.spacing_um <= rule.diameter_um {
         return Err(SeparationError::InvalidRule);
     }
@@ -54,31 +51,33 @@ pub(crate) fn holes(
             mask.plane.clone()
         }
     };
-    let protect = (u64::from(rule.edge_protection_um) * 2 + pitch) / (pitch * 2);
-    if protect > MAX_MORPHOLOGY_RADIUS_PX as u64 {
-        return Err(SeparationError::InvalidRule);
-    }
+    let protect = input
+        .pitch
+        .radius_px(rule.edge_protection_um)
+        .map_err(|_| SeparationError::InvalidRule)?;
     if protect > 0 {
-        eligible = erode_with_edge(&eligible, protect as usize);
+        eligible = erode_with_edge(&eligible, protect);
     }
-    let (spacing, diameter) = (i128::from(rule.spacing_um), i128::from(rule.diameter_um));
+    // Work in doubled nanometres so pixel centers (half a pitch) stay exact for any pitch.
+    let spacing = i128::from(rule.spacing_um) * 2000;
+    let diameter = i128::from(rule.diameter_um) * 1000;
     let phase = (
-        i128::from(rule.phase_x_px) * i128::from(pitch),
-        i128::from(rule.phase_y_px) * i128::from(pitch),
+        i128::from(rule.phase_x_px) * i128::from(pitch) * 2,
+        i128::from(rule.phase_y_px) * i128::from(pitch) * 2,
     );
     let axis = |index: usize, origin: i64, phase: i128| {
         let center =
-            (i128::from(origin) + index as i128) * i128::from(pitch) + i128::from(pitch) / 2;
+            (i128::from(origin) + index as i128) * i128::from(pitch) * 2 + i128::from(pitch);
         let r = (center - phase).rem_euclid(spacing);
         r.min(spacing - r)
     };
     let mut out = Plane::new(width, height, 1.0);
     for y in 0..height {
-        let dy = axis(y, input.origin_px.1, phase.1);
+        let dy = axis(y, input.origin_px.1 + first_row as i64, phase.1);
         for x in 0..width {
             let dx = axis(x, input.origin_px.0, phase.0);
-            // Pixel center within the hole radius (compared as 4*r^2 <= d^2 in integers).
-            if 4 * (dx * dx + dy * dy) <= diameter * diameter {
+            // Doubled coordinates: (2dx)^2 + (2dy)^2 <= d^2 is dx^2 + dy^2 <= (d/2)^2.
+            if dx * dx + dy * dy <= diameter * diameter {
                 out.pixels[y * width + x] = 1.0 - eligible.pixels[y * width + x];
             }
         }

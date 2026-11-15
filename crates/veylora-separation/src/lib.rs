@@ -8,6 +8,7 @@ mod clear_mask;
 mod curve;
 mod morphology;
 mod perforation;
+mod pitch;
 mod plane;
 mod source;
 mod white;
@@ -19,6 +20,7 @@ pub use allocation::{
 pub use clear_mask::{build_clear_mask, enforce_clear_mask, ClearMask, MaskInput, PlaneSet};
 pub use curve::apply_response;
 pub use morphology::MAX_MORPHOLOGY_RADIUS_PX;
+pub use pitch::PixelPitch;
 pub use plane::{Plane, SeparationError};
-pub use source::{alpha_plane, mask_plane};
-pub use white::{generate_white, PixelPitch, SeparationInput, SuppliedMask};
+pub use source::{alpha_plane, alpha_rows, mask_plane, mask_rows};
+pub use white::{generate_white, SeparationInput, SuppliedMask};

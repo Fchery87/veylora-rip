@@ -8,8 +8,8 @@ use veylora_separation::{
 };
 
 const PITCH: PixelPitch = PixelPitch {
-    x_um: 100,
-    y_um: 100,
+    x_nm: 100_000,
+    y_nm: 100_000,
 };
 
 fn row(values: &[f32]) -> Plane {
@@ -146,14 +146,14 @@ fn unsafe_geometry_is_rejected_not_approximated() {
     );
     p.spread_um = 100;
     let skew = PixelPitch {
-        x_um: 100,
-        y_um: 200,
+        x_nm: 100_000,
+        y_nm: 200_000,
     };
     assert_eq!(
         generate_white(&i, &p, skew),
         Err(SeparationError::AnisotropicPitch)
     );
-    let zero = PixelPitch { x_um: 0, y_um: 0 };
+    let zero = PixelPitch { x_nm: 0, y_nm: 0 };
     assert_eq!(
         generate_white(&i, &p, zero),
         Err(SeparationError::InvalidPolicy)

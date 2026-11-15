@@ -47,3 +47,30 @@ fn inconsistent_sample_counts_are_rejected() {
     let empty = asset(0, 0, SampleLayout::Gray8, vec![]);
     assert_eq!(alpha_plane(&empty), Err(SeparationError::MalformedSource));
 }
+
+#[test]
+fn row_bands_equal_slices_of_the_whole_plane_and_reject_bad_ranges() {
+    let a = asset(
+        2,
+        4,
+        SampleLayout::GrayAlpha8,
+        vec![1, 10, 2, 20, 3, 30, 4, 40, 5, 50, 6, 60, 7, 70, 8, 80],
+    );
+    let whole = veylora_separation::alpha_plane(&a).unwrap();
+    let band = veylora_separation::alpha_rows(&a, 1..3).unwrap();
+    assert_eq!((band.width, band.height), (2, 2));
+    assert_eq!(band.pixels, whole.pixels[2..6].to_vec());
+    let g = asset(3, 3, SampleLayout::Gray8, vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    let whole = mask_plane(&g).unwrap();
+    assert_eq!(
+        veylora_separation::mask_rows(&g, 2..3).unwrap().pixels,
+        whole.pixels[6..9].to_vec()
+    );
+    for bad in [0..0, 2..2, 1..5, 4..5] {
+        assert_eq!(
+            veylora_separation::alpha_rows(&a, bad.clone()),
+            Err(SeparationError::DimensionMismatch),
+            "{bad:?}"
+        );
+    }
+}

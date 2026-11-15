@@ -3,8 +3,8 @@
 use crate::{
     apply_response,
     clear_mask::ClearMask,
-    morphology::{dilate, erode, MAX_MORPHOLOGY_RADIUS_PX},
-    Plane, SeparationError,
+    morphology::{dilate, erode},
+    PixelPitch, Plane, SeparationError,
 };
 use veylora_domain::{
     ids::AssetId,
@@ -34,30 +34,6 @@ impl SuppliedMask {
         })
     }
 }
-/// Physical size of one raster pixel in micrometres, used to turn `spread_um` into pixels.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PixelPitch {
-    pub x_um: u32,
-    pub y_um: u32,
-}
-
-fn radius_px(spread_um: i32, pitch: PixelPitch) -> Result<(usize, bool), SeparationError> {
-    if pitch.x_um == 0 || pitch.y_um == 0 {
-        return Err(SeparationError::InvalidPolicy);
-    }
-    if pitch.x_um != pitch.y_um {
-        return Err(SeparationError::AnisotropicPitch);
-    }
-    let magnitude = u64::from(spread_um.unsigned_abs());
-    let pitch = u64::from(pitch.x_um);
-    // Round half up so the radius never silently drops a requested whole pixel.
-    let radius = (magnitude * 2 + pitch) / (pitch * 2);
-    if radius > MAX_MORPHOLOGY_RADIUS_PX as u64 {
-        return Err(SeparationError::InvalidPolicy);
-    }
-    Ok((radius as usize, spread_um < 0))
-}
-
 pub fn generate_white(
     input: &SeparationInput,
     policy: &WhitePolicy,
@@ -66,7 +42,8 @@ pub fn generate_white(
     if policy.response.len() < 2 || policy.density_percent > 100 {
         return Err(SeparationError::InvalidPolicy);
     }
-    let (radius, choke) = radius_px(policy.spread_um, pitch)?;
+    let radius = pitch.radius_px(policy.spread_um.unsigned_abs())?;
+    let choke = policy.spread_um < 0;
     input.alpha.validate()?;
     if let Some(tonal) = &input.tonal {
         tonal.validate()?;

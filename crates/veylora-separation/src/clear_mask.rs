@@ -43,28 +43,26 @@ impl ClearMask {
 
 pub struct MaskInput<'a> {
     pub source: &'a SourceAsset,
+    /// Source rows to build the mask for; None means the whole source. An eligible mask, if the
+    /// policy needs one, must cover exactly these rows.
+    pub rows: Option<std::ops::Range<usize>>,
     /// The mask the policy names as the perforation eligible area, if it names one.
     pub eligible_mask: Option<&'a SuppliedMask>,
-    /// Absolute page position of the source's top-left pixel, so holes stay phase-stable.
+    /// Absolute page position of the source's top-left pixel (row 0), so holes stay phase-stable.
     pub origin_px: (i64, i64),
     pub pitch: PixelPitch,
 }
 
-pub(crate) fn pitch_um(pitch: PixelPitch) -> Result<u32, SeparationError> {
-    if pitch.x_um == 0 || pitch.y_um == 0 {
-        return Err(SeparationError::InvalidPolicy);
-    }
-    if pitch.x_um != pitch.y_um {
-        return Err(SeparationError::AnisotropicPitch);
-    }
-    Ok(pitch.x_um)
-}
-
-fn knockout(source: &SourceAsset, rule: &KnockoutPolicy) -> Result<Plane, SeparationError> {
+fn knockout(
+    source: &SourceAsset,
+    rows: &std::ops::Range<usize>,
+    rule: &KnockoutPolicy,
+) -> Result<Plane, SeparationError> {
     if rule.tolerance_permille > 1000 || rule.transition_permille > 1000 {
         return Err(SeparationError::InvalidRule);
     }
-    let alpha = crate::source::alpha_plane(source)?;
+    let alpha = crate::source::alpha_rows(source, rows.clone())?;
+    let (_, samples, _) = crate::source::band(source, rows)?;
     let (n, has_alpha) = match source.decoded.layout {
         SampleLayout::Gray8 => (1, false),
         SampleLayout::GrayAlpha8 => (2, true),
@@ -79,7 +77,7 @@ fn knockout(source: &SourceAsset, rule: &KnockoutPolicy) -> Result<Plane, Separa
     let tolerance = u32::from(rule.tolerance_permille) * 255;
     let transition = u32::from(rule.transition_permille) * 255;
     let mut out = Plane::new(alpha.width, alpha.height, 1.0);
-    for (i, px) in source.decoded.samples.chunks_exact(n).enumerate() {
+    for (i, px) in samples.chunks_exact(n).enumerate() {
         // Hidden color under fully transparent pixels is not visible artwork.
         if has_alpha && alpha.pixels[i] <= 0.0 {
             continue;
@@ -112,13 +110,19 @@ pub fn build_clear_mask(
     input: &MaskInput<'_>,
     policy: &ClearPolicy,
 ) -> Result<ClearMask, SeparationError> {
-    let base = crate::source::alpha_plane(input.source)?;
+    let height = input.source.metadata.height as usize;
+    let rows = input.rows.clone().unwrap_or(0..height);
+    let base = crate::source::alpha_rows(input.source, rows.clone())?;
     let mut mask = ClearMask::open(base.width, base.height);
     for rule in &policy.knockouts {
-        mask = mask.combine(&ClearMask::from_plane(knockout(input.source, rule)?)?)?;
+        mask = mask.combine(&ClearMask::from_plane(knockout(
+            input.source,
+            &rows,
+            rule,
+        )?)?)?;
     }
     if let Some(rule) = &policy.perforation {
-        let holes = crate::perforation::holes(rule, base.width, base.height, input)?;
+        let holes = crate::perforation::holes(rule, base.width, base.height, rows.start, input)?;
         mask = mask.combine(&ClearMask::from_plane(holes)?)?;
     }
     Ok(mask)

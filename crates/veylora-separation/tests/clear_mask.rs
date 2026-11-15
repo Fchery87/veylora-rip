@@ -18,13 +18,14 @@ use veylora_separation::{
 };
 
 const PITCH: PixelPitch = PixelPitch {
-    x_um: 100,
-    y_um: 100,
+    x_nm: 100_000,
+    y_nm: 100_000,
 };
 
 fn input(a: &veylora_image::SourceAsset) -> MaskInput<'_> {
     MaskInput {
         source: a,
+        rows: None,
         eligible_mask: None,
         origin_px: (0, 0),
         pitch: PITCH,
@@ -321,8 +322,8 @@ fn unsafe_perforation_values_are_rejected_even_if_built_by_hand() {
         ..perforation()
     }); // needs a mask
     let skew = PixelPitch {
-        x_um: 100,
-        y_um: 200,
+        x_nm: 100_000,
+        y_nm: 200_000,
     };
     assert_eq!(
         build_clear_mask(
@@ -439,4 +440,37 @@ fn clear_masks_reject_out_of_range_or_invalid_planes() {
     assert!(ClearMask::from_plane(Plane::new(1, 1, 1.5)).is_err());
     assert!(ClearMask::from_plane(Plane::new(1, 1, f32::NAN)).is_err());
     assert!(ClearMask::from_plane(Plane::new(0, 0, 0.0)).is_err());
+}
+
+#[test]
+fn clear_mask_for_a_row_band_equals_the_slice_of_the_whole_mask() {
+    // Black text knockout plus perforation with edge protection, split at awkward rows.
+    let mut pixels = Vec::new();
+    for i in 0..(9 * 11) {
+        let v = if i % 5 == 0 { 0 } else { 200 };
+        pixels.extend_from_slice(&[v, v, v]);
+    }
+    let a = asset(9, 11, SampleLayout::Rgb8, pixels);
+    let mut policy = perforated(PerforationPolicy {
+        phase_x_px: 1,
+        phase_y_px: 2,
+        ..perforation()
+    });
+    policy.knockouts = vec![knockout(KnockoutTarget::Black, 50, 100)];
+    let whole = build_clear_mask(&input(&a), &policy).unwrap();
+    for rows in [0..11, 0..3, 3..7, 7..11, 5..6, 2..9] {
+        let band = build_clear_mask(
+            &MaskInput {
+                rows: Some(rows.clone()),
+                ..input(&a)
+            },
+            &policy,
+        )
+        .unwrap();
+        assert_eq!(
+            band.retained().pixels,
+            whole.retained().pixels[rows.start * 9..rows.end * 9].to_vec(),
+            "{rows:?}"
+        );
+    }
 }

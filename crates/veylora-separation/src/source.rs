@@ -26,10 +26,36 @@ fn dimensions(asset: &SourceAsset) -> Result<(usize, usize, usize), SeparationEr
     Ok((width, height, n))
 }
 
+/// Validated `(width, height, rows)` for a band of source rows, with the samples of those rows.
+pub(crate) fn band<'a>(
+    asset: &'a SourceAsset,
+    rows: &std::ops::Range<usize>,
+) -> Result<(usize, &'a [u8], usize), SeparationError> {
+    let (width, height, n) = dimensions(asset)?;
+    if rows.start >= rows.end || rows.end > height {
+        return Err(SeparationError::DimensionMismatch);
+    }
+    let stride = width * n;
+    Ok((
+        width,
+        &asset.decoded.samples[rows.start * stride..rows.end * stride],
+        n,
+    ))
+}
+
 /// Straight alpha coverage. Sources without alpha are fully covered.
 pub fn alpha_plane(asset: &SourceAsset) -> Result<Plane, SeparationError> {
-    let (width, height, n) = dimensions(asset)?;
-    let samples = &asset.decoded.samples;
+    let (_, height, _) = dimensions(asset)?;
+    alpha_rows(asset, 0..height)
+}
+
+/// Alpha coverage for a band of source rows, so large pages never need a whole-page plane.
+pub fn alpha_rows(
+    asset: &SourceAsset,
+    rows: std::ops::Range<usize>,
+) -> Result<Plane, SeparationError> {
+    let (width, samples, n) = band(asset, &rows)?;
+    let height = rows.len();
     let pixels = match asset.decoded.layout {
         SampleLayout::Gray8 | SampleLayout::Rgb8 => vec![1.0; width * height],
         SampleLayout::GrayAlpha8 | SampleLayout::Rgba8 => samples
@@ -43,18 +69,22 @@ pub fn alpha_plane(asset: &SourceAsset) -> Result<Plane, SeparationError> {
 /// A grayscale supplied mask: sample value is coverage, tags are not interpreted.
 /// Only Gray8 is accepted; RGB or alpha-bearing sources are never reduced implicitly.
 pub fn mask_plane(asset: &SourceAsset) -> Result<Plane, SeparationError> {
-    let (width, height, _) = dimensions(asset)?;
+    let (_, height, _) = dimensions(asset)?;
+    mask_rows(asset, 0..height)
+}
+
+/// Supplied-mask coverage for a band of rows. Same rules as [`mask_plane`].
+pub fn mask_rows(
+    asset: &SourceAsset,
+    rows: std::ops::Range<usize>,
+) -> Result<Plane, SeparationError> {
+    let (width, samples, _) = band(asset, &rows)?;
     if asset.decoded.layout != SampleLayout::Gray8 {
         return Err(SeparationError::UnsupportedSource);
     }
     Plane::from_pixels(
         width,
-        height,
-        asset
-            .decoded
-            .samples
-            .iter()
-            .map(|v| f32::from(*v) / 255.0)
-            .collect(),
+        rows.len(),
+        samples.iter().map(|v| f32::from(*v) / 255.0).collect(),
     )
 }
