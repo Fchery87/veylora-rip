@@ -3710,6 +3710,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "veylora-layout"
+version = "0.0.0"
+dependencies = [
+ "veylora-device",
+ "veylora-domain",
+]
+
+[[package]]
 name = "veylora-persistence"
 version = "0.0.0"
 dependencies = [

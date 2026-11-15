@@ -26,6 +26,9 @@ pub enum ErrorCode {
     IncompatibleRecipe,
     UnsupportedControl,
     Clipping,
+    LowEffectiveResolution,
+    UnsafeMargin,
+    UnsupportedMediaSize,
     CoverageLimitExceeded,
     InsufficientDiskSpace,
     AmbiguousSubmission,
@@ -41,6 +44,9 @@ impl ErrorCode {
             Self::IncompatibleRecipe => "incompatible_recipe",
             Self::UnsupportedControl => "unsupported_control",
             Self::Clipping => "clipping",
+            Self::LowEffectiveResolution => "low_effective_resolution",
+            Self::UnsafeMargin => "unsafe_margin",
+            Self::UnsupportedMediaSize => "unsupported_media_size",
             Self::CoverageLimitExceeded => "coverage_limit_exceeded",
             Self::InsufficientDiskSpace => "insufficient_disk_space",
             Self::AmbiguousSubmission => "ambiguous_submission",
@@ -54,7 +60,10 @@ impl ErrorCode {
             Self::UnverifiedDeviceSetup | Self::IncompatibleRecipe | Self::UnsupportedControl => {
                 ErrorCategory::Device
             }
-            Self::Clipping => ErrorCategory::Layout,
+            Self::Clipping
+            | Self::LowEffectiveResolution
+            | Self::UnsafeMargin
+            | Self::UnsupportedMediaSize => ErrorCategory::Layout,
             Self::CoverageLimitExceeded => ErrorCategory::Separation,
             Self::InsufficientDiskSpace => ErrorCategory::Resource,
             Self::AmbiguousSubmission => ErrorCategory::Submission,
@@ -70,6 +79,9 @@ impl ErrorCode {
             Self::IncompatibleRecipe => "Select a recipe compatible with the device setup and print mode.",
             Self::UnsupportedControl => "Remove the control that the backend cannot honor.",
             Self::Clipping => "Move or resize artwork to fit the printable bounds.",
+            Self::LowEffectiveResolution => "Use higher-resolution artwork or reduce the printed size.",
+            Self::UnsafeMargin => "Move artwork inside the safe margin.",
+            Self::UnsupportedMediaSize => "Use a page size the device setup supports.",
             Self::CoverageLimitExceeded => "Reduce coverage to the validated ink and wet-load limits.",
             Self::InsufficientDiskSpace => "Free disk space before rendering or retaining artifacts.",
             Self::AmbiguousSubmission => "Review the physical output before creating another submission attempt. Do not retry automatically.",

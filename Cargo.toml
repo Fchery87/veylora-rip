@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/veylora-app", "crates/veylora-domain", "crates/veylora-cli", "crates/veylora-device", "crates/veylora-diagnostics", "crates/veylora-persistence", "crates/veylora-image", "crates/veylora-transport", "crates/veylora-color", "crates/veylora-separation", "crates/veylora-screen", "crates/veylora-render"]
+members = ["crates/veylora-app", "crates/veylora-domain", "crates/veylora-cli", "crates/veylora-device", "crates/veylora-diagnostics", "crates/veylora-persistence", "crates/veylora-image", "crates/veylora-transport", "crates/veylora-color", "crates/veylora-separation", "crates/veylora-screen", "crates/veylora-render", "crates/veylora-layout"]
 
 [workspace.package]
 edition = "2021"

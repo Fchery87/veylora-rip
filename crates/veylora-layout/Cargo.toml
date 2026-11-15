@@ -1,0 +1,11 @@
+[package]
+name = "veylora-layout"
+description = "Physical-unit placement geometry, one-owner mirroring and layout validation"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+veylora-device = { path = "../veylora-device" }
+veylora-domain = { path = "../veylora-domain" }
