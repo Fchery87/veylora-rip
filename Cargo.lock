@@ -3687,6 +3687,8 @@ dependencies = [
 name = "veylora-device"
 version = "0.0.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "veylora-domain",
 ]
 

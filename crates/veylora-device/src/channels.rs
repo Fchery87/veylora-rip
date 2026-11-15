@@ -1,10 +1,12 @@
 //! Logical planes, physical slots and protocol addresses are deliberately distinct.
+use serde::{Deserialize, Serialize};
 use veylora_domain::{
     errors::ErrorCode,
     preflight::{Finding, Severity},
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum LogicalChannel {
     Cyan,
     Magenta,
@@ -13,13 +15,14 @@ pub enum LogicalChannel {
     White,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PhysicalSlotId(pub u8);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ProtocolChannel(pub u8);
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ChannelBinding {
     pub logical: LogicalChannel,
     pub slot: PhysicalSlotId,
@@ -28,10 +31,33 @@ pub struct ChannelBinding {
     pub fraction: f64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "ChannelMapRecord", into = "ChannelMapRecord")]
 pub struct LogicalChannelMap {
     version: u32,
     bindings: Vec<ChannelBinding>,
+}
+
+/// Serialized form. Loading re-runs every `LogicalChannelMap::new` check.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChannelMapRecord {
+    pub version: u32,
+    pub bindings: Vec<ChannelBinding>,
+}
+impl TryFrom<ChannelMapRecord> for LogicalChannelMap {
+    type Error = String;
+    fn try_from(record: ChannelMapRecord) -> Result<Self, String> {
+        Self::new(record.version, record.bindings).map_err(|f| f.message)
+    }
+}
+impl From<LogicalChannelMap> for ChannelMapRecord {
+    fn from(map: LogicalChannelMap) -> Self {
+        Self {
+            version: map.version,
+            bindings: map.bindings,
+        }
+    }
 }
 
 impl LogicalChannelMap {
