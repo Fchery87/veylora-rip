@@ -158,7 +158,7 @@ fn neighborhood(plane: &Plane, x: usize, y: usize, radius: usize, max: bool) -> 
     let y0 = y.saturating_sub(radius);
     let x1 = (x + radius).min(plane.width - 1);
     let y1 = (y + radius).min(plane.height - 1);
-    let mut value = if max { 0.0 } else { 1.0 };
+    let mut value: f32 = if max { 0.0 } else { 1.0 };
     for yy in y0..=y1 {
         for xx in x0..=x1 {
             value = if max {
