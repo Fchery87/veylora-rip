@@ -33,12 +33,10 @@ pub fn screen_band(
     origin: PageOrigin,
     spec: &ScreenSpec,
 ) -> Result<ScreenedBand, ScreenError> {
-    if spec.supported_levels == 0 || spec.supported_levels > u16::MAX {
+    if spec.supported_levels == 0 {
         return Err(ScreenError::InvalidLevels);
     }
-    if plane.width == 0 || plane.height == 0 || plane.pixels.len() != plane.width * plane.height {
-        return Err(ScreenError::InvalidPlane);
-    }
+    plane.validate().map_err(|_| ScreenError::InvalidPlane)?;
     let mut pixels = Vec::with_capacity(plane.pixels.len());
     let matrix = [[0u16, 2], [3, 1]];
     for y in 0..plane.height {
@@ -60,4 +58,65 @@ pub fn screen_band(
         pixels,
         origin,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn spec() -> ScreenSpec {
+        ScreenSpec {
+            method: ScreenMethod::OrderedBayer2,
+            phase_origin: PageOrigin { x: 0, y: 0 },
+            supported_levels: 255,
+        }
+    }
+    fn origin() -> PageOrigin {
+        PageOrigin { x: 0, y: 0 }
+    }
+    #[test]
+    fn extremes_map_to_off_and_full_levels() {
+        let off = Plane::new(4, 4, 0.0);
+        let on = Plane::new(4, 4, 1.0);
+        assert!(screen_band(&off, origin(), &spec())
+            .unwrap()
+            .pixels
+            .iter()
+            .all(|p| *p == 0));
+        assert!(screen_band(&on, origin(), &spec())
+            .unwrap()
+            .pixels
+            .iter()
+            .all(|p| *p == 255));
+    }
+    #[test]
+    fn output_depends_on_absolute_page_position_not_band_position() {
+        let p = Plane::new(2, 2, 0.5);
+        let a = screen_band(&p, PageOrigin { x: 0, y: 0 }, &spec()).unwrap();
+        let b = screen_band(&p, PageOrigin { x: 1, y: 0 }, &spec()).unwrap();
+        assert_ne!(a.pixels, b.pixels);
+        let c = screen_band(&p, PageOrigin { x: 2, y: 2 }, &spec()).unwrap();
+        assert_eq!(a.pixels, c.pixels);
+    }
+    #[test]
+    fn rejects_invalid_levels_and_planes_and_is_deterministic() {
+        let p = Plane::new(3, 3, 0.4);
+        let zero = ScreenSpec {
+            supported_levels: 0,
+            ..spec()
+        };
+        assert_eq!(
+            screen_band(&p, origin(), &zero),
+            Err(ScreenError::InvalidLevels)
+        );
+        let mut nan = p.clone();
+        nan.pixels[4] = f32::NAN;
+        assert_eq!(
+            screen_band(&nan, origin(), &spec()),
+            Err(ScreenError::InvalidPlane)
+        );
+        assert_eq!(
+            screen_band(&p, origin(), &spec()),
+            screen_band(&p, origin(), &spec())
+        );
+    }
 }

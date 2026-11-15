@@ -1,3 +1,7 @@
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use veylora_screen::{screen_band, PageOrigin, ScreenError, ScreenSpec, ScreenedBand};
 use veylora_separation::Plane;
 
@@ -6,19 +10,18 @@ pub struct RenderLimits {
     pub max_pixels: usize,
     pub band_height: usize,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CancellationToken {
-    cancelled: bool,
-}
+/// Cooperative cancellation shared between the renderer and its owner. Clones observe the same flag.
+#[derive(Clone, Debug, Default)]
+pub struct CancellationToken(Arc<AtomicBool>);
 impl CancellationToken {
-    pub const fn new() -> Self {
-        Self { cancelled: false }
+    pub fn new() -> Self {
+        Self::default()
     }
-    pub const fn cancelled() -> Self {
-        Self { cancelled: true }
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::SeqCst);
     }
-    pub const fn is_cancelled(self) -> bool {
-        self.cancelled
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,6 +29,7 @@ pub enum RenderError {
     Cancelled,
     LimitExceeded,
     InvalidBandHeight,
+    InvalidPlane,
     Screen(ScreenError),
 }
 impl From<ScreenError> for RenderError {
@@ -38,8 +42,9 @@ pub fn render_bands(
     plane: &Plane,
     spec: &ScreenSpec,
     limits: RenderLimits,
-    cancellation: CancellationToken,
+    cancellation: &CancellationToken,
 ) -> Result<Vec<ScreenedBand>, RenderError> {
+    plane.validate().map_err(|_| RenderError::InvalidPlane)?;
     if limits.band_height == 0 || plane.width.saturating_mul(plane.height) > limits.max_pixels {
         return Err(if limits.band_height == 0 {
             RenderError::InvalidBandHeight
@@ -56,7 +61,7 @@ pub fn render_bands(
         let height = limits.band_height.min(plane.height - y);
         let pixels = plane.pixels[y * plane.width..(y + height) * plane.width].to_vec();
         let band = Plane::from_pixels(plane.width, height, pixels)
-            .map_err(|_| RenderError::LimitExceeded)?;
+            .map_err(|_| RenderError::InvalidPlane)?;
         bands.push(screen_band(&band, PageOrigin { x: 0, y: y as i64 }, spec)?);
         y += height;
     }
@@ -82,7 +87,7 @@ mod tests {
                 max_pixels: 100,
                 band_height: 5,
             },
-            CancellationToken::new(),
+            &CancellationToken::new(),
         )
         .unwrap();
         let b = render_bands(
@@ -92,11 +97,79 @@ mod tests {
                 max_pixels: 100,
                 band_height: 2,
             },
-            CancellationToken::new(),
+            &CancellationToken::new(),
         )
         .unwrap();
         let aa: Vec<_> = a.into_iter().flat_map(|x| x.pixels).collect();
         let bb: Vec<_> = b.into_iter().flat_map(|x| x.pixels).collect();
         assert_eq!(aa, bb);
+    }
+
+    fn plane(w: usize, h: usize) -> Plane {
+        Plane::from_pixels(w, h, (0..w * h).map(|i| (i % 7) as f32 / 7.0).collect()).unwrap()
+    }
+    fn spec() -> ScreenSpec {
+        ScreenSpec {
+            method: ScreenMethod::OrderedBayer2,
+            phase_origin: PageOrigin { x: 1, y: 1 },
+            supported_levels: 255,
+        }
+    }
+    fn limits(max_pixels: usize, band_height: usize) -> RenderLimits {
+        RenderLimits {
+            max_pixels,
+            band_height,
+        }
+    }
+    #[test]
+    fn band_height_does_not_change_pixels_for_any_split() {
+        let p = plane(5, 11);
+        let whole: Vec<_> = render_bands(&p, &spec(), limits(100, 11), &CancellationToken::new())
+            .unwrap()
+            .into_iter()
+            .flat_map(|b| b.pixels)
+            .collect();
+        for h in 1..=11 {
+            let split: Vec<_> =
+                render_bands(&p, &spec(), limits(100, h), &CancellationToken::new())
+                    .unwrap()
+                    .into_iter()
+                    .flat_map(|b| b.pixels)
+                    .collect();
+            assert_eq!(whole, split, "band height {h}");
+        }
+    }
+    #[test]
+    fn rejects_oversize_zero_band_and_invalid_planes() {
+        let t = CancellationToken::new();
+        assert_eq!(
+            render_bands(&plane(4, 4), &spec(), limits(15, 2), &t),
+            Err(RenderError::LimitExceeded)
+        );
+        assert_eq!(
+            render_bands(&plane(4, 4), &spec(), limits(100, 0), &t),
+            Err(RenderError::InvalidBandHeight)
+        );
+        let mut nan = plane(2, 2);
+        nan.pixels[0] = f32::NAN;
+        assert_eq!(
+            render_bands(&nan, &spec(), limits(100, 1), &t),
+            Err(RenderError::InvalidPlane)
+        );
+        let empty = Plane::new(0, 0, 0.0);
+        assert_eq!(
+            render_bands(&empty, &spec(), limits(100, 1), &t),
+            Err(RenderError::InvalidPlane)
+        );
+    }
+    #[test]
+    fn cancellation_from_a_clone_stops_rendering() {
+        let t = CancellationToken::new();
+        let owner = t.clone();
+        owner.cancel();
+        assert_eq!(
+            render_bands(&plane(4, 4), &spec(), limits(100, 1), &t),
+            Err(RenderError::Cancelled)
+        );
     }
 }

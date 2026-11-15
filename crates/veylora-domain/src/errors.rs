@@ -82,3 +82,29 @@ impl std::fmt::Display for ErrorCode {
         f.write_str(self.as_str())
     }
 }
+
+/// Construction-time validation failure for a domain record. Carries a stable
+/// subject path and human guidance. Not a preflight finding and not a lifecycle
+/// transition error.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationError {
+    pub subject: String,
+    pub message: String,
+}
+
+impl ValidationError {
+    pub fn invalid(subject: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            subject: subject.into(),
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.subject, self.message)
+    }
+}
+
+impl std::error::Error for ValidationError {}

@@ -42,6 +42,7 @@ macro_rules! define_id {
 define_id!(
     JobId,
     AssetId,
+    PlacementId,
     DeviceSetupId,
     PrintModeId,
     RecipeId,

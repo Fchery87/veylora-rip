@@ -90,14 +90,42 @@ pub enum SeparationError {
     InvalidPolicy,
 }
 
+/// Upper bound on choke/spread radius so morphology cost stays bounded (O(w*h*r^2)).
+pub const MAX_MORPHOLOGY_RADIUS_PX: usize = 64;
+
+fn validate_policy(policy: &WhitePolicy) -> Result<(), SeparationError> {
+    let blend_ok = match policy.combination {
+        MaskCombination::Blend { supplied_weight } => supplied_weight.is_finite(),
+        _ => true,
+    };
+    if !blend_ok
+        || !policy.max_coverage.is_finite()
+        || policy.choke_px > MAX_MORPHOLOGY_RADIUS_PX
+        || policy.spread_px > MAX_MORPHOLOGY_RADIUS_PX
+    {
+        return Err(SeparationError::InvalidPolicy);
+    }
+    Ok(())
+}
+
 pub fn generate_white(
     input: &SeparationInput,
     policy: &WhitePolicy,
 ) -> Result<Plane, SeparationError> {
+    validate_policy(policy)?;
     input.alpha.validate()?;
     input.tonal.validate()?;
     if input.alpha.width != input.tonal.width || input.alpha.height != input.tonal.height {
         return Err(SeparationError::DimensionMismatch);
+    }
+    for optional in [&input.supplied_mask, &input.clear_mask]
+        .into_iter()
+        .flatten()
+    {
+        optional.validate()?;
+        if optional.width != input.alpha.width || optional.height != input.alpha.height {
+            return Err(SeparationError::DimensionMismatch);
+        }
     }
     let base = match policy.source {
         WhiteSource::Alpha => input.alpha.clone(),
@@ -220,6 +248,13 @@ pub fn allocate_logical_to_physical(
     logical: &LogicalPlanes,
     map: &LogicalChannelMap,
 ) -> Result<PhysicalPlanes, AllocationError> {
+    let planes = [&logical.c, &logical.m, &logical.y, &logical.k, &logical.w];
+    if planes
+        .iter()
+        .any(|p| p.width != logical.c.width || p.height != logical.c.height)
+    {
+        return Err(AllocationError::DimensionMismatch);
+    }
     let mut out = std::collections::BTreeMap::new();
     for slot in &map.slots {
         let plane = match slot.logical_channel.as_str() {
@@ -265,5 +300,129 @@ mod tests {
         )
         .unwrap();
         assert_eq!(w.pixels, vec![1.0, 1.0, 1.0]);
+    }
+
+    fn input(w: usize, h: usize) -> SeparationInput {
+        let p = Plane::new(w, h, 1.0);
+        SeparationInput {
+            alpha: p.clone(),
+            tonal: p,
+            supplied_mask: None,
+            clear_mask: None,
+        }
+    }
+    fn policy() -> WhitePolicy {
+        WhitePolicy {
+            source: WhiteSource::Alpha,
+            combination: MaskCombination::UnionMax,
+            curve: CurveId::Identity,
+            choke_px: 0,
+            spread_px: 0,
+            max_coverage: 1.0,
+        }
+    }
+    #[test]
+    fn mismatched_or_non_finite_supplied_mask_is_an_error_not_a_panic() {
+        let mut i = input(3, 3);
+        i.supplied_mask = Some(Plane::new(2, 2, 1.0));
+        assert_eq!(
+            generate_white(&i, &policy()),
+            Err(SeparationError::DimensionMismatch)
+        );
+        let mut bad = Plane::new(3, 3, 1.0);
+        bad.pixels[0] = f32::NAN;
+        i.supplied_mask = Some(bad);
+        assert_eq!(
+            generate_white(&i, &policy()),
+            Err(SeparationError::InvalidPlane)
+        );
+    }
+    #[test]
+    fn non_finite_policy_values_and_unbounded_radius_are_rejected() {
+        let i = input(3, 3);
+        let nan_cov = WhitePolicy {
+            max_coverage: f32::NAN,
+            ..policy()
+        };
+        assert_eq!(
+            generate_white(&i, &nan_cov),
+            Err(SeparationError::InvalidPolicy)
+        );
+        let nan_blend = WhitePolicy {
+            combination: MaskCombination::Blend {
+                supplied_weight: f32::NAN,
+            },
+            ..policy()
+        };
+        assert_eq!(
+            generate_white(&i, &nan_blend),
+            Err(SeparationError::InvalidPolicy)
+        );
+        let huge = WhitePolicy {
+            spread_px: MAX_MORPHOLOGY_RADIUS_PX + 1,
+            ..policy()
+        };
+        assert_eq!(
+            generate_white(&i, &huge),
+            Err(SeparationError::InvalidPolicy)
+        );
+        let huge_choke = WhitePolicy {
+            choke_px: usize::MAX,
+            ..policy()
+        };
+        assert_eq!(
+            generate_white(&i, &huge_choke),
+            Err(SeparationError::InvalidPolicy)
+        );
+    }
+    #[test]
+    fn clear_mask_knocks_out_white_and_checks_size() {
+        let mut i = input(2, 1);
+        i.clear_mask = Some(Plane::from_pixels(2, 1, vec![0.0, 1.0]).unwrap());
+        let w = generate_white(&i, &policy()).unwrap();
+        assert_eq!(w.pixels, vec![0.0, 1.0]);
+        i.clear_mask = Some(Plane::new(3, 1, 1.0));
+        assert_eq!(
+            generate_white(&i, &policy()),
+            Err(SeparationError::DimensionMismatch)
+        );
+    }
+    #[test]
+    fn allocation_rejects_mismatched_planes_duplicates_and_unknown_channels() {
+        let p = |w| Plane::new(w, 1, 0.5);
+        let logical = LogicalPlanes {
+            c: p(2),
+            m: p(2),
+            y: p(2),
+            k: p(2),
+            w: p(3),
+        };
+        let slot = |proto: &str, l: &str| PhysicalSlot {
+            protocol_channel: proto.into(),
+            logical_channel: l.into(),
+        };
+        let map = LogicalChannelMap {
+            slots: vec![slot("P0", "C")],
+        };
+        assert_eq!(
+            allocate_logical_to_physical(&logical, &map),
+            Err(AllocationError::DimensionMismatch)
+        );
+        let ok = LogicalPlanes { w: p(2), ..logical };
+        assert!(allocate_logical_to_physical(&ok, &map).is_ok());
+        let dup = LogicalChannelMap {
+            slots: vec![slot("P0", "C"), slot("P0", "M")],
+        };
+        assert_eq!(
+            allocate_logical_to_physical(&ok, &dup),
+            Err(AllocationError::DuplicateProtocolChannel)
+        );
+        let unknown = LogicalChannelMap {
+            slots: vec![slot("P0", "X")],
+        };
+        assert_eq!(
+            allocate_logical_to_physical(&ok, &unknown),
+            Err(AllocationError::MissingChannel("X".into()))
+        );
     }
 }
