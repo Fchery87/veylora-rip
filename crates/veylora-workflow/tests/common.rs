@@ -173,3 +173,35 @@ pub fn recipe() -> PrintRecipe {
 pub fn hash(b: &[u8]) -> ContentHash {
     ContentHash::digest(b)
 }
+
+/// Evidence that matches every channel of the setup record, as a physical check would produce.
+pub fn evidence_for_record(
+    record: &veylora_device::setup::SetupRecord,
+) -> veylora_device::setup::EvidenceRecord {
+    use veylora_device::setup::{ChannelEvidence, EvidenceRecord};
+    EvidenceRecord {
+        operator: "operator".into(),
+        setup_id: record.id,
+        revision: record.revision,
+        setup_hash: record.content_hash,
+        map_version: record.details.channel_map.version(),
+        channels: record
+            .details
+            .channel_map
+            .bindings()
+            .iter()
+            .enumerate()
+            .map(|(i, b)| ChannelEvidence {
+                target_label: format!("label-{i}"),
+                slot: b.slot,
+                protocol: b.protocol,
+                expected_logical: b.logical,
+                observed_logical: b.logical,
+            })
+            .collect(),
+        target_id: "target-1".into(),
+        observed_at: "2026-11-15T10:00:00Z".into(),
+        artifact_hash: hash(b"printed target"),
+        evidence_hash: hash(b"evidence"),
+    }
+}

@@ -16,3 +16,7 @@ veylora-layout = { path = "../veylora-layout" }
 veylora-persistence = { path = "../veylora-persistence" }
 veylora-render = { path = "../veylora-render" }
 veylora-separation = { path = "../veylora-separation" }
+veylora-transport = { path = "../veylora-transport" }
+
+[dev-dependencies]
+uuid = { version = "1", features = ["v4"] }

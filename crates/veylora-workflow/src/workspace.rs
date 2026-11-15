@@ -16,6 +16,7 @@ use veylora_domain::{
     ids::{AssetId, JobId, PlacementId},
     job::{AssetReference, JobSnapshot, JobSnapshotInput},
     layout::{LayoutInput, LayoutSnapshot, Placement},
+    lifecycle::{JobState, LifecycleEvent},
     preflight::{Finding, Severity},
     provenance::{ContentHash, Provenance},
     recipe::{PrintRecipe, UntaggedRgbPolicy, WhiteSource},
@@ -25,7 +26,7 @@ use veylora_image::{
 };
 use veylora_layout::{resolve_transform, validate_layout, LayoutPolicy};
 use veylora_persistence::{
-    FileAssetStore, FileDeviceStore, FileJobStore, FileRecordStore, JobStore,
+    FileAssetStore, FileDeviceStore, FileJobStore, FileLifecycleStore, FileRecordStore, JobStore,
 };
 use veylora_render::{
     render, AcknowledgedFinding, CancellationToken, DirectoryStore, RenderLimits, RenderManifest,
@@ -164,6 +165,7 @@ pub struct Workspace {
     pub(crate) records: FileRecordStore,
     pub(crate) devices: FileDeviceStore,
     pub(crate) jobs: FileJobStore,
+    pub(crate) lifecycle: FileLifecycleStore,
     pub(crate) assets: FileAssetStore,
 }
 
@@ -176,7 +178,7 @@ fn untagged(policy: UntaggedRgbPolicy) -> UntaggedPolicy {
 
 /// What the file-sink backend offers: what the setup physically has, nothing more. The RIP owns
 /// the mirror because it produces the raster itself. This is not a printer capability claim.
-fn diagnostic_capability(setup: &DeviceSetup) -> DeviceCapability {
+pub(crate) fn diagnostic_capability(setup: &DeviceSetup) -> DeviceCapability {
     use veylora_device::channels::LogicalChannel::*;
     let bindings = setup.details().channel_map.bindings();
     let has = |c| bindings.iter().any(|b| b.logical == c);
@@ -210,10 +212,10 @@ fn finding(code: ErrorCode, severity: Severity, subject: &str, message: &str) ->
     }
 }
 
-struct Loaded {
-    snapshot: JobSnapshot,
-    setup: DeviceSetup,
-    mode: PrintMode,
+pub(crate) struct Loaded {
+    pub(crate) snapshot: JobSnapshot,
+    pub(crate) setup: DeviceSetup,
+    pub(crate) mode: PrintMode,
 }
 
 impl Workspace {
@@ -223,6 +225,7 @@ impl Workspace {
             records: FileRecordStore::open(root.join("records"))?,
             devices: FileDeviceStore::open(root.join("devices"))?,
             jobs: FileJobStore::open(root.join("jobs"))?,
+            lifecycle: FileLifecycleStore::open(root.join("state"))?,
             assets: FileAssetStore::open(root.join("assets"))?,
             root,
         })
@@ -387,7 +390,7 @@ impl Workspace {
         Ok(created)
     }
 
-    fn load(&self, id: JobId) -> WorkflowResult<Loaded> {
+    pub(crate) fn load(&self, id: JobId) -> WorkflowResult<Loaded> {
         let snapshot = self.jobs.get(id)?;
         let inputs = snapshot.inputs();
         let setup = self.devices.get_setup(&inputs.device_setup.content_hash)?;
@@ -406,11 +409,13 @@ impl Workspace {
     ) -> WorkflowResult<PreflightReport> {
         let loaded = self.load(id)?;
         let findings = self.preflight_findings(&loaded, options);
+        let can_render = !findings.iter().any(|f| f.severity.is_blocking());
+        self.note_preflight(id, !can_render)?;
         Ok(PreflightReport {
             job_id: id,
             snapshot_hash: loaded.snapshot.content_hash(),
             policy: options.clone(),
-            can_render: !findings.iter().any(|f| f.severity.is_blocking()),
+            can_render,
             findings,
         })
     }
@@ -461,17 +466,90 @@ impl Workspace {
         findings
     }
 
+    /// Renders the job into a new `run-NNNN` directory and records each step of the lifecycle.
+    /// Refusals that happen before rendering starts (state, blocking findings, unacknowledged
+    /// confirmations) leave the job where it was. A failure once rendering has begun marks the
+    /// job failed; an operator can render again, which releases it.
     pub fn render(&self, id: JobId, options: &RenderOptions) -> WorkflowResult<RenderOutcome> {
         let loaded = self.load(id)?;
-        let blocking: Vec<Finding> = self
-            .preflight_findings(&loaded, &options.layout)
-            .into_iter()
+        self.begin_render(id, &loaded, options)?;
+        match self.render_run(id, &loaded, options) {
+            Ok(out) => {
+                self.record(id, LifecycleEvent::RenderCompleted, "", None)?;
+                Ok(out)
+            }
+            Err(e) => {
+                let _ = self.record(id, LifecycleEvent::RenderFailed, &e.to_string(), None);
+                Err(e)
+            }
+        }
+    }
+
+    /// Checks everything that can be refused without side effects, then moves the job into
+    /// `Rendering`.
+    fn begin_render(
+        &self,
+        id: JobId,
+        loaded: &Loaded,
+        options: &RenderOptions,
+    ) -> WorkflowResult<()> {
+        use LifecycleEvent::*;
+        let state = self.state(id)?;
+        if !matches!(
+            state,
+            JobState::Draft
+                | JobState::PreflightFailed
+                | JobState::Held
+                | JobState::Ready
+                | JobState::Failed
+        ) {
+            return Err(WorkflowError::Invalid(format!(
+                "A job that is {state:?} cannot be rendered."
+            )));
+        }
+        let findings = self.preflight_findings(loaded, &options.layout);
+        let blocking: Vec<Finding> = findings
+            .iter()
             .filter(|f| f.severity.is_blocking())
+            .cloned()
             .collect();
+        self.note_preflight(id, !blocking.is_empty())?;
         if !blocking.is_empty() {
             return Err(WorkflowError::PreflightBlocked(blocking));
         }
+        // The renderer enforces this too; checking first keeps a refusal from failing the job.
+        let unacknowledged: Vec<Finding> = findings
+            .into_iter()
+            .filter(|f| f.severity == Severity::ConfirmationRequired)
+            .filter(|f| {
+                !options
+                    .acknowledged
+                    .iter()
+                    .any(|(code, subject)| *code == f.code && *subject == f.subject)
+            })
+            .collect();
+        if !unacknowledged.is_empty() {
+            return Err(WorkflowError::PreflightBlocked(unacknowledged));
+        }
+        match self.state(id)? {
+            JobState::Ready => {
+                self.record(id, Hold, "held for another render", None)?;
+            }
+            JobState::Failed => {
+                self.record(id, Release, "released after a failure", None)?;
+            }
+            _ => {}
+        }
+        self.record(id, BeginRender, "", None)?;
+        Ok(())
+    }
 
+    fn render_run(
+        &self,
+        id: JobId,
+        loaded: &Loaded,
+        options: &RenderOptions,
+    ) -> WorkflowResult<RenderOutcome> {
         let inputs = loaded.snapshot.inputs();
         let recipe = inputs.recipe.inputs();
         let policy = untagged(recipe.color.untagged_rgb_policy);
