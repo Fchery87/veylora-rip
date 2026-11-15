@@ -32,24 +32,24 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 | 1.1 | Device setup, distinct channels, bench template | 0.2, 0.3 | Complete, 724b694 corrected by 2e5251d, integrated 5576e9c |
 | 1.2 | Deterministic diagnostic targets | 0.2, 0.3 | Complete, 2d6fd4c and e3d8cb2 |
 | 1.3 | File-only investigation CLI and observations | 1.1, 1.2 | Complete, SVG correction d2c8f0f integrated c10b166 |
-| 2.1 | PrintMode and capability contracts | 1.1, protocol facts | Pending, evidence needed for real mode |
-| 2.2 | Immutable snapshot and recipe | 0.2, 0.3, 2.1 contracts | Pending |
-| 2.3 | Durable store and migrations | 2.2 | Pending |
-| 3.1 | Bounded PNG metadata/import | 0.2, 0.3 | Pending |
-| 3.2 | Licensed ICC engine boundary | 3.1, licensed profiles | Pending |
-| 3.3 | Physical layout and transforms | 2.1, 2.2 | Pending |
-| 3.4 | Gang sheet model | 3.3 | Pending |
-| 4.1 | White and supplied masks | 3.1, 3.2, 3.3 | Pending |
-| 4.2 | Knockout and final clear mask | 4.1 | Pending |
-| 4.3 | Logical planes and slot allocation | 1.1, 4.1 | Pending |
-| 4.4 | Calibration and screening | 4.3, 2.1 | Pending |
-| 4.5 | Bounded render and retained artifacts | 3.4, 4.2, 4.4 | Pending |
+| 2.1 | PrintMode and capability contracts | 1.1, protocol facts | Complete, 0f66351; white check fixed 2026-11-15. Mode JSON is placeholders only |
+| 2.2 | Immutable snapshot and recipe | 0.2, 0.3, 2.1 contracts | Complete, 1edb22c |
+| 2.3 | Durable store and migrations | 2.2 | Complete, 4c96afe. File-based store, not SQLite (ADR 0003) |
+| 3.1 | Bounded PNG metadata/import | 0.2, 0.3 | Complete, c926f01/e3c2ada |
+| 3.2 | Licensed ICC engine boundary | 3.1, licensed profiles | Complete, 0884320. qcms RGB output only (ADR 0002) |
+| 3.3 | Physical layout and transforms | 2.1, 2.2 | Complete, 6a64d50 (ADR 0005) |
+| 3.4 | Gang sheet model | 3.3 | Complete, 29fb24d (ADR 0005) |
+| 4.1 | White and supplied masks | 3.1, 3.2, 3.3 | Complete, d9d0c20/975c545. No Blend mode; tonal white needs the color engine |
+| 4.2 | Knockout and final clear mask | 4.1 | Complete, 0122f5d/0f7cec5 |
+| 4.3 | Logical planes and slot allocation | 1.1, 4.1 | Complete, 975c545 |
+| 4.4 | Calibration and screening | 4.3, 2.1 | Complete, a8161ab |
+| 4.5 | Bounded render and retained artifacts | 3.4, 4.2, 4.4 | Complete, fd37912; layouts via compositor 9ac2055 (ADR 0004), validation gate 8cab3c9. Synthetic separator only |
 | 5.1 | Native ET-8550 encoder | 2.1, 4.5, legally obtained protocol evidence | Blocked on evidence |
-| 5.2 | Windows and fake transport | retained artifact/attempt contracts | Pending |
+| 5.2 | Windows and fake transport | retained artifact/attempt contracts | Complete, d9572e1. Windows spooler returns not implemented |
 | 5.3 | Integrated probe and physical submission | 2.3, 5.1, 5.2, actual staged printer | Blocked on evidence and hardware |
-| 6.1 | Calibration and recipe storage | 2.3, 3.2, 4.4, native gate | Pending |
-| 6.2 | Chart export and measurements | 1.2, 6.1 | Pending |
-| 6.3 | Physical quality baseline | physical samples and supplies | Blocked on hardware |
+| 6.1 | Calibration and recipe storage | 2.3, 3.2, 4.4, native gate | Complete, 79a050f and 4b3b3fb (durable recipe and calibration store, recipe-to-calibration limit check) |
+| 6.2 | Chart export and measurements | 1.2, 6.1 | Complete, 79a050f |
+| 6.3 | Physical quality baseline | physical samples and supplies | Documentation accepted, 3d9fb66. Baseline blocked on hardware |
 | 7.1 | Preflight services | 2.1, 2.2, 3.x, 4.x | Pending, presenter is not service |
 | 7.2 | Durable lifecycle | 2.3, 5.2, 7.1 | Pending, fixture actions are not durable |
 | 7.3 | Diagnostics/support archives | 2.3, 7.2 | Pending |
@@ -77,3 +77,7 @@ No print, firmware, maintenance, payment or external upload is authorized as a s
 - Baseline frontend: `pnpm run check` (including Svelte type checks), `pnpm test`, and `pnpm run build` passed.
 - Baseline: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` passed.
 - Task 0.1: reviewed domain/CLI/tests/CI diff, worker passed complete workspace checks (40 tests) in clean worktree without frontend dist. Coordinator independently passed integrated fmt, headless clippy/tests and CLI invocation. Hosted CI/Linux execution remains unobserved.
+
+## Re-verification 2026-11-15
+
+Statuses above were re-checked against the code and plan. Gate B is not met: the inspector that reads retained artifacts does not exist yet. Real RGB-to-CMYK separation needs the licensed profile and color engine and is not built. Remaining printer-independent work: 7.1-7.3, 8.1, UI integration of real artifacts, 9.1-9.2, and the 9.3 license gate. Blocked on evidence or hardware: 5.1, 5.3, 6.3 baseline, native support claims.

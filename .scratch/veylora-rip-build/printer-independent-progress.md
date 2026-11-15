@@ -45,6 +45,10 @@ These rulings preserve the original requested scope. They may require additional
 - Additional offline lanes are active from the clean integration history: fake transport and exact diagnostic file sink in C:\Coding-Projects\dtf-epson-transport, and the real ICC color adapter in C:\Coding-Projects\dtf-epson-color. These lanes must preserve no-retry ambiguity, exact-byte artifacts, bounded processing and honest licensing. No worker result is accepted before coordinator review.
 - Device-mode dispatch acceptance brief retained in device-modes-brief.md. Broader observable review checklist retained in offline-acceptance.md.
 
+## 2026-11-15 status
+
+All of the recovery lanes listed above were accepted and merged to `main` (persistence, domain, device modes, PNG import, ICC boundary, transport, calibration and measurements). Since then: render lane crates (separation, screening, render), domain integration, source bridge and clear mask (4.2), recipe clear policy (schema 2), calibration and screening (4.4), bounded band renderer (4.5), layout (3.3-3.4), compositor, layout validation in the render path, durable recipe and calibration storage (6.1). See `implementation-audit.md` for per-task status and ADRs 0002-0005 for the decisions.
+
 ## Acceptance policy
 
 A passing stub, interface, or fixture is not completed product behavior. Each task requires coordinator spec review, quality review and fresh tests. Tests validate software behavior only. Production protocol fields, hardware mapping and physical quality gates remain unverified until real evidence exists.
