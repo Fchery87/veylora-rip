@@ -15,6 +15,23 @@ impl ContentHash {
     }
 }
 
+/// Incremental [`ContentHash::digest`] for data too large to hold in memory. Any chunking of the
+/// same bytes produces the same hash.
+#[derive(Debug, Clone, Default)]
+pub struct ContentHasher(Sha256);
+
+impl ContentHasher {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn update(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+    pub fn finalize(self) -> ContentHash {
+        ContentHash(self.0.finalize().into())
+    }
+}
+
 /// The input was not a canonical SHA-256 hex string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseContentHashError;

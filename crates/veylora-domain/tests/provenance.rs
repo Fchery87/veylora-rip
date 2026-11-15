@@ -88,3 +88,18 @@ fn provenance_hash_distinguishes_entry_boundaries_and_order() {
     };
     assert_ne!(first.stable_hash(), second.stable_hash());
 }
+
+#[test]
+fn incremental_hashing_matches_one_shot_digest_for_any_chunking() {
+    use veylora_domain::provenance::ContentHasher;
+    let data: Vec<u8> = (0..1000u32).map(|i| (i * 31 % 251) as u8).collect();
+    let expected = ContentHash::digest(&data);
+    for chunk in [1, 2, 7, 64, 999, 1000, 4096] {
+        let mut hasher = ContentHasher::new();
+        for part in data.chunks(chunk) {
+            hasher.update(part);
+        }
+        assert_eq!(hasher.finalize(), expected, "chunk {chunk}");
+    }
+    assert_eq!(ContentHasher::new().finalize(), ContentHash::digest(b""));
+}

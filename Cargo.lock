@@ -3723,7 +3723,11 @@ dependencies = [
 name = "veylora-render"
 version = "0.0.0"
 dependencies = [
+ "serde",
+ "serde_json",
+ "veylora-device",
  "veylora-domain",
+ "veylora-image",
  "veylora-screen",
  "veylora-separation",
 ]
