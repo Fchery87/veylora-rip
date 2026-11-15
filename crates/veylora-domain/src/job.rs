@@ -101,6 +101,20 @@ impl JobSnapshot {
                 ));
             }
         }
+        if let Some(eligible) = input
+            .recipe
+            .inputs()
+            .clear
+            .perforation
+            .and_then(|p| p.eligible_mask_id)
+        {
+            if !masks.contains(&eligible) {
+                return Err(ValidationError::invalid(
+                    "job.recipe.clear",
+                    "Restore the perforation eligible-area mask.",
+                ));
+            }
+        }
         let mut labels = std::collections::BTreeSet::new();
         for (label, _) in &input.provenance.content_hashes {
             if label.trim().is_empty() || !labels.insert(label) {

@@ -5,19 +5,7 @@ use crate::{
     morphology::{erode, MAX_MORPHOLOGY_RADIUS_PX},
     Plane, SeparationError,
 };
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PerforationRule {
-    pub diameter_um: u32,
-    /// Center-to-center distance. Must exceed the diameter so holes never overlap.
-    pub spacing_um: u32,
-    /// Grid anchor in absolute page pixels.
-    pub phase_px: (i64, i64),
-    /// Areas where holes may be punched (coverage 0..=1). None makes the whole source eligible.
-    pub eligible: Option<Plane>,
-    /// Keeps holes this far from the edge of the eligible area. Requires `eligible`.
-    pub edge_protection_um: u32,
-}
+use veylora_domain::recipe::PerforationPolicy;
 
 /// Erodes eligibility treating everything outside the plane as ineligible, so the page edge is
 /// protected the same way as the edge of an eligible region.
@@ -40,7 +28,7 @@ fn erode_with_edge(plane: &Plane, r: usize) -> Plane {
 }
 
 pub(crate) fn holes(
-    rule: &PerforationRule,
+    rule: &PerforationPolicy,
     width: usize,
     height: usize,
     input: &MaskInput<'_>,
@@ -49,18 +37,22 @@ pub(crate) fn holes(
     if rule.diameter_um == 0 || rule.spacing_um <= rule.diameter_um {
         return Err(SeparationError::InvalidRule);
     }
-    if rule.edge_protection_um > 0 && rule.eligible.is_none() {
+    if rule.edge_protection_um > 0 && rule.eligible_mask_id.is_none() {
         return Err(SeparationError::InvalidRule);
     }
-    let mut eligible = match &rule.eligible {
-        Some(p) => {
-            p.validate()?;
-            if p.width != width || p.height != height {
+    let mut eligible = match (rule.eligible_mask_id, input.eligible_mask) {
+        (None, _) => Plane::new(width, height, 1.0),
+        (Some(_), None) => return Err(SeparationError::MissingSuppliedMask),
+        (Some(id), Some(mask)) if mask.id != id => {
+            return Err(SeparationError::SuppliedMaskMismatch)
+        }
+        (Some(_), Some(mask)) => {
+            mask.plane.validate()?;
+            if mask.plane.width != width || mask.plane.height != height {
                 return Err(SeparationError::DimensionMismatch);
             }
-            p.clone()
+            mask.plane.clone()
         }
-        None => Plane::new(width, height, 1.0),
     };
     let protect = (u64::from(rule.edge_protection_um) * 2 + pitch) / (pitch * 2);
     if protect > MAX_MORPHOLOGY_RADIUS_PX as u64 {
@@ -71,8 +63,8 @@ pub(crate) fn holes(
     }
     let (spacing, diameter) = (i128::from(rule.spacing_um), i128::from(rule.diameter_um));
     let phase = (
-        i128::from(rule.phase_px.0) * i128::from(pitch),
-        i128::from(rule.phase_px.1) * i128::from(pitch),
+        i128::from(rule.phase_x_px) * i128::from(pitch),
+        i128::from(rule.phase_y_px) * i128::from(pitch),
     );
     let axis = |index: usize, origin: i64, phase: i128| {
         let center =

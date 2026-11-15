@@ -6,6 +6,9 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Current recipe schema. Version 2 added `clear`; version 1 records are not readable.
+pub const RECIPE_SCHEMA_VERSION: u32 = 2;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VersionedReference {
@@ -129,6 +132,51 @@ pub struct FinishPolicy {
     pub press_pressure_pa: u32,
     pub peel: PeelCondition,
 }
+/// Most knockout rules one recipe may carry, so mask building stays bounded.
+pub const MAX_KNOCKOUT_RULES: usize = 16;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KnockoutTarget {
+    /// Source-encoded black, for black and near-black knockout.
+    Black,
+    /// A selected source color in the source's own 8-bit encoding. Garment color is separate.
+    Color { rgb: [u8; 3] },
+}
+/// Clears source pixels whose color is within `tolerance_permille` of the target, ramping back to
+/// fully retained over `transition_permille`. Distance is the largest per-channel difference as a
+/// fraction of 255, in the source encoding with no color management. Integers keep hashes exact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnockoutPolicy {
+    pub target: KnockoutTarget,
+    pub tolerance_permille: u16,
+    /// Zero is a hard clip.
+    pub transition_permille: u16,
+}
+/// Deterministic square-grid perforation in physical units, anchored to absolute page pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PerforationPolicy {
+    pub diameter_um: u32,
+    /// Center-to-center distance; must exceed the diameter so holes never overlap.
+    pub spacing_um: u32,
+    pub phase_x_px: i32,
+    pub phase_y_px: i32,
+    /// Grayscale mask of areas where holes may be punched. None makes the whole page eligible.
+    pub eligible_mask_id: Option<AssetId>,
+    /// Keeps holes this far from the edge of the eligible area. Requires `eligible_mask_id`.
+    pub edge_protection_um: u32,
+}
+/// Rules for the single final clear mask. An empty policy is a solid transfer; a perforation
+/// makes a different recipe revision with a different content hash.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClearPolicy {
+    pub knockouts: Vec<KnockoutPolicy>,
+    pub perforation: Option<PerforationPolicy>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PrintRecipeInput {
@@ -142,7 +190,32 @@ pub struct PrintRecipeInput {
     pub calibration: CalibrationPolicy,
     pub color: ColorPolicy,
     pub screen: ScreenPolicy,
+    pub clear: ClearPolicy,
     pub finish: FinishPolicy,
+}
+impl ClearPolicy {
+    fn validate(&self) -> Result<(), ValidationError> {
+        let bad = |message: &str| Err(ValidationError::invalid("recipe.clear", message));
+        if self.knockouts.len() > MAX_KNOCKOUT_RULES {
+            return bad("Too many knockout rules for one recipe.");
+        }
+        if self
+            .knockouts
+            .iter()
+            .any(|k| k.tolerance_permille > 1000 || k.transition_permille > 1000)
+        {
+            return bad("Knockout tolerance and transition are per-mille values up to 1000.");
+        }
+        if let Some(p) = &self.perforation {
+            if p.diameter_um == 0 || p.spacing_um <= p.diameter_um {
+                return bad("Perforation spacing must exceed a positive hole diameter.");
+            }
+            if p.edge_protection_um > 0 && p.eligible_mask_id.is_none() {
+                return bad("Edge protection needs an eligible-area mask.");
+            }
+        }
+        Ok(())
+    }
 }
 /// ```compile_fail
 /// use veylora_domain::recipe::PrintRecipe;
@@ -153,10 +226,13 @@ pub struct PrintRecipeInput {
 pub struct PrintRecipe(PrintRecipeInput);
 impl PrintRecipe {
     pub fn new(input: PrintRecipeInput) -> Result<Self, ValidationError> {
-        if input.schema_version != 1 || input.revision == 0 || input.created_at_ms == 0 {
+        if input.schema_version != RECIPE_SCHEMA_VERSION
+            || input.revision == 0
+            || input.created_at_ms == 0
+        {
             return Err(ValidationError::invalid(
                 "recipe.metadata",
-                "Use schema 1, a positive revision and a UTC creation timestamp.",
+                "Use the current recipe schema, a positive revision and a UTC creation timestamp.",
             ));
         }
         if input.white.density_percent > 100
@@ -180,6 +256,7 @@ impl PrintRecipe {
                 "Retain at least two response samples per curve.",
             ));
         }
+        input.clear.validate()?;
         if input.calibration.revision == 0 || input.screen.revision == 0 {
             return Err(ValidationError::invalid(
                 "recipe.revision",

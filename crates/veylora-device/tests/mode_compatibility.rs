@@ -11,8 +11,8 @@ use veylora_device::setup::{DeviceIdentity, DeviceSetup, PhysicalSlot, SetupDeta
 use veylora_domain::ids::{DeviceSetupId, PrintModeId, RecipeId};
 use veylora_domain::provenance::ContentHash;
 use veylora_domain::recipe::{
-    CalibrationPolicy, ColorPolicy, FinishPolicy, MaskCombination, PeelCondition, PrintRecipe,
-    PrintRecipeInput, RecipeStatus, RenderingIntent, ScreenAlgorithm, ScreenPolicy,
+    CalibrationPolicy, ClearPolicy, ColorPolicy, FinishPolicy, MaskCombination, PeelCondition,
+    PrintRecipe, PrintRecipeInput, RecipeStatus, RenderingIntent, ScreenAlgorithm, ScreenPolicy,
     UntaggedRgbPolicy, VersionedReference, WhitePolicy, WhiteSource,
 };
 
@@ -147,7 +147,7 @@ fn capability() -> DeviceCapability {
 
 fn recipe() -> PrintRecipe {
     PrintRecipe::new(PrintRecipeInput {
-        schema_version: 1,
+        schema_version: 2,
         id: RecipeId::new(),
         revision: 1,
         created_at_ms: 1735000000000,
@@ -184,6 +184,7 @@ fn recipe() -> PrintRecipe {
             cell_height: 1,
             thresholds: vec![32768],
         },
+        clear: ClearPolicy::default(),
         finish: FinishPolicy {
             ink_id: "synthetic ink".into(),
             film_id: "synthetic film".into(),

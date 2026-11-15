@@ -15,10 +15,7 @@ pub use allocation::{
     allocate_logical_to_physical, AllocatedPlane, AllocationError, AllocationLimits, LogicalPlanes,
     PhysicalPlanes,
 };
-pub use clear_mask::{
-    build_clear_mask, enforce_clear_mask, ClearMask, KnockoutRule, KnockoutTarget, MaskInput,
-    MaskRule, PerforationRule, PlaneSet,
-};
+pub use clear_mask::{build_clear_mask, enforce_clear_mask, ClearMask, MaskInput, PlaneSet};
 pub use morphology::MAX_MORPHOLOGY_RADIUS_PX;
 pub use plane::{Plane, SeparationError};
 pub use source::{alpha_plane, mask_plane};

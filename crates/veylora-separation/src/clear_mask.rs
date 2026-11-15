@@ -1,11 +1,9 @@
 //! One final clear mask shared by every plane. Values are the retained fraction:
 //! 1.0 keeps ink, 0.0 clears it. Masks are separate from the artwork, so disabling one never
 //! alters the source.
-use crate::{LogicalPlanes, PhysicalPlanes};
-use crate::{PixelPitch, Plane, SeparationError};
+use crate::{LogicalPlanes, PhysicalPlanes, PixelPitch, Plane, SeparationError, SuppliedMask};
+use veylora_domain::recipe::{ClearPolicy, KnockoutPolicy, KnockoutTarget};
 use veylora_image::{SampleLayout, SourceAsset};
-
-pub use crate::perforation::PerforationRule;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClearMask(Plane);
@@ -43,31 +41,10 @@ impl ClearMask {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum KnockoutTarget {
-    /// Source-encoded black, for black and near-black knockout.
-    Black,
-    /// A selected source color in the source's own 8-bit encoding. Garment color is a separate
-    /// concept and is not modeled here.
-    Color { rgb: [u8; 3] },
-}
-/// Clears pixels whose source color is within `tolerance` of the target, ramping back to fully
-/// retained over `transition`. Distance is the largest per-channel difference, scaled to 0..=1,
-/// in the source encoding (no color management is applied).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct KnockoutRule {
-    pub target: KnockoutTarget,
-    pub tolerance: f32,
-    /// Width of the soft edge. Zero is a hard clip.
-    pub transition: f32,
-}
-#[derive(Clone, Debug, PartialEq)]
-pub enum MaskRule {
-    Knockout(KnockoutRule),
-    Perforation(PerforationRule),
-}
 pub struct MaskInput<'a> {
     pub source: &'a SourceAsset,
+    /// The mask the policy names as the perforation eligible area, if it names one.
+    pub eligible_mask: Option<&'a SuppliedMask>,
     /// Absolute page position of the source's top-left pixel, so holes stay phase-stable.
     pub origin_px: (i64, i64),
     pub pitch: PixelPitch,
@@ -83,9 +60,8 @@ pub(crate) fn pitch_um(pitch: PixelPitch) -> Result<u32, SeparationError> {
     Ok(pitch.x_um)
 }
 
-fn knockout(source: &SourceAsset, rule: &KnockoutRule) -> Result<Plane, SeparationError> {
-    let unit = |v: f32| v.is_finite() && (0.0..=1.0).contains(&v);
-    if !unit(rule.tolerance) || !unit(rule.transition) {
+fn knockout(source: &SourceAsset, rule: &KnockoutPolicy) -> Result<Plane, SeparationError> {
+    if rule.tolerance_permille > 1000 || rule.transition_permille > 1000 {
         return Err(SeparationError::InvalidRule);
     }
     let alpha = crate::source::alpha_plane(source)?;
@@ -99,6 +75,9 @@ fn knockout(source: &SourceAsset, rule: &KnockoutRule) -> Result<Plane, Separati
         KnockoutTarget::Black => [0, 0, 0],
         KnockoutTarget::Color { rgb } => rgb,
     };
+    // Distances are compared as integers: diff/255 <= permille/1000  <=>  diff*1000 <= permille*255.
+    let tolerance = u32::from(rule.tolerance_permille) * 255;
+    let transition = u32::from(rule.transition_permille) * 255;
     let mut out = Plane::new(alpha.width, alpha.height, 1.0);
     for (i, px) in source.decoded.samples.chunks_exact(n).enumerate() {
         // Hidden color under fully transparent pixels is not visible artwork.
@@ -113,36 +92,34 @@ fn knockout(source: &SourceAsset, rule: &KnockoutRule) -> Result<Plane, Separati
         let distance = rgb
             .iter()
             .zip(target)
-            .map(|(a, b)| a.abs_diff(b))
+            .map(|(a, b)| u32::from(a.abs_diff(b)))
             .max()
-            .unwrap_or(0) as f32
-            / 255.0;
-        out.pixels[i] = if distance <= rule.tolerance {
+            .unwrap_or(0)
+            * 1000;
+        out.pixels[i] = if distance <= tolerance {
             0.0
-        } else if rule.transition == 0.0 {
+        } else if transition == 0 {
             1.0
         } else {
-            ((distance - rule.tolerance) / rule.transition).min(1.0)
+            ((distance - tolerance) as f32 / transition as f32).min(1.0)
         };
     }
     Ok(out)
 }
 
-/// Builds one clear mask from all rules. Every rule can only clear more, never retain again.
+/// Builds one clear mask from the recipe's policy. Every rule can only clear more.
 pub fn build_clear_mask(
     input: &MaskInput<'_>,
-    rules: &[MaskRule],
+    policy: &ClearPolicy,
 ) -> Result<ClearMask, SeparationError> {
     let base = crate::source::alpha_plane(input.source)?;
     let mut mask = ClearMask::open(base.width, base.height);
-    for rule in rules {
-        let plane = match rule {
-            MaskRule::Knockout(k) => knockout(input.source, k)?,
-            MaskRule::Perforation(p) => {
-                crate::perforation::holes(p, base.width, base.height, input)?
-            }
-        };
-        mask = mask.combine(&ClearMask::from_plane(plane)?)?;
+    for rule in &policy.knockouts {
+        mask = mask.combine(&ClearMask::from_plane(knockout(input.source, rule)?)?)?;
+    }
+    if let Some(rule) = &policy.perforation {
+        let holes = crate::perforation::holes(rule, base.width, base.height, input)?;
+        mask = mask.combine(&ClearMask::from_plane(holes)?)?;
     }
     Ok(mask)
 }

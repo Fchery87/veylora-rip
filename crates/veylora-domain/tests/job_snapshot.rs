@@ -7,7 +7,7 @@ fn reference() -> VersionedReference {
 }
 fn recipe() -> PrintRecipeInput {
     PrintRecipeInput {
-        schema_version: 1,
+        schema_version: 2,
         id: RecipeId::new(),
         revision: 1,
         created_at_ms: 1735000000000,
@@ -41,6 +41,7 @@ fn recipe() -> PrintRecipeInput {
             cell_height: 1,
             thresholds: vec![32768],
         },
+        clear: ClearPolicy::default(),
         finish: FinishPolicy {
             ink_id: "synthetic ink".into(),
             film_id: "synthetic film".into(),
@@ -53,6 +54,30 @@ fn recipe() -> PrintRecipeInput {
             press_pressure_pa: 1000,
             peel: PeelCondition::Cold,
         },
+    }
+}
+fn populated_clear(eligible_mask_id: Option<AssetId>) -> ClearPolicy {
+    ClearPolicy {
+        knockouts: vec![
+            KnockoutPolicy {
+                target: KnockoutTarget::Black,
+                tolerance_permille: 80,
+                transition_permille: 40,
+            },
+            KnockoutPolicy {
+                target: KnockoutTarget::Color { rgb: [10, 20, 30] },
+                tolerance_permille: 20,
+                transition_permille: 0,
+            },
+        ],
+        perforation: Some(PerforationPolicy {
+            diameter_um: 400,
+            spacing_um: 1000,
+            phase_x_px: 3,
+            phase_y_px: -2,
+            eligible_mask_id,
+            edge_protection_um: 200,
+        }),
     }
 }
 fn input() -> JobSnapshotInput {
@@ -95,7 +120,12 @@ fn input() -> JobSnapshotInput {
         device_setup: reference(),
         print_mode_id: PrintModeId::new(),
         print_mode: reference(),
-        recipe: PrintRecipe::new(recipe()).unwrap(),
+        recipe: PrintRecipe::new({
+            let mut r = recipe();
+            r.clear = populated_clear(Some(mask));
+            r
+        })
+        .unwrap(),
         provenance: Provenance {
             software_version: "test".into(),
             backend_version: "simulation".into(),
@@ -122,7 +152,7 @@ fn roundtrip_and_frozen_inputs_preserve_identity() {
 }
 #[test]
 fn dangling_references_and_duplicate_metadata_fail_on_all_construction_paths() {
-    for kind in 0..7 {
+    for kind in 0..8 {
         let mut data = input();
         match kind {
             0 => data.assets.clear(),
@@ -141,6 +171,11 @@ fn dangling_references_and_duplicate_metadata_fail_on_all_construction_paths() {
                     ("same".into(), ContentHash::digest(b"a")),
                     ("same".into(), ContentHash::digest(b"b")),
                 ]
+            }
+            6 => {
+                let mut r = recipe();
+                r.clear = populated_clear(Some(AssetId::new()));
+                data.recipe = PrintRecipe::new(r).unwrap();
             }
             _ => data.schema_version = 99,
         }
@@ -224,4 +259,73 @@ fn invalid_policy_values_are_rejected_and_profile_is_explicitly_optional() {
     let restored: PrintRecipe =
         serde_json::from_value(serde_json::to_value(&recipe).unwrap()).unwrap();
     assert_eq!(recipe.content_hash(), restored.content_hash());
+}
+
+#[test]
+fn clear_policy_is_validated_hashed_and_part_of_the_recipe_schema() {
+    let solid = PrintRecipe::new(recipe()).unwrap();
+    let mut with_knockout = recipe();
+    with_knockout.clear = populated_clear(None);
+    with_knockout.clear.perforation = None;
+    let knockout = PrintRecipe::new(with_knockout).unwrap();
+    let mut with_holes = recipe();
+    with_holes.clear.perforation = populated_clear(None).perforation;
+    with_holes
+        .clear
+        .perforation
+        .as_mut()
+        .unwrap()
+        .edge_protection_um = 0;
+    let perforated = PrintRecipe::new(with_holes).unwrap();
+    // Solid and perforated variants are distinct recipe contents.
+    let hashes = [
+        solid.content_hash(),
+        knockout.content_hash(),
+        perforated.content_hash(),
+    ];
+    assert_ne!(hashes[0], hashes[1]);
+    assert_ne!(hashes[0], hashes[2]);
+    assert_ne!(hashes[1], hashes[2]);
+    for recipe in [&solid, &knockout, &perforated] {
+        let restored: PrintRecipe =
+            serde_json::from_value(serde_json::to_value(recipe).unwrap()).unwrap();
+        assert_eq!(recipe.content_hash(), restored.content_hash());
+    }
+}
+#[test]
+fn unsafe_clear_policies_and_old_schemas_are_rejected() {
+    let mut cases: Vec<(&str, ClearPolicy)> = Vec::new();
+    let mut c = populated_clear(Some(AssetId::new()));
+    c.knockouts[0].tolerance_permille = 1001;
+    cases.push(("tolerance", c));
+    let mut c = populated_clear(Some(AssetId::new()));
+    c.knockouts[0].transition_permille = 1001;
+    cases.push(("transition", c));
+    let mut c = populated_clear(Some(AssetId::new()));
+    c.knockouts = vec![c.knockouts[0]; MAX_KNOCKOUT_RULES + 1];
+    cases.push(("too many rules", c));
+    let mut c = populated_clear(Some(AssetId::new()));
+    c.perforation.as_mut().unwrap().diameter_um = 0;
+    cases.push(("zero diameter", c));
+    let mut c = populated_clear(Some(AssetId::new()));
+    c.perforation.as_mut().unwrap().spacing_um = 400;
+    cases.push(("overlapping holes", c));
+    let c = populated_clear(None); // edge protection without an eligible mask
+    cases.push(("edge protection without mask", c));
+    for (name, clear) in cases {
+        let mut data = recipe();
+        data.clear = clear;
+        assert!(PrintRecipe::new(data.clone()).is_err(), "{name}");
+        assert!(
+            serde_json::from_value::<PrintRecipe>(serde_json::to_value(data).unwrap()).is_err(),
+            "{name} via serde"
+        );
+    }
+    // Schema 1 recipes predate `clear` and are not readable.
+    let mut old = recipe();
+    old.schema_version = 1;
+    assert!(PrintRecipe::new(old).is_err());
+    let mut json = serde_json::to_value(PrintRecipe::new(recipe()).unwrap()).unwrap();
+    json.as_object_mut().unwrap().remove("clear");
+    assert!(serde_json::from_value::<PrintRecipe>(json).is_err());
 }

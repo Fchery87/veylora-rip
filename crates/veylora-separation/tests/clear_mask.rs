@@ -3,12 +3,18 @@ use common::{asset, rgb};
 use veylora_device::channels::{
     ChannelBinding, LogicalChannel, LogicalChannelMap, PhysicalSlotId, ProtocolChannel,
 };
-use veylora_domain::recipe::{MaskCombination, WhitePolicy, WhiteSource};
+use veylora_domain::{
+    ids::AssetId,
+    recipe::{
+        ClearPolicy, KnockoutPolicy, KnockoutTarget, MaskCombination, PerforationPolicy,
+        WhitePolicy, WhiteSource,
+    },
+};
 use veylora_image::SampleLayout;
 use veylora_separation::{
     allocate_logical_to_physical, build_clear_mask, enforce_clear_mask, generate_white,
-    AllocationLimits, ClearMask, KnockoutRule, KnockoutTarget, LogicalPlanes, MaskInput, MaskRule,
-    PerforationRule, PixelPitch, Plane, SeparationError, SeparationInput,
+    AllocationLimits, ClearMask, LogicalPlanes, MaskInput, PixelPitch, Plane, SeparationError,
+    SeparationInput, SuppliedMask,
 };
 
 const PITCH: PixelPitch = PixelPitch {
@@ -19,19 +25,30 @@ const PITCH: PixelPitch = PixelPitch {
 fn input(a: &veylora_image::SourceAsset) -> MaskInput<'_> {
     MaskInput {
         source: a,
+        eligible_mask: None,
         origin_px: (0, 0),
         pitch: PITCH,
     }
 }
-fn knockout(target: KnockoutTarget, tolerance: f32, transition: f32) -> MaskRule {
-    MaskRule::Knockout(KnockoutRule {
+fn knockout(
+    target: KnockoutTarget,
+    tolerance_permille: u16,
+    transition_permille: u16,
+) -> KnockoutPolicy {
+    KnockoutPolicy {
         target,
-        tolerance,
-        transition,
-    })
+        tolerance_permille,
+        transition_permille,
+    }
 }
-fn retained(a: &veylora_image::SourceAsset, rules: &[MaskRule]) -> Vec<f32> {
-    build_clear_mask(&input(a), rules)
+fn policy(knockouts: Vec<KnockoutPolicy>) -> ClearPolicy {
+    ClearPolicy {
+        knockouts,
+        perforation: None,
+    }
+}
+fn retained(a: &veylora_image::SourceAsset, p: &ClearPolicy) -> Vec<f32> {
+    build_clear_mask(&input(a), p)
         .unwrap()
         .retained()
         .pixels
@@ -47,10 +64,19 @@ fn close(a: &[f32], b: &[f32]) {
 #[test]
 fn black_knockout_clears_black_and_near_black_but_not_navy() {
     let a = rgb(4, &[[0, 0, 0], [10, 10, 10], [0, 0, 128], [255, 255, 255]]);
-    // 20/255 tolerance clears 10 but navy (128) and white stay.
+    // 80 per-mille is 20.4 of 255: clears 10, keeps navy (128) and white.
     close(
-        &retained(&a, &[knockout(KnockoutTarget::Black, 20.0 / 255.0, 0.0)]),
+        &retained(&a, &policy(vec![knockout(KnockoutTarget::Black, 80, 0)])),
         &[0.0, 0.0, 1.0, 1.0],
+    );
+}
+#[test]
+fn tolerance_boundary_is_exact_integer_arithmetic() {
+    // 200 per-mille is exactly 51/255: 51 clears, 52 does not (hard clip).
+    let a = rgb(2, &[[51, 51, 51], [52, 52, 52]]);
+    close(
+        &retained(&a, &policy(vec![knockout(KnockoutTarget::Black, 200, 0)])),
+        &[0.0, 1.0],
     );
 }
 #[test]
@@ -59,28 +85,28 @@ fn transition_ramps_between_cleared_and_retained() {
         4,
         &[[0, 0, 0], [51, 51, 51], [102, 102, 102], [204, 204, 204]],
     );
-    // tolerance 0.2 (51), transition 0.4 (102): 51 -> 0, 102 -> 0.5, 204 -> 1.
+    // tolerance 200 (51), transition 400 (102): 51 -> 0, 102 -> 0.5, 204 -> 1.
     close(
-        &retained(&a, &[knockout(KnockoutTarget::Black, 0.2, 0.4)]),
+        &retained(&a, &policy(vec![knockout(KnockoutTarget::Black, 200, 400)])),
         &[0.0, 0.0, 0.5, 1.0],
     );
 }
 #[test]
 fn selected_color_knockout_uses_source_encoded_distance() {
     let a = rgb(3, &[[200, 30, 30], [205, 25, 35], [30, 30, 200]]);
-    let rule = knockout(
+    let p = policy(vec![knockout(
         KnockoutTarget::Color { rgb: [200, 30, 30] },
-        10.0 / 255.0,
-        0.0,
-    );
-    close(&retained(&a, &[rule]), &[0.0, 0.0, 1.0]);
+        40,
+        0,
+    )]);
+    close(&retained(&a, &p), &[0.0, 0.0, 1.0]);
 }
 #[test]
 fn hidden_color_under_transparency_is_not_knocked_out() {
     // Black under alpha 0 is invisible artwork; opaque black is cleared.
     let a = asset(2, 1, SampleLayout::Rgba8, vec![0, 0, 0, 0, 0, 0, 0, 255]);
     close(
-        &retained(&a, &[knockout(KnockoutTarget::Black, 0.1, 0.0)]),
+        &retained(&a, &policy(vec![knockout(KnockoutTarget::Black, 100, 0)])),
         &[1.0, 0.0],
     );
 }
@@ -88,46 +114,54 @@ fn hidden_color_under_transparency_is_not_knocked_out() {
 fn building_a_mask_never_modifies_the_artwork() {
     let a = rgb(2, &[[0, 0, 0], [255, 255, 255]]);
     let before = a.decoded.samples.clone();
-    let mask = build_clear_mask(&input(&a), &[knockout(KnockoutTarget::Black, 0.1, 0.0)]).unwrap();
+    let mask = build_clear_mask(
+        &input(&a),
+        &policy(vec![knockout(KnockoutTarget::Black, 100, 0)]),
+    )
+    .unwrap();
     assert_eq!(a.decoded.samples, before);
-    // No rules means an open mask; disabling knockout is just not applying the rule.
-    let open = build_clear_mask(&input(&a), &[]).unwrap();
+    // An empty policy is an open mask; disabling knockout is just not applying the rule.
+    let open = build_clear_mask(&input(&a), &ClearPolicy::default()).unwrap();
     assert_eq!(open, ClearMask::open(2, 1));
     assert_ne!(open, mask);
 }
 #[test]
 fn multiple_rules_only_clear_more() {
     let a = rgb(3, &[[0, 0, 0], [200, 30, 30], [255, 255, 255]]);
-    let rules = [
-        knockout(KnockoutTarget::Black, 0.05, 0.0),
-        knockout(KnockoutTarget::Color { rgb: [200, 30, 30] }, 0.05, 0.0),
-    ];
-    close(&retained(&a, &rules), &[0.0, 0.0, 1.0]);
+    let p = policy(vec![
+        knockout(KnockoutTarget::Black, 50, 0),
+        knockout(KnockoutTarget::Color { rgb: [200, 30, 30] }, 50, 0),
+    ]);
+    close(&retained(&a, &p), &[0.0, 0.0, 1.0]);
 }
 #[test]
-fn invalid_knockout_values_are_rejected() {
+fn out_of_range_knockout_values_are_rejected_even_if_built_by_hand() {
     let a = rgb(1, &[[0, 0, 0]]);
-    for (t, tr) in [
-        (f32::NAN, 0.0),
-        (-0.1, 0.0),
-        (1.1, 0.0),
-        (0.1, f32::NAN),
-        (0.1, 2.0),
-    ] {
+    for (t, tr) in [(1001, 0), (0, 1001)] {
         assert_eq!(
-            build_clear_mask(&input(&a), &[knockout(KnockoutTarget::Black, t, tr)]),
+            build_clear_mask(
+                &input(&a),
+                &policy(vec![knockout(KnockoutTarget::Black, t, tr)])
+            ),
             Err(SeparationError::InvalidRule)
         );
     }
 }
 
-fn perforation() -> PerforationRule {
-    PerforationRule {
+fn perforation() -> PerforationPolicy {
+    PerforationPolicy {
         diameter_um: 200,
         spacing_um: 400,
-        phase_px: (0, 0),
-        eligible: None,
+        phase_x_px: 0,
+        phase_y_px: 0,
+        eligible_mask_id: None,
         edge_protection_um: 0,
+    }
+}
+fn perforated(p: PerforationPolicy) -> ClearPolicy {
+    ClearPolicy {
+        knockouts: vec![],
+        perforation: Some(p),
     }
 }
 fn solid(w: u32, h: u32) -> veylora_image::SourceAsset {
@@ -139,7 +173,7 @@ fn perforation_places_holes_on_a_deterministic_physical_grid() {
     // pixel centers sit 50 or 150 um from a grid point, so holes are the 2x2 clusters of
     // pixels at offsets {3, 0} mod 4 on each axis.
     let a = solid(8, 8);
-    let r = retained(&a, &[MaskRule::Perforation(perforation())]);
+    let r = retained(&a, &perforated(perforation()));
     for y in 0..8usize {
         for x in 0..8usize {
             let near = |v: usize| matches!(v % 4, 0 | 3);
@@ -151,33 +185,67 @@ fn perforation_places_holes_on_a_deterministic_physical_grid() {
 }
 #[test]
 fn perforation_is_stable_across_bands_of_the_same_page() {
-    let full = retained(&solid(8, 8), &[MaskRule::Perforation(perforation())]);
+    let full = retained(&solid(8, 8), &perforated(perforation()));
     let band = solid(8, 4);
+    // Row 2 is not a multiple of the 4 px grid period, so ignoring the origin would differ.
     let lower = build_clear_mask(
         &MaskInput {
-            source: &band,
             origin_px: (0, 2),
-            pitch: PITCH,
+            ..input(&band)
         },
-        &[MaskRule::Perforation(perforation())],
+        &perforated(perforation()),
     )
     .unwrap();
     assert_eq!(lower.retained().pixels, full[16..48].to_vec());
 }
 #[test]
-fn perforation_respects_eligible_areas_and_edge_protection() {
+fn phase_shifts_the_grid() {
     let a = solid(8, 8);
-    let mut eligible = Plane::new(8, 8, 0.0);
-    for y in 0..8 {
-        for x in 0..4 {
-            eligible.set(x, y, 1.0);
-        }
-    }
-    let rule = PerforationRule {
-        eligible: Some(eligible.clone()),
+    let shifted = PerforationPolicy {
+        phase_x_px: 1,
         ..perforation()
     };
-    let r = retained(&a, &[MaskRule::Perforation(rule)]);
+    let base = retained(&a, &perforated(perforation()));
+    let moved = retained(&a, &perforated(shifted));
+    assert_ne!(base, moved);
+    // Shifting the grid by one pixel moves each hole one pixel to the right.
+    for y in 0..8 {
+        for x in 1..8 {
+            assert_eq!(moved[y * 8 + x], base[y * 8 + x - 1]);
+        }
+    }
+}
+fn eligible_left_half(id: AssetId) -> SuppliedMask {
+    let mut plane = Plane::new(8, 8, 0.0);
+    for y in 0..8 {
+        for x in 0..4 {
+            plane.set(x, y, 1.0);
+        }
+    }
+    SuppliedMask { id, plane }
+}
+#[test]
+fn perforation_respects_eligible_areas_and_edge_protection() {
+    let a = solid(8, 8);
+    let id = AssetId::new();
+    let eligible = eligible_left_half(id);
+    let with = |p: PerforationPolicy| {
+        build_clear_mask(
+            &MaskInput {
+                eligible_mask: Some(&eligible),
+                ..input(&a)
+            },
+            &perforated(p),
+        )
+        .unwrap()
+        .retained()
+        .pixels
+        .clone()
+    };
+    let r = with(PerforationPolicy {
+        eligible_mask_id: Some(id),
+        ..perforation()
+    });
     // Right half is ineligible so nothing is punched there.
     for y in 0..8 {
         for x in 4..8 {
@@ -185,52 +253,85 @@ fn perforation_respects_eligible_areas_and_edge_protection() {
         }
     }
     assert_eq!(r[0], 0.0);
-    // One pixel of edge protection erodes eligibility, removing the edge holes.
-    let guarded = PerforationRule {
-        eligible: Some(eligible),
+    // One pixel of edge protection erodes eligibility (including the page edge).
+    let g = with(PerforationPolicy {
+        eligible_mask_id: Some(id),
         edge_protection_um: 100,
         ..perforation()
-    };
-    let g = retained(&a, &[MaskRule::Perforation(guarded)]);
+    });
     assert!(g.iter().all(|v| *v == 1.0), "{g:?}");
 }
 #[test]
-fn unsafe_perforation_rules_are_rejected() {
+fn the_eligible_mask_must_be_the_one_the_policy_references() {
     let a = solid(8, 8);
-    let build = |rule: PerforationRule, pitch: PixelPitch| {
+    let id = AssetId::new();
+    let policy = perforated(PerforationPolicy {
+        eligible_mask_id: Some(id),
+        ..perforation()
+    });
+    assert_eq!(
+        build_clear_mask(&input(&a), &policy),
+        Err(SeparationError::MissingSuppliedMask)
+    );
+    let other = eligible_left_half(AssetId::new());
+    assert_eq!(
         build_clear_mask(
             &MaskInput {
-                source: &a,
-                origin_px: (0, 0),
-                pitch,
+                eligible_mask: Some(&other),
+                ..input(&a)
             },
-            &[MaskRule::Perforation(rule)],
+            &policy
+        ),
+        Err(SeparationError::SuppliedMaskMismatch)
+    );
+    let wrong_size = SuppliedMask {
+        id,
+        plane: Plane::new(3, 3, 1.0),
+    };
+    assert_eq!(
+        build_clear_mask(
+            &MaskInput {
+                eligible_mask: Some(&wrong_size),
+                ..input(&a)
+            },
+            &policy
+        ),
+        Err(SeparationError::DimensionMismatch)
+    );
+}
+#[test]
+fn unsafe_perforation_values_are_rejected_even_if_built_by_hand() {
+    let a = solid(8, 8);
+    let bad = |p: PerforationPolicy| {
+        assert_eq!(
+            build_clear_mask(&input(&a), &perforated(p)),
+            Err(SeparationError::InvalidRule)
         )
     };
-    let bad = |r: PerforationRule| assert_eq!(build(r, PITCH), Err(SeparationError::InvalidRule));
-    bad(PerforationRule {
+    bad(PerforationPolicy {
         diameter_um: 0,
         ..perforation()
     });
-    bad(PerforationRule {
+    bad(PerforationPolicy {
         spacing_um: 200,
         ..perforation()
     }); // spacing not above diameter
-    bad(PerforationRule {
+    bad(PerforationPolicy {
         edge_protection_um: 100,
         ..perforation()
-    }); // needs eligible
-    let wrong = PerforationRule {
-        eligible: Some(Plane::new(3, 3, 1.0)),
-        ..perforation()
-    };
-    assert_eq!(build(wrong, PITCH), Err(SeparationError::DimensionMismatch));
+    }); // needs a mask
     let skew = PixelPitch {
         x_um: 100,
         y_um: 200,
     };
     assert_eq!(
-        build(perforation(), skew),
+        build_clear_mask(
+            &MaskInput {
+                pitch: skew,
+                ..input(&a)
+            },
+            &perforated(perforation())
+        ),
         Err(SeparationError::AnisotropicPitch)
     );
 }
@@ -261,8 +362,11 @@ fn bindings() -> LogicalChannelMap {
 fn enforcement_clears_every_logical_and_physical_plane_and_white_spread_cannot_return() {
     // Opaque artwork, black text knocked out in the middle pixel, with white spread 1 px.
     let art = rgb(3, &[[255, 255, 255], [0, 0, 0], [255, 255, 255]]);
-    let clear =
-        build_clear_mask(&input(&art), &[knockout(KnockoutTarget::Black, 0.05, 0.0)]).unwrap();
+    let clear = build_clear_mask(
+        &input(&art),
+        &policy(vec![knockout(KnockoutTarget::Black, 50, 0)]),
+    )
+    .unwrap();
     assert_eq!(clear.retained().pixels, vec![1.0, 0.0, 1.0]);
 
     let alpha = Plane::new(3, 1, 1.0);

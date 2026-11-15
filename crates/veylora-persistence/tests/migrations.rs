@@ -73,7 +73,7 @@ fn snapshot(job_id: JobId) -> JobSnapshot {
         print_mode_id: PrintModeId::new(),
         print_mode: reference(),
         recipe: PrintRecipe::new(PrintRecipeInput {
-            schema_version: 1,
+            schema_version: 2,
             id: RecipeId::new(),
             revision: 1,
             created_at_ms: 1,
@@ -107,6 +107,7 @@ fn snapshot(job_id: JobId) -> JobSnapshot {
                 cell_height: 1,
                 thresholds: vec![32768],
             },
+            clear: ClearPolicy::default(),
             finish: FinishPolicy {
                 ink_id: "synthetic".into(),
                 film_id: "synthetic".into(),
