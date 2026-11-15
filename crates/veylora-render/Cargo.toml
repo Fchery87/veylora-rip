@@ -1,0 +1,11 @@
+[package]
+name = "veylora-render"
+description = "Bounded, cancellable, printer-independent band rendering"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+veylora-separation = { path = "../veylora-separation" }
+veylora-screen = { path = "../veylora-screen" }
