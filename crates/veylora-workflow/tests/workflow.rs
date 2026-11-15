@@ -307,3 +307,171 @@ fn a_truncated_artifact_is_reported_by_size() {
     assert!(!r.verified);
     assert!(r.problems.iter().any(|p| p.contains("bytes on disk")));
 }
+
+fn draft(ws: &Workspace) -> veylora_workflow::SetupStatus {
+    let s = setup();
+    ws.create_setup(&veylora_workflow::SetupDraft {
+        id: None,
+        origin: veylora_device::setup::SetupOrigin::Recorded,
+        details: s.details().clone(),
+    })
+    .unwrap()
+}
+
+fn evidence_for(
+    ws: &Workspace,
+    setup_hash: &veylora_domain::provenance::ContentHash,
+) -> veylora_device::setup::EvidenceRecord {
+    use veylora_device::setup::{ChannelEvidence, EvidenceRecord};
+    let record = ws.setup_record(setup_hash).unwrap();
+    EvidenceRecord {
+        operator: "operator".into(),
+        setup_id: record.id,
+        revision: record.revision,
+        setup_hash: record.content_hash,
+        map_version: record.details.channel_map.version(),
+        channels: record
+            .details
+            .channel_map
+            .bindings()
+            .iter()
+            .enumerate()
+            .map(|(i, b)| ChannelEvidence {
+                target_label: format!("label-{i}"),
+                slot: b.slot,
+                protocol: b.protocol,
+                expected_logical: b.logical,
+                observed_logical: b.logical,
+            })
+            .collect(),
+        target_id: "target-1".into(),
+        observed_at: "2026-11-15T10:00:00Z".into(),
+        artifact_hash: hash(b"printed target"),
+        evidence_hash: hash(b"evidence"),
+    }
+}
+
+#[test]
+fn created_setups_start_unverified_and_are_stored_durably() {
+    let ws = Workspace::open(dir("setup")).unwrap();
+    let created = draft(&ws);
+    assert_eq!(
+        created.verification,
+        veylora_device::setup::VerificationState::Unverified
+    );
+    assert_eq!(created.revision, 1);
+    // The stored record loads back identically.
+    assert_eq!(
+        ws.setup_record(&created.content_hash).unwrap().content_hash,
+        created.content_hash
+    );
+    // A draft with invalid details is refused, not repaired.
+    let mut bad = setup().details().clone();
+    bad.physical_slots.clear();
+    let r = ws.create_setup(&veylora_workflow::SetupDraft {
+        id: None,
+        origin: veylora_device::setup::SetupOrigin::Recorded,
+        details: bad,
+    });
+    assert!(matches!(r, Err(WorkflowError::Invalid(_))), "{r:?}");
+}
+
+#[test]
+fn setup_verification_requires_matching_evidence_and_never_changes_history() {
+    let ws = Workspace::open(dir("verify")).unwrap();
+    let created = draft(&ws);
+    let evidence = evidence_for(&ws, &created.content_hash);
+
+    // Evidence that observed a different channel is refused and nothing is stored.
+    let mut wrong = evidence.clone();
+    wrong.channels[0].observed_logical = veylora_device::channels::LogicalChannel::Black;
+    assert!(matches!(
+        ws.verify_setup(&created.content_hash, wrong),
+        Err(WorkflowError::Invalid(_))
+    ));
+    assert_eq!(
+        ws.setup_record(&created.content_hash).unwrap().verification,
+        veylora_device::setup::VerificationState::Unverified
+    );
+
+    // Evidence for another setup revision is refused.
+    let mut stale = evidence.clone();
+    stale.revision = 9;
+    assert!(ws.verify_setup(&created.content_hash, stale).is_err());
+
+    let verified = ws
+        .verify_setup(&created.content_hash, evidence.clone())
+        .unwrap();
+    assert!(matches!(
+        verified.verification,
+        veylora_device::setup::VerificationState::Verified { .. }
+    ));
+    assert_eq!(verified.content_hash, created.content_hash);
+    // The earlier states remain on record.
+    assert_eq!(ws.setup_history(&created.content_hash).unwrap().len(), 2);
+}
+
+#[test]
+fn verified_setups_no_longer_report_the_unverified_finding() {
+    let f = fixture_job(|_| {});
+    let created = f.ws.create_job(&f.spec).unwrap();
+    let has = || {
+        f.ws.preflight(created.job_id, &PreflightOptions::default())
+            .unwrap()
+            .findings
+            .iter()
+            .any(|x| x.code == ErrorCode::UnverifiedDeviceSetup)
+    };
+    assert!(has());
+    f.ws.verify_setup(&f.spec.setup, evidence_for(&f.ws, &f.spec.setup))
+        .unwrap();
+    assert!(!has());
+}
+
+#[test]
+fn review_flags_ambiguous_and_interrupted_attempts_without_changing_them() {
+    use veylora_domain::{
+        ids::AttemptId,
+        job::{AttemptState, SubmissionAttempt},
+    };
+    use veylora_persistence::{FileJobStore, JobStore};
+    let f = fixture_job(|_| {});
+    let created = f.ws.create_job(&f.spec).unwrap();
+    let id = created.job_id;
+    assert!(!f.ws.review(id).unwrap().requires_review);
+
+    let store = FileJobStore::open(f.ws.root().join("jobs")).unwrap();
+    let attempt = |attempt_id, sequence, state| SubmissionAttempt {
+        attempt_id,
+        job_id: id,
+        snapshot_hash: created.snapshot_hash,
+        sequence,
+        state,
+        bytes_written: 0,
+        note: "fixture".into(),
+        recorded_at: "2026-11-15T10:00:00Z".into(),
+    };
+    let a = AttemptId::new();
+    store
+        .append_attempt(attempt(a, 1, AttemptState::Submitting))
+        .unwrap();
+    // A crash can leave an attempt open; nothing here may assume it finished.
+    let open = f.ws.review(id).unwrap();
+    assert!(open.requires_review);
+    store
+        .append_attempt(attempt(a, 2, AttemptState::Ambiguous))
+        .unwrap();
+    let r = f.ws.review(id).unwrap();
+    assert!(r.requires_review);
+    assert_eq!(r.attempts.len(), 1);
+    assert!(r.attempts[0].requires_review);
+    // Reviewing is read only.
+    assert_eq!(f.ws.review(id).unwrap().attempts.len(), 1);
+    assert_eq!(f.ws.report(id).unwrap().submission_attempts.len(), 1);
+}
+
+#[test]
+fn reviewing_an_unknown_job_is_an_error_not_an_empty_report() {
+    let f = fixture_job(|_| {});
+    assert!(f.ws.review(veylora_domain::ids::JobId::new()).is_err());
+}

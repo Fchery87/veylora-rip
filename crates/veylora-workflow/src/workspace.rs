@@ -160,11 +160,11 @@ pub struct JobReport {
 }
 
 pub struct Workspace {
-    root: PathBuf,
-    records: FileRecordStore,
-    devices: FileDeviceStore,
-    jobs: FileJobStore,
-    assets: FileAssetStore,
+    pub(crate) root: PathBuf,
+    pub(crate) records: FileRecordStore,
+    pub(crate) devices: FileDeviceStore,
+    pub(crate) jobs: FileJobStore,
+    pub(crate) assets: FileAssetStore,
 }
 
 fn untagged(policy: UntaggedRgbPolicy) -> UntaggedPolicy {

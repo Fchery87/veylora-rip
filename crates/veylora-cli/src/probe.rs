@@ -7,6 +7,7 @@ use std::{
     path::{Path, PathBuf},
     process::ExitCode,
 };
+use veylora_diagnostics::targets::{generate_target, PhysicalSize, TargetKind};
 use veylora_domain::provenance::ContentHash;
 
 mod svg;
@@ -51,36 +52,70 @@ fn execute(args: &[OsString]) -> Result<(), String> {
         }
         "record-observation" => record(&options["--input"], &options["--output"] )?,
         "render-bounded-target" => {
-            let output = &options["--output"];
-            if output.exists() { return Err("refusing to overwrite existing output".into()); }
-            if !matches!(output.extension().and_then(|s| s.to_str()), Some("json" | "svg")) {
-                return Err("diagnostic export supports .json or .svg only, not printer-ready encoding".into());
-            }
-            use veylora_diagnostics::targets::{generate_target, PhysicalSize, TargetKind};
-            let target = generate_target(TargetKind::ChannelIdentity, PhysicalSize::new(100.0, 100.0).map_err(|e| e.to_string())?);
-            let artifact = serde_json::json!({"schema_version":1, "software_version":veylora_domain::version(), "label":"DIAGNOSTIC ONLY - NOT PRINTER-READY", "printer_ready":false, "target_sha256":target.stable_hash(), "target":target});
-            if output.extension().and_then(|s| s.to_str()) == Some("svg") {
-                let rendered = svg::render(&target)?;
-                let mut manifest = artifact;
-                manifest["artifact_sha256"] = serde_json::json!(ContentHash::digest(rendered.as_bytes()));
-                manifest["artifact_byte_count"] = serde_json::json!(rendered.len());
-                manifest["visualization_version"] = serde_json::json!(1);
-                manifest["visualization_policy"] = serde_json::json!("approximate RGB from CMYK; white on gray; K+W black; viewer sans-serif text; not physical output");
-                let encoded = encode(&manifest)?;
-                let mut sidecar = output.as_os_str().to_os_string();
-                sidecar.push(".manifest.json");
-                let sidecar = PathBuf::from(sidecar);
-                if sidecar.exists() { return Err("refusing to overwrite existing manifest".into()); }
-                // Reserve both names before writing. Failures retain incomplete files, never replace them.
-                let mut svg_file = OpenOptions::new().write(true).create_new(true).open(output).map_err(|e| format!("refusing to overwrite SVG: {e}"))?;
-                let mut manifest_file = OpenOptions::new().write(true).create_new(true).open(&sidecar).map_err(|e| format!("refusing to overwrite manifest; empty SVG reservation retained: {e}"))?;
-                svg_file.write_all(rendered.as_bytes()).and_then(|()| svg_file.sync_all()).map_err(|e| format!("incomplete SVG/manifest retained: {e}"))?;
-                manifest_file.write_all(&encoded).and_then(|()| manifest_file.sync_all()).map_err(|e| format!("incomplete manifest retained: {e}"))?;
-            } else {
-                write_new(output, &encode(&artifact)?)?;
-            }
+            let size = PhysicalSize::new(100.0, 100.0).map_err(|e| e.to_string())?;
+            export_target(&options["--output"], TargetKind::ChannelIdentity, size)?;
         }
         _ => unreachable!(),
+    }
+    Ok(())
+}
+
+/// Writes a diagnostic target as `.json`, or as `.svg` with a sidecar manifest. Never overwrites.
+pub(crate) fn export_target(
+    output: &Path,
+    kind: TargetKind,
+    size: PhysicalSize,
+) -> Result<(), String> {
+    if output.exists() {
+        return Err("refusing to overwrite existing output".into());
+    }
+    if !matches!(
+        output.extension().and_then(|s| s.to_str()),
+        Some("json" | "svg")
+    ) {
+        return Err(
+            "diagnostic export supports .json or .svg only, not printer-ready encoding".into(),
+        );
+    }
+    let target = generate_target(kind, size);
+    let artifact = serde_json::json!({"schema_version":1, "software_version":veylora_domain::version(), "label":"DIAGNOSTIC ONLY - NOT PRINTER-READY", "printer_ready":false, "target_sha256":target.stable_hash(), "target":target});
+    if output.extension().and_then(|s| s.to_str()) == Some("svg") {
+        let rendered = svg::render(&target)?;
+        let mut manifest = artifact;
+        manifest["artifact_sha256"] = serde_json::json!(ContentHash::digest(rendered.as_bytes()));
+        manifest["artifact_byte_count"] = serde_json::json!(rendered.len());
+        manifest["visualization_version"] = serde_json::json!(1);
+        manifest["visualization_policy"] = serde_json::json!("approximate RGB from CMYK; white on gray; K+W black; viewer sans-serif text; not physical output");
+        let encoded = encode(&manifest)?;
+        let mut sidecar = output.as_os_str().to_os_string();
+        sidecar.push(".manifest.json");
+        let sidecar = PathBuf::from(sidecar);
+        if sidecar.exists() {
+            return Err("refusing to overwrite existing manifest".into());
+        }
+        // Reserve both names before writing. Failures retain incomplete files, never replace them.
+        let mut svg_file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)
+            .map_err(|e| format!("refusing to overwrite SVG: {e}"))?;
+        let mut manifest_file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&sidecar)
+            .map_err(|e| {
+                format!("refusing to overwrite manifest; empty SVG reservation retained: {e}")
+            })?;
+        svg_file
+            .write_all(rendered.as_bytes())
+            .and_then(|()| svg_file.sync_all())
+            .map_err(|e| format!("incomplete SVG/manifest retained: {e}"))?;
+        manifest_file
+            .write_all(&encoded)
+            .and_then(|()| manifest_file.sync_all())
+            .map_err(|e| format!("incomplete manifest retained: {e}"))?;
+    } else {
+        write_new(output, &encode(&artifact)?)?;
     }
     Ok(())
 }

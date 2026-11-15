@@ -8,11 +8,16 @@ use std::{
     path::Path,
     process::ExitCode,
 };
-use veylora_device::{mode::ModeRecord, setup::SetupRecord};
+use veylora_device::{
+    mode::ModeRecord,
+    setup::{EvidenceRecord, SetupRecord},
+};
+use veylora_diagnostics::targets::{PhysicalSize, TargetKind};
 use veylora_domain::{errors::ErrorCode, ids::JobId, recipe::PrintRecipe};
 use veylora_image::UntaggedPolicy;
 use veylora_workflow::{
-    inspect_artifacts, inspect_asset, JobSpec, PreflightOptions, RenderOptions, Workspace,
+    inspect_artifacts, inspect_asset, JobSpec, PreflightOptions, RenderOptions, SetupDraft,
+    Workspace,
 };
 
 const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
@@ -24,6 +29,11 @@ const USAGE: &str = "usage: veylora-cli --workspace <dir> <command>
   asset inspect --input <file.png> [--untagged reject|assume-srgb]
   job create --spec <job.json>
   job preflight --job <id> [--min-ppi N] [--margin-um N]
+  setup create --input <draft.json>
+  setup verify --setup <hash> --evidence <evidence.json>
+  target generate --kind <kind> --width-mm N --height-mm N --output <new.json|new.svg>
+  job review --job <id>
+  job submit | job reprint   (refused: no encoder evidence, physical submission disabled)
   job render --job <id> [--min-ppi N] [--margin-um N] [--acknowledge <code>[:<subject>]]...
   artifact inspect --dir <run directory>
   report export --job <id> --output <new.json>
@@ -112,7 +122,19 @@ fn execute(args: &[OsString]) -> Result<(), String> {
     // args[0] is --workspace
     let root = args.get(1).ok_or(USAGE)?;
     let (noun, verb) = (args.get(2).ok_or(USAGE)?, args.get(3).ok_or(USAGE)?);
+    // Refused before anything is read or created. There is no encoder, and the retained rasters
+    // are not printer bytes, so there is nothing honest to submit or reprint.
+    if noun == "job" && matches!(verb.as_str(), "submit" | "reprint") {
+        return Err(format!(
+            "job {verb} is refused: there is no encoder evidence for the ET-8550 and physical submission is disabled. \
+             Retained artifacts are diagnostic rasters, not printer data."
+        ));
+    }
     let allowed: &[&str] = match (noun.as_str(), verb.as_str()) {
+        ("setup", "create") => &["--input"],
+        ("setup", "verify") => &["--setup", "--evidence"],
+        ("target", "generate") => &["--kind", "--width-mm", "--height-mm", "--output"],
+        ("job", "review") => &["--job"],
         ("setup" | "mode" | "recipe" | "asset", "import") => &["--input"],
         ("asset", "inspect") => &["--input", "--untagged"],
         ("job", "create") => &["--spec"],
@@ -168,6 +190,19 @@ fn dispatch(root: &Path, p: &Parsed) -> Result<(), String> {
             let bytes = read_bounded(Path::new(p.need("--input")?))?;
             return print(&inspect_asset(&bytes, policy).map_err(e)?);
         }
+        ("target", "generate") => {
+            let kind: TargetKind =
+                serde_json::from_value(serde_json::Value::String(p.need("--kind")?.to_string()))
+                    .map_err(|_| "--kind is not a target kind".to_string())?;
+            let dim = |key: &str| -> Result<f64, String> {
+                p.need(key)?
+                    .parse()
+                    .map_err(|_| format!("{key} must be a number"))
+            };
+            let size = PhysicalSize::new(dim("--width-mm")?, dim("--height-mm")?)
+                .map_err(|x| x.to_string())?;
+            return crate::probe::export_target(Path::new(p.need("--output")?), kind, size);
+        }
         ("artifact", "inspect") => {
             return print(&inspect_artifacts(Path::new(p.need("--dir")?)).map_err(e)?);
         }
@@ -191,6 +226,19 @@ fn dispatch(root: &Path, p: &Parsed) -> Result<(), String> {
             let bytes = read_bounded(Path::new(p.need("--input")?))?;
             hash_result(ws.import_asset(&bytes).map_err(e)?)
         }
+        ("setup", "create") => {
+            let draft: SetupDraft = read_json(p.need("--input")?)?;
+            print(&ws.create_setup(&draft).map_err(e)?)
+        }
+        ("setup", "verify") => {
+            let hash = p
+                .need("--setup")?
+                .parse()
+                .map_err(|_| "--setup is not a content hash")?;
+            let evidence: EvidenceRecord = read_json(p.need("--evidence")?)?;
+            print(&ws.verify_setup(&hash, evidence).map_err(e)?)
+        }
+        ("job", "review") => print(&ws.review(p.job()?).map_err(e)?),
         ("job", "create") => {
             let spec: JobSpec = read_json(p.need("--spec")?)?;
             print(&ws.create_job(&spec).map_err(e)?)

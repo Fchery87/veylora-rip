@@ -49,6 +49,8 @@ These rulings preserve the original requested scope. They may require additional
 
 All of the recovery lanes listed above were accepted and merged to `main` (persistence, domain, device modes, PNG import, ICC boundary, transport, calibration and measurements). Since then: render lane crates (separation, screening, render), domain integration, source bridge and clear mask (4.2), recipe clear policy (schema 2), calibration and screening (4.4), bounded band renderer (4.5), layout (3.3-3.4), compositor, layout validation in the render path, durable recipe and calibration storage (6.1). See `implementation-audit.md` for per-task status and ADRs 0002-0005 for the decisions.
 
+8.1b (2026-11-15): `setup create/verify`, `target generate`, `job review` implemented over `veylora-workflow`. `job submit` and `job reprint` refuse before reading or creating anything. Review is read-only; recording an operator decision on an ambiguous attempt belongs to 7.2.
+
 ## Acceptance policy
 
 A passing stub, interface, or fixture is not completed product behavior. Each task requires coordinator spec review, quality review and fresh tests. Tests validate software behavior only. Production protocol fields, hardware mapping and physical quality gates remain unverified until real evidence exists.

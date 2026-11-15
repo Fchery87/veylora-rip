@@ -4,11 +4,13 @@
 
 mod error;
 mod inspect;
+mod lifecycle;
 mod spec;
 mod workspace;
 
 pub use error::{WorkflowError, WorkflowResult};
 pub use inspect::{inspect_artifacts, inspect_asset, ArtifactReport, AssetReport, PlaneStats};
+pub use lifecycle::{AttemptReview, ReviewReport, SetupDraft, SetupStatus};
 pub use spec::{CropSpec, JobSpec, LayoutSpec, PlacementSpec};
 pub use workspace::{
     asset_id_for, AttemptSummary, JobCreated, JobReport, PreflightOptions, PreflightReport,
