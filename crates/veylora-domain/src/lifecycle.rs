@@ -64,7 +64,8 @@ impl std::error::Error for LifecycleError {}
 
 /// No retry edge exists after submission. An operator-requested reprint must
 /// create a separate append-only attempt through application services. Releasing
-/// a hold re-renders because Held does not assert retained-artifact validity.
+/// a hold re-renders because Held does not assert retained-artifact validity. A failed job can be
+/// released back to Held by an operator; that never applies to an ambiguous or reviewed submission.
 pub fn transition(current: JobState, event: LifecycleEvent) -> Result<JobState, LifecycleError> {
     use JobState::*;
     use LifecycleEvent::*;
@@ -72,6 +73,8 @@ pub fn transition(current: JobState, event: LifecycleEvent) -> Result<JobState, 
         (Draft | PreflightFailed, PreflightRejected) => PreflightFailed,
         (Draft | PreflightFailed, PreflightPassed) => Held,
         (Held, BeginRender | Release) => Rendering,
+        // An operator may release a failed job to try again. Earlier attempts stay on record.
+        (Failed, Release) => Held,
         (Rendering, RenderCompleted) => Ready,
         (Rendering, RenderFailed) => Failed,
         (Ready, Hold) => Held,
