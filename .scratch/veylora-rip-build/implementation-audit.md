@@ -53,7 +53,7 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 | 7.1 | Preflight services | 2.1, 2.2, 3.x, 4.x | Pending, presenter is not service |
 | 7.2 | Durable lifecycle | 2.3, 5.2, 7.1 | Pending, fixture actions are not durable |
 | 7.3 | Diagnostics/support archives | 2.3, 7.2 | Pending |
-| 8.1 | Complete headless workflow | 4.5, 5.x, 7.x | Staged. 8.1a done: setup/mode/recipe/asset import, job create/preflight/render, artifact inspect, report export (`veylora-workflow`, CLI). 8.1b pending: submit/review/reprint, setup create/verify, target generate |
+| 8.1 | Complete headless workflow | 4.5, 5.x, 7.x | 8.1a and 8.1b done for what can be real offline: setup create/verify (operator evidence), target generate, read-only job review. `job submit` and `job reprint` are refused by design (no encoder, no submission path). Recording an operator review decision waits for 7.2 |
 | 8.2 | Desktop shell | approved mock exception | Shell done, real file-sink integration pending |
 | 8.3 | Preflight/inspection presentation | 8.2 | Presentation done, retained-artifact integration pending |
 | 9.1 | Portable archives | 2.3, artifact contracts | Pending |
