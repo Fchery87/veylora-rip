@@ -315,7 +315,7 @@ pub(crate) fn create_empty_log(path: &Path) -> PersistenceResult<()> {
     Ok(())
 }
 
-fn read_schema_version(root: &Path) -> PersistenceResult<u32> {
+pub(crate) fn read_schema_version(root: &Path) -> PersistenceResult<u32> {
     let path = root.join("VERSION");
     match std::fs::read_to_string(&path) {
         Ok(text) => text
@@ -335,7 +335,7 @@ fn write_schema_version(root: &Path, version: u32) -> PersistenceResult<()> {
     Ok(())
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> PersistenceResult<()> {
+pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> PersistenceResult<()> {
     let tmp = tmp_path(path);
     {
         let mut file = OpenOptions::new()
@@ -360,7 +360,7 @@ fn tmp_path(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
-fn sync_dir(path: &Path) -> PersistenceResult<()> {
+pub(crate) fn sync_dir(path: &Path) -> PersistenceResult<()> {
     // On Windows a directory File cannot be fsynced; on Unix the open+sync
     // ensures directory entries are durable. Soft-fail when the platform does
     // not support it.

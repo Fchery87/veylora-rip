@@ -1,5 +1,5 @@
-//! Immutable calibration record storage, keyed by verified content hash. In memory only:
-//! durable calibration persistence is not part of this task. No recipe promotion is performed.
+//! In-memory calibration record cache, keyed by verified content hash. Durable storage is
+//! `FileRecordStore`. No recipe promotion is performed.
 use std::{collections::BTreeMap, error::Error, fmt};
 use veylora_color::CalibrationRecord;
 

@@ -20,8 +20,10 @@ pub mod calibration;
 pub mod errors;
 pub mod jobs;
 pub mod migrations;
+pub mod records;
 
 pub use calibration::{CalibrationStore, StoreError};
 pub use errors::{PersistenceError, PersistenceResult};
 pub use jobs::{AttemptView, FileJobStore, JobStore};
 pub use migrations::{current_schema_version, Migration, MigrationSet};
+pub use records::FileRecordStore;
