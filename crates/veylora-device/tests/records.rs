@@ -80,6 +80,9 @@ fn evidence(setup: &DeviceSetup) -> EvidenceRecord {
     }
 }
 
+type SetupEdit = Box<dyn Fn(&mut SetupRecord)>;
+type ModeEdit = Box<dyn Fn(&mut ModeRecord)>;
+
 fn json<T: serde::Serialize + serde::de::DeserializeOwned>(v: &T) -> T {
     serde_json::from_str(&serde_json::to_string(v).unwrap()).unwrap()
 }
@@ -128,7 +131,7 @@ fn revised_setups_keep_their_revision_and_hash() {
 fn tampered_setup_records_are_refused() {
     let s = DeviceSetup::new(DeviceSetupId::new(), details(), SetupOrigin::Recorded).unwrap();
     let base = s.to_record();
-    let cases: Vec<(&str, Box<dyn Fn(&mut SetupRecord)>)> = vec![
+    let cases: Vec<(&str, SetupEdit)> = vec![
         (
             "firmware changed without rehash",
             Box::new(|r| r.details.firmware = Some("other".into())),
@@ -253,7 +256,7 @@ fn modes_round_trip_in_every_status_with_stable_hashes() {
 #[test]
 fn tampered_mode_records_are_refused() {
     let base = mode(DeviceSetupId::new()).to_record();
-    let cases: Vec<(&str, Box<dyn Fn(&mut ModeRecord)>)> = vec![
+    let cases: Vec<(&str, ModeEdit)> = vec![
         ("dpi", Box::new(|r| r.raster.dpi_x = 1440)),
         (
             "status flipped to validated",

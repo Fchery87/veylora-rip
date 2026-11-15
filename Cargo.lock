@@ -3737,6 +3737,7 @@ dependencies = [
  "serde",
  "serde_json",
  "veylora-color",
+ "veylora-device",
  "veylora-domain",
 ]
 
