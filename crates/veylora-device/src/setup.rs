@@ -2,27 +2,32 @@
 use crate::channels::{
     invalid, LogicalChannel, LogicalChannelMap, PhysicalSlotId, ProtocolChannel,
 };
+use serde::{Deserialize, Serialize};
 use veylora_domain::{ids::DeviceSetupId, preflight::Finding, provenance::ContentHash};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DeviceIdentity {
     pub model: String,
     pub serial_or_local_id: Option<String>,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PhysicalSlot {
     pub id: PhysicalSlotId,
     pub tank_label: String,
     pub head_label: String,
     pub ink: String,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SetupOrigin {
     Recorded,
     Imported,
     Inferred,
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SetupDetails {
     pub identity: DeviceIdentity,
     pub firmware: Option<String>,
@@ -38,13 +43,15 @@ pub struct SetupDetails {
     pub physical_slots: Vec<PhysicalSlot>,
     pub channel_map: LogicalChannelMap,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum VerificationState {
     Unverified,
     Experimental { reason: String },
     Verified { evidence_hash: ContentHash },
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ChannelEvidence {
     pub target_label: String,
     pub slot: PhysicalSlotId,
@@ -52,7 +59,8 @@ pub struct ChannelEvidence {
     pub expected_logical: LogicalChannel,
     pub observed_logical: LogicalChannel,
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EvidenceRecord {
     pub operator: String,
     pub setup_id: DeviceSetupId,
@@ -75,7 +83,72 @@ pub struct DeviceSetup {
     content_hash: ContentHash,
     evidence: Option<EvidenceRecord>,
 }
+/// Serialized form of a setup. Loading re-validates the details, recomputes the content hash and
+/// replays the verification state against the retained evidence; nothing is trusted as written.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetupRecord {
+    pub schema_version: u32,
+    pub id: DeviceSetupId,
+    pub revision: u32,
+    pub origin: SetupOrigin,
+    pub details: SetupDetails,
+    pub verification: VerificationState,
+    pub evidence: Option<EvidenceRecord>,
+    pub content_hash: ContentHash,
+}
+pub const SETUP_RECORD_SCHEMA: u32 = 1;
+
 impl DeviceSetup {
+    pub fn to_record(&self) -> SetupRecord {
+        SetupRecord {
+            schema_version: SETUP_RECORD_SCHEMA,
+            id: self.id,
+            revision: self.revision,
+            origin: self.origin,
+            details: self.details.clone(),
+            verification: self.verification.clone(),
+            evidence: self.evidence.clone(),
+            content_hash: self.content_hash,
+        }
+    }
+
+    pub fn from_record(record: SetupRecord) -> Result<Self, Finding> {
+        if record.schema_version != SETUP_RECORD_SCHEMA || record.revision == 0 {
+            return Err(invalid(
+                "Unsupported device setup record schema or revision.",
+            ));
+        }
+        let mut setup = Self::new(record.id, record.details, record.origin)?;
+        setup.revision = record.revision;
+        setup.content_hash = hash_details(setup.id, &setup.details, setup.origin, setup.revision);
+        if setup.content_hash != record.content_hash {
+            return Err(invalid(
+                "Device setup record does not match its content hash.",
+            ));
+        }
+        match (record.verification, record.evidence) {
+            (VerificationState::Unverified, None) => {}
+            (VerificationState::Experimental { reason }, None) => {
+                setup.mark_experimental(reason)?
+            }
+            (VerificationState::Verified { evidence_hash }, Some(evidence)) => {
+                if evidence.evidence_hash != evidence_hash {
+                    return Err(invalid(
+                        "Verified setup record names different evidence than it retains.",
+                    ));
+                }
+                setup.verify(evidence)?;
+            }
+            _ => {
+                return Err(invalid(
+                    "Setup verification state and retained evidence disagree.",
+                ))
+            }
+        }
+        Ok(setup)
+    }
+
     pub fn new(
         id: DeviceSetupId,
         details: SetupDetails,

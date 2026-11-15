@@ -3660,6 +3660,8 @@ dependencies = [
  "veylora-device",
  "veylora-diagnostics",
  "veylora-domain",
+ "veylora-image",
+ "veylora-workflow",
 ]
 
 [[package]]
@@ -3687,6 +3689,8 @@ dependencies = [
 name = "veylora-device"
 version = "0.0.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "veylora-domain",
 ]
 
@@ -3735,6 +3739,7 @@ dependencies = [
  "serde",
  "serde_json",
  "veylora-color",
+ "veylora-device",
  "veylora-domain",
 ]
 
@@ -3780,6 +3785,21 @@ dependencies = [
  "thiserror 2.0.21",
  "uuid",
  "veylora-domain",
+]
+
+[[package]]
+name = "veylora-workflow"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "veylora-device",
+ "veylora-domain",
+ "veylora-image",
+ "veylora-layout",
+ "veylora-persistence",
+ "veylora-render",
+ "veylora-separation",
 ]
 
 [[package]]

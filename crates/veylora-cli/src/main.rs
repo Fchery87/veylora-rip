@@ -1,6 +1,7 @@
 use std::process::ExitCode;
 
 mod probe;
+mod workflow;
 
 fn main() -> ExitCode {
     let mut args = std::env::args_os().skip(1);
@@ -18,8 +19,13 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("probe") => probe::run(args.collect()),
+        Some(first) if workflow::handles(first) => {
+            let mut all = vec![std::ffi::OsString::from(first)];
+            all.extend(args);
+            workflow::run(all)
+        }
         _ => {
-            eprintln!("Usage: veylora-cli --version | probe --help");
+            eprintln!("Usage: veylora-cli --version | probe --help | --workspace <dir> <command>");
             ExitCode::from(2)
         }
     }

@@ -14,6 +14,7 @@ use crate::{
     channels::invalid,
     setup::DeviceSetup,
 };
+use serde::{Deserialize, Serialize};
 use veylora_domain::{
     ids::{DeviceSetupId, PrintModeId},
     preflight::Finding,
@@ -23,7 +24,8 @@ use veylora_domain::{
 
 /// Raster geometry: grid density and printable-box extent. Values are recorded,
 /// not interpreted by this crate.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RasterSpec {
     pub dpi_x: u32,
     pub dpi_y: u32,
@@ -34,7 +36,8 @@ pub struct RasterSpec {
 
 /// Protocol shape negotiated with the backend for this mode. Sequence is the
 /// ordered list of protocol-channel addresses the backend expects.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProtocolSpec {
     pub label: String,
     pub channel_sequence: Vec<u8>,
@@ -43,7 +46,8 @@ pub struct ProtocolSpec {
 }
 
 /// Media and feed settings this mode requires. Strings are recorded literally.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MediaSpec {
     pub media_label: String,
     pub feed_path: String,
@@ -51,7 +55,8 @@ pub struct MediaSpec {
 }
 
 /// Target ink deposition: pass structure and per-channel coverage caps.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DepositionSpec {
     pub passes: u32,
     pub overlap_percent: u16,
@@ -60,7 +65,8 @@ pub struct DepositionSpec {
 }
 
 /// Target quality parameters. Numbers are recorded verbatim; validators live elsewhere.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QualitySpec {
     pub target_label: String,
     pub notes: String,
@@ -68,7 +74,8 @@ pub struct QualitySpec {
 }
 
 /// Lifecycle status for a print mode. Only physical evidence may transition to `Validated`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ModeStatus {
     Experimental,
     Validated,
@@ -90,7 +97,80 @@ pub struct PrintMode {
     content_hash: ContentHash,
 }
 
+/// Serialized form of a print mode. Loading re-validates every field and recomputes the hash.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModeRecord {
+    pub schema_version: u32,
+    pub id: PrintModeId,
+    pub revision: u32,
+    pub device_setup: DeviceSetupId,
+    pub raster: RasterSpec,
+    pub protocol: ProtocolSpec,
+    pub media: MediaSpec,
+    pub deposition: DepositionSpec,
+    pub quality: QualitySpec,
+    pub status: ModeStatus,
+    pub content_hash: ContentHash,
+}
+pub const MODE_RECORD_SCHEMA: u32 = 1;
+
 impl PrintMode {
+    pub fn to_record(&self) -> ModeRecord {
+        ModeRecord {
+            schema_version: MODE_RECORD_SCHEMA,
+            id: self.id,
+            revision: self.revision,
+            device_setup: self.device_setup,
+            raster: self.raster.clone(),
+            protocol: self.protocol.clone(),
+            media: self.media.clone(),
+            deposition: self.deposition.clone(),
+            quality: self.quality.clone(),
+            status: self.status,
+            content_hash: self.content_hash,
+        }
+    }
+
+    pub fn from_record(record: ModeRecord) -> Result<Self, Finding> {
+        if record.schema_version != MODE_RECORD_SCHEMA || record.revision == 0 {
+            return Err(invalid("Unsupported print mode record schema or revision."));
+        }
+        validate_raster(&record.raster)?;
+        validate_protocol(&record.protocol)?;
+        validate_media(&record.media)?;
+        validate_deposition(&record.deposition)?;
+        validate_quality(&record.quality)?;
+        let content_hash = hash_mode(
+            record.id,
+            record.revision,
+            record.device_setup,
+            &record.raster,
+            &record.protocol,
+            &record.media,
+            &record.deposition,
+            &record.quality,
+            record.status,
+        );
+        if content_hash != record.content_hash {
+            return Err(invalid(
+                "Print mode record does not match its content hash.",
+            ));
+        }
+        Ok(Self {
+            id: record.id,
+            revision: record.revision,
+            device_setup: record.device_setup,
+            raster: record.raster,
+            protocol: record.protocol,
+            media: record.media,
+            deposition: record.deposition,
+            quality: record.quality,
+            status: record.status,
+            content_hash,
+        })
+    }
+
     pub fn new(
         id: PrintModeId,
         device_setup: DeviceSetupId,

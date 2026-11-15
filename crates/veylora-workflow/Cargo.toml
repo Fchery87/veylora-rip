@@ -1,0 +1,18 @@
+[package]
+name = "veylora-workflow"
+description = "Headless application services: job creation, preflight, rendering and artifact inspection"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+veylora-device = { path = "../veylora-device" }
+veylora-domain = { path = "../veylora-domain" }
+veylora-image = { path = "../veylora-image" }
+veylora-layout = { path = "../veylora-layout" }
+veylora-persistence = { path = "../veylora-persistence" }
+veylora-render = { path = "../veylora-render" }
+veylora-separation = { path = "../veylora-separation" }

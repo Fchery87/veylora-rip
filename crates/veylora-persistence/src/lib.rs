@@ -16,13 +16,17 @@
 //! phase of the project has not accepted yet.
 #![forbid(unsafe_code)]
 
+pub mod assets;
 pub mod calibration;
+pub mod devices;
 pub mod errors;
 pub mod jobs;
 pub mod migrations;
 pub mod records;
 
+pub use assets::FileAssetStore;
 pub use calibration::{CalibrationStore, StoreError};
+pub use devices::FileDeviceStore;
 pub use errors::{PersistenceError, PersistenceResult};
 pub use jobs::{AttemptView, FileJobStore, JobStore};
 pub use migrations::{current_schema_version, Migration, MigrationSet};
