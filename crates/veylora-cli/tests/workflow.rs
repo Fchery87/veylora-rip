@@ -143,3 +143,140 @@ fn bad_usage_and_blocked_renders_fail_without_output() {
             .success()
     );
 }
+
+#[test]
+fn acknowledgements_are_parsed_and_required_for_confirmation_findings() {
+    let ws = dir("cli-ack");
+    let files = dir("cli-ack-files");
+    fs::create_dir_all(&files).unwrap();
+    let s = setup();
+    let m = mode(s.id());
+    let put = |name: &str, bytes: Vec<u8>| {
+        let p = files.join(name);
+        fs::write(&p, bytes).unwrap();
+        p
+    };
+    let imp = |kind: &str, flag: &str, f: &std::path::Path| {
+        hash_of(&json(&cli(
+            &ws,
+            &[kind, "import", flag, f.to_str().unwrap()],
+        )))
+    };
+    let sh = imp(
+        "setup",
+        "--input",
+        &put("s.json", serde_json::to_vec(&s.to_record()).unwrap()),
+    );
+    let mh = imp(
+        "mode",
+        "--input",
+        &put("m.json", serde_json::to_vec(&m.to_record()).unwrap()),
+    );
+    let rh = imp(
+        "recipe",
+        "--input",
+        &put("r.json", serde_json::to_vec(&recipe()).unwrap()),
+    );
+    let ah = imp("asset", "--input", &put("a.png", fixture("alpha-ramp.png")));
+    let spec = JobSpec {
+        schema_version: 1,
+        job_id: None,
+        created_at_ms: 1,
+        setup: sh.parse().unwrap(),
+        mode: mh.parse().unwrap(),
+        recipe: rh.parse().unwrap(),
+        assets: BTreeMap::from([("art".to_string(), ah.parse().unwrap())]),
+        masks: BTreeMap::new(),
+        layout: LayoutSpec {
+            page_width_um: 80,
+            page_height_um: 20,
+            mirror: false,
+            placements: vec![PlacementSpec {
+                asset: "art".into(),
+                mask: None,
+                x_um: 0,
+                y_um: 0,
+                width_um: 80,
+                height_um: 20,
+                rotation: Rotation::Deg0,
+                crop: None,
+            }],
+        },
+    };
+    let spec_f = put("job.json", serde_json::to_vec(&spec).unwrap());
+    let job = json(&cli(
+        &ws,
+        &["job", "create", "--spec", spec_f.to_str().unwrap()],
+    ))["job_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    // Without acknowledgement a strict policy refuses to render.
+    let refused = cli(&ws, &["job", "render", "--job", &job, "--min-ppi", "5000"]);
+    assert!(!refused.status.success());
+    // A malformed code is rejected, not ignored.
+    assert!(!cli(
+        &ws,
+        &[
+            "job",
+            "render",
+            "--job",
+            &job,
+            "--min-ppi",
+            "5000",
+            "--acknowledge",
+            "nonsense"
+        ]
+    )
+    .status
+    .success());
+    // Acknowledgement names the finding's code and subject, as preflight printed them.
+    let pre = json(&cli(
+        &ws,
+        &["job", "preflight", "--job", &job, "--min-ppi", "5000"],
+    ));
+    let finding = pre["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["code"] == "low_effective_resolution")
+        .unwrap();
+    let ack = format!(
+        "low_effective_resolution:{}",
+        finding["subject"].as_str().unwrap()
+    );
+    // A code alone does not cover a finding about a specific placement.
+    assert!(!cli(
+        &ws,
+        &[
+            "job",
+            "render",
+            "--job",
+            &job,
+            "--min-ppi",
+            "5000",
+            "--acknowledge",
+            "low_effective_resolution"
+        ]
+    )
+    .status
+    .success());
+    let ok = cli(
+        &ws,
+        &[
+            "job",
+            "render",
+            "--job",
+            &job,
+            "--min-ppi",
+            "5000",
+            "--acknowledge",
+            &ack,
+        ],
+    );
+    assert!(
+        ok.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ok.stderr)
+    );
+}

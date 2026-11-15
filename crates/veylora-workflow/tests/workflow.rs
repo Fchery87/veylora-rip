@@ -242,3 +242,68 @@ fn crop_defaults_to_the_whole_image_and_can_select_a_region() {
         .clone();
     assert_eq!(white.nonzero, 2); // alpha 128 and 255
 }
+
+#[test]
+fn job_creation_rejects_unsupported_spec_versions_and_non_gray_masks() {
+    let f = fixture_job(|_| {});
+    let mut spec = f.spec.clone();
+    spec.schema_version = 2;
+    assert!(matches!(
+        f.ws.create_job(&spec),
+        Err(WorkflowError::Invalid(_))
+    ));
+    // A color image is not a mask.
+    let mut spec = f.spec.clone();
+    let rgba = f.ws.import_asset(&fixture("alpha-ramp.png")).unwrap();
+    spec.masks.insert("m".into(), rgba);
+    assert!(matches!(
+        f.ws.create_job(&spec),
+        Err(WorkflowError::Invalid(m)) if m.contains("Gray8")
+    ));
+}
+
+#[test]
+fn a_page_taller_than_the_printable_area_is_blocked() {
+    // 3600 px * 20 um = 72 000 um.
+    let f = fixture_job(|l| l.page_height_um = 72_100);
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    let r = f.ws.preflight(id, &PreflightOptions::default()).unwrap();
+    assert!(r
+        .findings
+        .iter()
+        .any(|x| x.code == ErrorCode::UnsupportedMediaSize
+            && x.severity == Severity::Blocking
+            && x.subject.as_deref() == Some("layout.page")));
+}
+
+#[test]
+fn reports_ignore_runs_that_never_completed() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    f.ws.render(id, &RenderOptions::default()).unwrap();
+    // A crashed run leaves a directory without a manifest.
+    std::fs::create_dir_all(
+        f.ws.root()
+            .join("artifacts")
+            .join(id.to_string())
+            .join("run-0002"),
+    )
+    .unwrap();
+    assert_eq!(f.ws.report(id).unwrap().renders.len(), 1);
+    // The next render does not reuse the incomplete run's name.
+    let next = f.ws.render(id, &RenderOptions::default()).unwrap();
+    assert!(next.dir.ends_with("run-0003"));
+}
+
+#[test]
+fn a_truncated_artifact_is_reported_by_size() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    let out = f.ws.render(id, &RenderOptions::default()).unwrap();
+    let file = out.dir.join("logical-w.f32");
+    let bytes = std::fs::read(&file).unwrap();
+    std::fs::write(&file, &bytes[..bytes.len() - 4]).unwrap();
+    let r = inspect_artifacts(&out.dir).unwrap();
+    assert!(!r.verified);
+    assert!(r.problems.iter().any(|p| p.contains("bytes on disk")));
+}
