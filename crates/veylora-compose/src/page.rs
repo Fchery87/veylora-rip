@@ -53,11 +53,14 @@ pub struct ComposedPage {
     pub mask: Option<SourceAsset>,
 }
 
+/// Weights of one destination column: its x index, the source axis it reads, and the weights.
+type ColumnWeights = (usize, SourceAxis, Vec<(u32, f64)>);
+
 struct Prepared<'a> {
     p: &'a ResolvedPlacement,
     source: &'a SourceAsset,
     /// Destination pixel ranges that can receive coverage.
-    cols: Vec<(usize, SourceAxis, Vec<(u32, f64)>)>,
+    cols: Vec<ColumnWeights>,
     rows: std::ops::Range<usize>,
 }
 
