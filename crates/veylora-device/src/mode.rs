@@ -18,7 +18,7 @@ use veylora_domain::{
     ids::{DeviceSetupId, PrintModeId},
     preflight::Finding,
     provenance::ContentHash,
-    recipe::PrintRecipe,
+    recipe::{PrintRecipe, WhiteSource},
 };
 
 /// Raster geometry: grid density and printable-box extent. Values are recorded,
@@ -377,15 +377,21 @@ pub fn check_compatibility(
     if matches!(mode.status(), ModeStatus::Retired) {
         findings.push(invalid("Retired modes may not be used for new jobs."));
     }
-    if !matches!(capability.independent_white, Capability::Unsupported) {
-        for (label, _) in &mode.deposition().coverage_caps {
-            if label.eq_ignore_ascii_case("white")
-                && matches!(capability.independent_white, Capability::Unsupported)
-            {
-                findings.push(invalid(
-                    "Backend does not offer independent white but the mode declares a white coverage cap.",
-                ));
-            }
+    if matches!(capability.independent_white, Capability::Unsupported) {
+        if mode
+            .deposition()
+            .coverage_caps
+            .iter()
+            .any(|(label, _)| label.eq_ignore_ascii_case("white"))
+        {
+            findings.push(invalid(
+                "Backend does not offer independent white but the mode declares a white coverage cap.",
+            ));
+        }
+        if !matches!(recipe.inputs().white.source, WhiteSource::Disabled) {
+            findings.push(invalid(
+                "Backend does not offer independent white but the recipe prints white.",
+            ));
         }
     }
     for (label, _) in &mode.deposition().coverage_caps {

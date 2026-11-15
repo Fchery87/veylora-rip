@@ -350,3 +350,22 @@ fn invalid_specs_are_rejected() {
     )
     .is_err());
 }
+
+#[test]
+fn white_requires_the_backend_to_offer_independent_white() {
+    let setup = setup();
+    let m = mode(setup.id()); // declares a white coverage cap
+    let mut cap = capability();
+    cap.independent_white = Capability::Unsupported;
+    // The mode's white cap and the recipe's white policy each need independent white.
+    let findings = check_compatibility(&m, &setup, &cap, &recipe());
+    assert_eq!(findings.len(), 2, "{findings:?}");
+    // Offered white raises neither.
+    assert!(check_compatibility(&m, &setup, &capability(), &recipe()).is_empty());
+    // A recipe with white disabled needs no white capability from the recipe's side.
+    let mut input = recipe().inputs().clone();
+    input.white.source = WhiteSource::Disabled;
+    let no_white = PrintRecipe::new(input).unwrap();
+    let findings = check_compatibility(&m, &setup, &cap, &no_white);
+    assert_eq!(findings.len(), 1, "{findings:?}");
+}
