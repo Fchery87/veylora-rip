@@ -3739,7 +3739,8 @@ name = "veylora-separation"
 version = "0.0.0"
 dependencies = [
  "serde",
- "serde_json",
+ "veylora-device",
+ "veylora-domain",
 ]
 
 [[package]]
