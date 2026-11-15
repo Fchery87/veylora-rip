@@ -1,6 +1,7 @@
 //! White generation with the declared precedence:
 //! source -> combination -> response curve and density -> choke/spread -> clear mask.
 use crate::{
+    apply_response,
     clear_mask::ClearMask,
     morphology::{dilate, erode, MAX_MORPHOLOGY_RADIUS_PX},
     Plane, SeparationError,
@@ -55,15 +56,6 @@ fn radius_px(spread_um: i32, pitch: PixelPitch) -> Result<(usize, bool), Separat
         return Err(SeparationError::InvalidPolicy);
     }
     Ok((radius as usize, spread_um < 0))
-}
-
-fn response(curve: &[u16], value: f32) -> f32 {
-    let last = curve.len() - 1;
-    let position = value.clamp(0.0, 1.0) * last as f32;
-    let index = (position.floor() as usize).min(last - 1);
-    let fraction = position - index as f32;
-    let (a, b) = (f32::from(curve[index]), f32::from(curve[index + 1]));
-    ((a + (b - a) * fraction) / f32::from(u16::MAX)).clamp(0.0, 1.0)
 }
 
 pub fn generate_white(
@@ -121,7 +113,7 @@ pub fn generate_white(
     if !matches!(policy.source, WhiteSource::Disabled) {
         let density = f32::from(policy.density_percent) / 100.0;
         for v in &mut out.pixels {
-            *v = (response(&policy.response, *v) * density).clamp(0.0, 1.0);
+            *v = (apply_response(&policy.response, *v) * density).clamp(0.0, 1.0);
         }
         // A response curve must not turn fully transparent pixels into ink unless the
         // operator deliberately supplied a mask that extends the white.

@@ -1,9 +1,10 @@
+use veylora_domain::recipe::{CalibrationPolicy, ScreenAlgorithm, ScreenPolicy};
 use veylora_render::{render_bands, CancellationToken, RenderLimits};
-use veylora_screen::{PageOrigin, ScreenMethod, ScreenSpec};
+use veylora_screen::{apply_calibration, ScreenSpec};
 use veylora_separation::{enforce_clear_mask, ClearMask, LogicalPlanes, Plane};
 
 #[test]
-fn cleared_pixels_stay_empty_through_banded_screening() {
+fn cleared_pixels_stay_empty_through_calibration_and_banded_screening() {
     let (w, h) = (6, 7);
     let mut keep = Plane::new(w, h, 1.0);
     for (x, y) in [(0, 0), (2, 3), (5, 6), (3, 3)] {
@@ -18,10 +19,26 @@ fn cleared_pixels_stay_empty_through_banded_screening() {
         w: Plane::new(w, h, 1.0),
     };
     enforce_clear_mask(&mut planes, &clear).unwrap();
+    // Calibration lifts midtones and limits load, but cannot bring a cleared pixel back.
+    let calibration = CalibrationPolicy {
+        revision: 1,
+        process_curves: std::array::from_fn(|_| vec![0, 50000, 65535]),
+        channel_limits_percent: [100; 4],
+        total_coverage_percent: 250,
+    };
+    apply_calibration(&mut planes, &calibration).unwrap();
     let spec = ScreenSpec {
-        method: ScreenMethod::OrderedBayer2,
-        phase_origin: PageOrigin { x: 0, y: 0 },
-        supported_levels: 255,
+        policy: ScreenPolicy {
+            algorithm: ScreenAlgorithm::OrderedThreshold,
+            revision: 1,
+            seed: 0,
+            phase_x: 0,
+            phase_y: 0,
+            cell_width: 2,
+            cell_height: 2,
+            thresholds: vec![0, 32768, 49152, 16384],
+        },
+        dot_level: 255,
     };
     let limits = RenderLimits {
         max_pixels: 1000,

@@ -5,6 +5,7 @@
 
 mod allocation;
 mod clear_mask;
+mod curve;
 mod morphology;
 mod perforation;
 mod plane;
@@ -16,6 +17,7 @@ pub use allocation::{
     PhysicalPlanes,
 };
 pub use clear_mask::{build_clear_mask, enforce_clear_mask, ClearMask, MaskInput, PlaneSet};
+pub use curve::apply_response;
 pub use morphology::MAX_MORPHOLOGY_RADIUS_PX;
 pub use plane::{Plane, SeparationError};
 pub use source::{alpha_plane, mask_plane};

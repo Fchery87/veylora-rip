@@ -9,3 +9,5 @@ publish.workspace = true
 [dependencies]
 veylora-separation = { path = "../veylora-separation" }
 veylora-screen = { path = "../veylora-screen" }
+[dev-dependencies]
+veylora-domain = { path = "../veylora-domain" }

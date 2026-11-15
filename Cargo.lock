@@ -3723,6 +3723,7 @@ dependencies = [
 name = "veylora-render"
 version = "0.0.0"
 dependencies = [
+ "veylora-domain",
  "veylora-screen",
  "veylora-separation",
 ]
@@ -3731,6 +3732,7 @@ dependencies = [
 name = "veylora-screen"
 version = "0.0.0"
 dependencies = [
+ "veylora-domain",
  "veylora-separation",
 ]
 
