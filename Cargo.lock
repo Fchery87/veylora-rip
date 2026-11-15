@@ -3673,6 +3673,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "veylora-compose"
+version = "0.0.0"
+dependencies = [
+ "veylora-device",
+ "veylora-domain",
+ "veylora-image",
+ "veylora-layout",
+ "veylora-separation",
+]
+
+[[package]]
 name = "veylora-device"
 version = "0.0.0"
 dependencies = [

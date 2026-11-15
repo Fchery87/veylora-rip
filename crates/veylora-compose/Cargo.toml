@@ -1,0 +1,16 @@
+[package]
+name = "veylora-compose"
+description = "Deterministic placement resampling and page compositing in device pixels"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+veylora-domain = { path = "../veylora-domain" }
+veylora-image = { path = "../veylora-image" }
+veylora-layout = { path = "../veylora-layout" }
+veylora-separation = { path = "../veylora-separation" }
+
+[dev-dependencies]
+veylora-device = { path = "../veylora-device" }
