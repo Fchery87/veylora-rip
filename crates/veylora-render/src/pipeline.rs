@@ -31,6 +31,7 @@ use veylora_device::{
     capability::MirrorOwner,
     channels::{LogicalChannelMap, ProtocolChannel},
 };
+use veylora_domain::{errors::ErrorCode, preflight::Finding};
 use veylora_domain::{
     ids::{AssetId, JobId},
     job::{AssetReference, RenderingSnapshot},
@@ -38,7 +39,7 @@ use veylora_domain::{
     recipe::WhiteSource,
 };
 use veylora_image::SourceAsset;
-use veylora_layout::{resolve_transform, LayoutError};
+use veylora_layout::{resolve_transform, validate_layout, LayoutError, LayoutPolicy};
 use veylora_screen::{
     apply_calibration, screen_band, CalibrationError, PageOrigin, ScreenError, ScreenSpec,
 };
@@ -83,6 +84,10 @@ pub enum RenderError {
     /// A supplied input is not the one the job snapshot retains, or is inconsistent with it.
     InputMismatch(&'static str),
     Layout(LayoutError),
+    /// The layout has blocking findings. Acknowledgement cannot bypass these.
+    LayoutBlocked(Vec<Finding>),
+    /// The layout has findings that need an explicit operator acknowledgement.
+    LayoutConfirmationRequired(Vec<Finding>),
     Compose(ComposeError),
     InvalidDotLevel,
     Separation(SeparationError),
@@ -104,12 +109,24 @@ from_error!(LayoutError => Layout, ComposeError => Compose, SeparationError => S
     AllocationError => Allocation, ScreenError => Screen, SeparatorError => Separator,
     ArtifactError => Artifact);
 
+/// An operator's acknowledgement of one confirmation-required layout finding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AcknowledgedFinding {
+    pub code: ErrorCode,
+    pub subject: Option<String>,
+}
+
 pub struct RenderRequest<'a> {
     pub snapshot: &'a RenderingSnapshot,
     /// Every image the layout's placements draw from.
     pub images: &'a [SourceAsset],
     /// Who mirrors the sheet; a layout mirror is refused unless this is the RIP.
     pub mirror_owner: MirrorOwner,
+    /// Limits the layout is checked against before any pixel is composed.
+    pub layout_policy: LayoutPolicy,
+    /// Operator decisions for confirmation-required layout findings. A finding is accepted only
+    /// when its code and subject both match; blocking findings can never be acknowledged.
+    pub acknowledged: &'a [AcknowledgedFinding],
     /// The grayscale masks placements reference, normally the recipe's supplied white mask.
     pub supplied_masks: &'a [SourceAsset],
     /// The grayscale mask the recipe's perforation names as its eligible area, if any.
@@ -149,6 +166,8 @@ pub struct RenderManifest {
     pub snapshot_hash: ContentHash,
     pub recipe_hash: ContentHash,
     pub layout_hash: ContentHash,
+    /// Confirmation-required layout findings the operator acknowledged for this render.
+    pub acknowledged_layout_findings: Vec<Finding>,
     /// Each distinct image the layout draws from, in first-use order.
     pub sources: Vec<ManifestAsset>,
     /// Resampling and compositing arithmetic that produced the page.
@@ -306,6 +325,38 @@ fn verify(request: &RenderRequest<'_>) -> Result<Verified, RenderError> {
     })
 }
 
+/// Runs layout validation. Blocking findings refuse the render; confirmation-required findings
+/// must each be acknowledged by code and subject. Returns the acknowledged findings.
+fn check_layout(
+    request: &RenderRequest<'_>,
+    layout: &veylora_layout::ResolvedLayout,
+) -> Result<Vec<Finding>, RenderError> {
+    let findings = validate_layout(layout, &request.layout_policy);
+    let blocking: Vec<Finding> = findings
+        .iter()
+        .filter(|f| f.severity.is_blocking())
+        .cloned()
+        .collect();
+    if !blocking.is_empty() {
+        return Err(RenderError::LayoutBlocked(blocking));
+    }
+    let needs: Vec<Finding> = findings
+        .into_iter()
+        .filter(|f| f.severity.requires_confirmation())
+        .collect();
+    let accepted = |f: &Finding| {
+        request
+            .acknowledged
+            .iter()
+            .any(|a| a.code == f.code && a.subject == f.subject)
+    };
+    let missing: Vec<Finding> = needs.iter().filter(|f| !accepted(f)).cloned().collect();
+    if !missing.is_empty() {
+        return Err(RenderError::LayoutConfirmationRequired(missing));
+    }
+    Ok(needs)
+}
+
 /// Limits and sizes, known once the page is composed.
 fn plan(
     request: &RenderRequest<'_>,
@@ -419,6 +470,7 @@ fn run(
     let job = request.snapshot.snapshot().inputs();
     let recipe = job.recipe.inputs();
     let layout = resolve_transform(&job.layout, request.mirror_owner)?;
+    let acknowledged = check_layout(request, &layout)?;
     let cancelled = || request.cancellation.is_cancelled();
     let page = compose_page(
         &ComposeInput {
@@ -607,6 +659,7 @@ fn run(
         snapshot_hash: request.snapshot.content_hash(),
         recipe_hash: job.recipe.content_hash(),
         layout_hash: job.layout.content_hash(),
+        acknowledged_layout_findings: acknowledged,
         sources: verified.sources,
         compose_algorithm: veylora_compose::ALGORITHM.into(),
         composed_page_hash: page.image.original_hash,

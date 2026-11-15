@@ -3,8 +3,10 @@ use common::*;
 use std::sync::{atomic::AtomicU32, Arc};
 use veylora_compose::ComposeError;
 use veylora_device::capability::MirrorOwner;
+use veylora_domain::{errors::ErrorCode, preflight::Severity};
 use veylora_domain::{provenance::ContentHash, recipe::WhiteSource};
 use veylora_layout::LayoutError;
+use veylora_render::AcknowledgedFinding;
 use veylora_render::{
     render, ArtifactError, CancellationToken, DirectoryStore, ProcessBand, ProcessSeparator,
     RenderError, SeparatorError, Stage, WhiteOnly, MANIFEST_NAME,
@@ -692,12 +694,12 @@ fn layouts_the_composer_refuses_are_errors_and_leave_nothing() {
     // Clipped: shifted right without widening the page.
     assert!(matches!(
         try_layout(|l| l.placements[0].x_um = 100),
-        Err(RenderError::Compose(ComposeError::OutsidePage(_)))
+        Err(RenderError::LayoutBlocked(_))
     ));
     // Rotated into a page of the old shape.
     assert!(matches!(
         try_layout(|l| l.placements[0].rotation = veylora_domain::layout::Rotation::Deg90),
-        Err(RenderError::Compose(ComposeError::OutsidePage(_)))
+        Err(RenderError::LayoutBlocked(_))
     ));
     // Crop beyond the source.
     assert!(matches!(
@@ -846,4 +848,107 @@ fn a_supplied_white_mask_must_ride_with_every_placement() {
         ));
         assert!(dir.files().is_empty());
     }
+}
+
+fn refusal(
+    job: &Job,
+    policy: impl FnOnce(&mut veylora_layout::LayoutPolicy),
+    acknowledged: &[AcknowledgedFinding],
+) -> (
+    Result<veylora_render::RenderArtifacts, RenderError>,
+    TempDir,
+) {
+    let token = CancellationToken::new();
+    let dir = TempDir::new();
+    let mut store = DirectoryStore::new(dir.path(), None);
+    let mut req = request(job, &SyntheticSeparator, 4, &token);
+    policy(&mut req.layout_policy);
+    req.acknowledged = acknowledged;
+    (render(&req, &mut store), dir)
+}
+
+#[test]
+fn blocking_layout_findings_refuse_the_render_and_cannot_be_acknowledged() {
+    let job = plain_job(|l| l.placements[0].x_um = 100); // clipped
+    let ack = [AcknowledgedFinding {
+        code: ErrorCode::Clipping,
+        subject: None,
+    }];
+    for acknowledged in [&[][..], &ack[..]] {
+        let (r, dir) = refusal(&job, |_| {}, acknowledged);
+        let Err(RenderError::LayoutBlocked(findings)) = r else {
+            panic!("{r:?}")
+        };
+        assert!(findings.iter().all(|f| f.severity == Severity::Blocking));
+        assert!(findings.iter().any(|f| f.code == ErrorCode::Clipping));
+        assert!(dir.files().is_empty());
+    }
+    // An unsupported page size blocks too.
+    let job = plain_job(|_| {});
+    let (r, dir) = refusal(&job, |p| p.supported_page_sizes_um = vec![(1, 1)], &[]);
+    let Err(RenderError::LayoutBlocked(f)) = r else {
+        panic!("{r:?}")
+    };
+    assert_eq!(f[0].code, ErrorCode::UnsupportedMediaSize);
+    assert!(dir.files().is_empty());
+}
+
+#[test]
+fn confirmation_findings_need_an_explicit_matching_acknowledgement() {
+    let job = plain_job(|_| {});
+    // Margin larger than the artwork-to-edge distance: the placement touches every edge.
+    let strict = |p: &mut veylora_layout::LayoutPolicy| p.margin_um = 100;
+    let (r, dir) = refusal(&job, strict, &[]);
+    let Err(RenderError::LayoutConfirmationRequired(found)) = r else {
+        panic!("{r:?}")
+    };
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].code, ErrorCode::UnsafeMargin);
+    assert!(dir.files().is_empty());
+    let subject = found[0].subject.clone();
+
+    // The wrong code, or the right code for another placement, does not count.
+    for wrong in [
+        AcknowledgedFinding {
+            code: ErrorCode::LowEffectiveResolution,
+            subject: subject.clone(),
+        },
+        AcknowledgedFinding {
+            code: ErrorCode::UnsafeMargin,
+            subject: Some("other".into()),
+        },
+        AcknowledgedFinding {
+            code: ErrorCode::UnsafeMargin,
+            subject: None,
+        },
+    ] {
+        let list = [wrong];
+        let (r, _d) = refusal(&job, strict, &list);
+        assert!(matches!(r, Err(RenderError::LayoutConfirmationRequired(_))));
+    }
+
+    // The exact finding, acknowledged, renders and is recorded in the manifest.
+    let list = [AcknowledgedFinding {
+        code: ErrorCode::UnsafeMargin,
+        subject,
+    }];
+    let (r, _d) = refusal(&job, strict, &list);
+    let art = r.unwrap();
+    assert_eq!(art.manifest.acknowledged_layout_findings.len(), 1);
+    assert_eq!(
+        art.manifest.acknowledged_layout_findings[0].code,
+        ErrorCode::UnsafeMargin
+    );
+}
+
+#[test]
+fn low_effective_resolution_is_checked_against_the_policy() {
+    let job = plain_job(|_| {}); // 254 ppi
+    let (r, _d) = refusal(&job, |p| p.min_effective_ppi = 300, &[]);
+    let Err(RenderError::LayoutConfirmationRequired(f)) = r else {
+        panic!("{r:?}")
+    };
+    assert_eq!(f[0].code, ErrorCode::LowEffectiveResolution);
+    let (r, _d) = refusal(&job, |p| p.min_effective_ppi = 254, &[]);
+    assert!(r.unwrap().manifest.acknowledged_layout_findings.is_empty());
 }

@@ -23,6 +23,7 @@ use veylora_image::{
     AlphaDescription, ColorEncoding, DecodedImage, ImageMetadata, SampleLayout, SourceAsset,
     UntaggedPolicy,
 };
+use veylora_layout::LayoutPolicy;
 use veylora_render::{
     ArtifactError, ArtifactSink, ArtifactStore, CancellationToken, DirectoryStore, ProcessBand,
     ProcessSeparator, RenderLimits, RenderRequest, SeparatorError,
@@ -374,6 +375,12 @@ pub fn request<'a>(
         snapshot: &job.snapshot,
         images: std::slice::from_ref(&job.source),
         mirror_owner: MirrorOwner::Rip,
+        layout_policy: LayoutPolicy {
+            min_effective_ppi: 100,
+            margin_um: 0,
+            supported_page_sizes_um: vec![],
+        },
+        acknowledged: &[],
         supplied_masks: job.supplied.as_slice(),
         eligible_mask: job.eligible.as_ref(),
         separator,
