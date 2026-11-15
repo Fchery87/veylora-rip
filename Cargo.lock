@@ -3703,10 +3703,9 @@ dependencies = [
 name = "veylora-image"
 version = "0.0.0"
 dependencies = [
+ "crc32fast",
+ "flate2",
  "png",
- "serde",
- "sha2",
- "thiserror 1.0.69",
  "veylora-domain",
 ]
 
