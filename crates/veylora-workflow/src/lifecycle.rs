@@ -10,6 +10,7 @@ use veylora_device::setup::{
 use veylora_domain::{
     ids::{DeviceSetupId, JobId},
     job::AttemptState,
+    lifecycle::JobState,
     provenance::ContentHash,
 };
 use veylora_persistence::JobStore;
@@ -58,6 +59,7 @@ pub struct AttemptReview {
 #[derive(Debug, Clone, Serialize)]
 pub struct ReviewReport {
     pub job_id: JobId,
+    pub state: JobState,
     pub requires_review: bool,
     pub attempts: Vec<AttemptReview>,
     /// What this command does not do.
@@ -105,7 +107,7 @@ impl Workspace {
     /// Read-only. An attempt still open or ambiguous needs an operator decision before anything
     /// else may happen to the job; recording that decision belongs to the durable lifecycle.
     pub fn review(&self, id: JobId) -> WorkflowResult<ReviewReport> {
-        self.jobs.get(id)?;
+        let state = self.state(id)?;
         let attempts: Vec<AttemptReview> = self
             .jobs
             .list_attempts(id)?
@@ -132,11 +134,23 @@ impl Workspace {
                 }
             })
             .collect();
+        // A decision the operator already made closes the question, whatever the attempts say.
+        let resolved = matches!(
+            state,
+            JobState::Cancelled | JobState::OperatorConfirmedFinished
+        );
+        let requires_review = !resolved
+            && (attempts.iter().any(|a| a.requires_review)
+                || matches!(
+                    state,
+                    JobState::Submitting | JobState::Ambiguous | JobState::Review
+                ));
         Ok(ReviewReport {
             job_id: id,
-            requires_review: attempts.iter().any(|a| a.requires_review),
+            state,
+            requires_review,
             attempts,
-            note: "Read only. Recording an operator decision is not available yet.",
+            note: "Read only. Use resolve_review to record an operator decision.",
         })
     }
 }

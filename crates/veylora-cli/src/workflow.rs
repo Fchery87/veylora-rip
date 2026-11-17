@@ -16,8 +16,8 @@ use veylora_diagnostics::targets::{PhysicalSize, TargetKind};
 use veylora_domain::{errors::ErrorCode, ids::JobId, recipe::PrintRecipe};
 use veylora_image::UntaggedPolicy;
 use veylora_workflow::{
-    inspect_artifacts, inspect_asset, JobSpec, PreflightOptions, RenderOptions, SetupDraft,
-    Workspace,
+    inspect_artifacts, inspect_asset, JobSpec, PreflightOptions, RenderOptions, ReviewResolution,
+    SetupDraft, Workspace,
 };
 
 const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
@@ -28,13 +28,16 @@ const USAGE: &str = "usage: veylora-cli --workspace <dir> <command>
   asset import --input <file.png>
   asset inspect --input <file.png> [--untagged reject|assume-srgb]
   job create --spec <job.json>
-  job preflight --job <id> [--min-ppi N] [--margin-um N]
+  job preflight --job <id> [--min-ppi N] [--margin-um N] [--max-page-pixels N] [--disk-budget-bytes N]
   setup create --input <draft.json>
   setup verify --setup <hash> --evidence <evidence.json>
   target generate --kind <kind> --width-mm N --height-mm N --output <new.json|new.svg>
-  job review --job <id>
+  job status --job <id>
+  job hold --job <id> | job cancel --job <id> | job recover --job <id>
+  job review --job <id> [--resolve finished|not-printed --operator <name> --note <text>]
   job submit | job reprint   (refused: no encoder evidence, physical submission disabled)
-  job render --job <id> [--min-ppi N] [--margin-um N] [--acknowledge <code>[:<subject>]]...
+  job render --job <id> [--min-ppi N] [--margin-um N] [--max-page-pixels N]
+      [--disk-budget-bytes N] [--acknowledge <code>[:<subject>]]...
   artifact inspect --dir <run directory>
   report export --job <id> --output <new.json>
 Output is file-sink diagnostic output only. Submission, review and reprint are not available.";
@@ -134,12 +137,26 @@ fn execute(args: &[OsString]) -> Result<(), String> {
         ("setup", "create") => &["--input"],
         ("setup", "verify") => &["--setup", "--evidence"],
         ("target", "generate") => &["--kind", "--width-mm", "--height-mm", "--output"],
-        ("job", "review") => &["--job"],
+        ("job", "review") => &["--job", "--resolve", "--operator", "--note"],
+        ("job", "status" | "hold" | "cancel" | "recover") => &["--job"],
         ("setup" | "mode" | "recipe" | "asset", "import") => &["--input"],
         ("asset", "inspect") => &["--input", "--untagged"],
         ("job", "create") => &["--spec"],
-        ("job", "preflight") => &["--job", "--min-ppi", "--margin-um"],
-        ("job", "render") => &["--job", "--min-ppi", "--margin-um", "--acknowledge"],
+        ("job", "preflight") => &[
+            "--job",
+            "--min-ppi",
+            "--margin-um",
+            "--max-page-pixels",
+            "--disk-budget-bytes",
+        ],
+        ("job", "render") => &[
+            "--job",
+            "--min-ppi",
+            "--margin-um",
+            "--max-page-pixels",
+            "--disk-budget-bytes",
+            "--acknowledge",
+        ],
         ("artifact", "inspect") => &["--dir"],
         ("report", "export") => &["--job", "--output"],
         _ => return Err(format!("unknown command\n{USAGE}")),
@@ -159,6 +176,10 @@ fn options(p: &Parsed) -> Result<PreflightOptions, String> {
     if let Some(v) = p.number("--margin-um")? {
         o.margin_um = v;
     }
+    if let Some(v) = p.number("--max-page-pixels")? {
+        o.max_page_pixels = v;
+    }
+    o.disk_budget_bytes = p.number("--disk-budget-bytes")?;
     Ok(o)
 }
 
@@ -238,7 +259,36 @@ fn dispatch(root: &Path, p: &Parsed) -> Result<(), String> {
             let evidence: EvidenceRecord = read_json(p.need("--evidence")?)?;
             print(&ws.verify_setup(&hash, evidence).map_err(e)?)
         }
-        ("job", "review") => print(&ws.review(p.job()?).map_err(e)?),
+        ("job", "review") => {
+            let job = p.job()?;
+            let Some(decision) = p.one("--resolve")? else {
+                if p.one("--operator")?.is_some() || p.one("--note")?.is_some() {
+                    return Err("--operator and --note only apply with --resolve".into());
+                }
+                return print(&ws.review(job).map_err(e)?);
+            };
+            let resolution = match decision {
+                "finished" => ReviewResolution::ConfirmedFinished,
+                "not-printed" => ReviewResolution::NotPrinted,
+                _ => return Err("--resolve must be finished or not-printed".into()),
+            };
+            let state = ws
+                .resolve_review(job, resolution, p.need("--operator")?, p.need("--note")?)
+                .map_err(e)?;
+            print(&serde_json::json!({ "state": state }))
+        }
+        ("job", "status") => {
+            let job = p.job()?;
+            print(&serde_json::json!({
+                "state": ws.state(job).map_err(e)?,
+                "events": ws.lifecycle_events(job).map_err(e)?,
+            }))
+        }
+        ("job", "hold") => print(&serde_json::json!({ "state": ws.hold(p.job()?).map_err(e)? })),
+        ("job", "cancel") => {
+            print(&serde_json::json!({ "state": ws.cancel(p.job()?).map_err(e)? }))
+        }
+        ("job", "recover") => print(&ws.recover(p.job()?).map_err(e)?),
         ("job", "create") => {
             let spec: JobSpec = read_json(p.need("--spec")?)?;
             print(&ws.create_job(&spec).map_err(e)?)

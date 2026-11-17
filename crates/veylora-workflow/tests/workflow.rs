@@ -322,33 +322,7 @@ fn evidence_for(
     ws: &Workspace,
     setup_hash: &veylora_domain::provenance::ContentHash,
 ) -> veylora_device::setup::EvidenceRecord {
-    use veylora_device::setup::{ChannelEvidence, EvidenceRecord};
-    let record = ws.setup_record(setup_hash).unwrap();
-    EvidenceRecord {
-        operator: "operator".into(),
-        setup_id: record.id,
-        revision: record.revision,
-        setup_hash: record.content_hash,
-        map_version: record.details.channel_map.version(),
-        channels: record
-            .details
-            .channel_map
-            .bindings()
-            .iter()
-            .enumerate()
-            .map(|(i, b)| ChannelEvidence {
-                target_label: format!("label-{i}"),
-                slot: b.slot,
-                protocol: b.protocol,
-                expected_logical: b.logical,
-                observed_logical: b.logical,
-            })
-            .collect(),
-        target_id: "target-1".into(),
-        observed_at: "2026-11-15T10:00:00Z".into(),
-        artifact_hash: hash(b"printed target"),
-        evidence_hash: hash(b"evidence"),
-    }
+    evidence_for_record(&ws.setup_record(setup_hash).unwrap())
 }
 
 #[test]

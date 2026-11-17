@@ -51,6 +51,8 @@ All of the recovery lanes listed above were accepted and merged to `main` (persi
 
 8.1b (2026-11-15): `setup create/verify`, `target generate`, `job review` implemented over `veylora-workflow`. `job submit` and `job reprint` refuse before reading or creating anything. Review is read-only; recording an operator decision on an ambiguous attempt belongs to 7.2.
 
+7.1 and 7.2 (2026-11-15): durable lifecycle, submission service, recovery and operator review implemented; see ADR 0006. `job submit` and `job reprint` remain refused until an encoder exists.
+
 ## Acceptance policy
 
 A passing stub, interface, or fixture is not completed product behavior. Each task requires coordinator spec review, quality review and fresh tests. Tests validate software behavior only. Production protocol fields, hardware mapping and physical quality gates remain unverified until real evidence exists.

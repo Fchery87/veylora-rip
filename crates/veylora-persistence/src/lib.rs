@@ -21,6 +21,7 @@ pub mod calibration;
 pub mod devices;
 pub mod errors;
 pub mod jobs;
+pub mod lifecycle;
 pub mod migrations;
 pub mod records;
 
@@ -29,5 +30,6 @@ pub use calibration::{CalibrationStore, StoreError};
 pub use devices::FileDeviceStore;
 pub use errors::{PersistenceError, PersistenceResult};
 pub use jobs::{AttemptView, FileJobStore, JobStore};
+pub use lifecycle::{FileLifecycleStore, LifecycleRecord};
 pub use migrations::{current_schema_version, Migration, MigrationSet};
 pub use records::FileRecordStore;

@@ -33,6 +33,9 @@ pub enum PersistenceError {
     /// sequence, snapshot-hash drift, or out-of-order history).
     AttemptContractViolation { detail: String },
 
+    /// A lifecycle event is not legal in the job's current state.
+    LifecycleViolation { detail: String },
+
     /// A follow-up attempt was requested for a job whose latest attempt is
     /// ambiguous. The store refuses to record automatic retries.
     AmbiguousNoRetry { job_id: String },
@@ -84,6 +87,9 @@ impl fmt::Display for PersistenceError {
             }
             Self::AttemptContractViolation { detail } => {
                 write!(f, "append-only attempt log violated: {detail}")
+            }
+            Self::LifecycleViolation { detail } => {
+                write!(f, "job lifecycle violated: {detail}")
             }
             Self::AmbiguousNoRetry { job_id } => write!(
                 f,

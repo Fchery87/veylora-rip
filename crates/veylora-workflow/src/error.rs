@@ -12,6 +12,9 @@ pub enum WorkflowError {
     Invalid(String),
     /// Preflight found blocking findings. Nothing was rendered.
     PreflightBlocked(Vec<Finding>),
+    /// The printer may have received data but the outcome could not be saved. The job stays open
+    /// until `recover` marks it for operator review. It is never retried.
+    OutcomeNotRecorded(String),
     Io(std::io::Error),
     Json(serde_json::Error),
 }
@@ -30,6 +33,7 @@ impl std::fmt::Display for WorkflowError {
                 }
                 Ok(())
             }
+            Self::OutcomeNotRecorded(m) => write!(f, "submission outcome not recorded: {m}"),
             Self::Io(e) => write!(f, "{e}"),
             Self::Json(e) => write!(f, "{e}"),
         }
