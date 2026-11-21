@@ -380,6 +380,38 @@ describe("retained composite", () => {
   });
 });
 
+describe("white edits that make a new job", () => {
+  it("opens the new job when an edit returns a different one", async () => {
+    const user = userEvent.setup();
+    const base = createMockServices("working-day");
+    const jobs = await base.listJobs();
+    const other = jobs.find((j) => /Front chest/.test(j.name))!;
+    const calls: string[] = [];
+    const services = {
+      ...base,
+      getCapabilities: async () => {
+        const caps = await base.getCapabilities();
+        return { ...caps, mode: { ...caps.mode, whiteChoke: true } };
+      },
+      setWhiteChoke: async (id: string, mm: number) => {
+        calls.push(`choke ${id} ${mm}`);
+        return base.getJob(other.id);
+      },
+    } as ReturnType<typeof createMockServices>;
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    await openJob(user, /Pocket print/);
+    await user.click(screen.getByRole("tab", { name: "Sheet" }));
+    const input = await screen.findByLabelText("White choke (mm)");
+    await user.clear(input);
+    await user.type(input, "0.3");
+    await user.tab();
+    expect(calls).toHaveLength(1);
+    expect(await screen.findByRole("heading", { level: 1, name: other.name })).toBeInTheDocument();
+    expect(screen.getByText(/New job created with the changed white settings/)).toBeInTheDocument();
+  });
+});
+
 describe("composite and stages", () => {
   it("leaves the composite when another stage is chosen, since it is built from logical planes", async () => {
     const user = userEvent.setup();

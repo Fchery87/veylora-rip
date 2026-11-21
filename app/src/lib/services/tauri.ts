@@ -60,6 +60,14 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
     getPlaneImage: (jobId, file, maxPx) => invoke("live_plane_image", { jobId, file, maxPx }),
     getPlaneWindow: (jobId, file, x, y, width, height) =>
       invoke("live_plane_window", { jobId, file, x, y, width, height }),
+    // A real job's snapshot is immutable, so each white change makes a new job and returns it.
+    setWhitePolicy: (jobId, policy) => invoke("live_edit_white", { jobId, change: { policy } }),
+    setWhiteMask: (jobId, mask) =>
+      invoke("live_edit_white", {
+        jobId,
+        change: { source: mask.source, invertMask: mask.invert },
+      }),
+    setWhiteChoke: (jobId, chokeMm) => invoke("live_edit_white", { jobId, change: { chokeMm } }),
     createJob: (request) => invoke("live_create_job", { request }),
     pickArtwork: () => invoke("live_pick_artwork"),
     listJobs: () => invoke("live_list_jobs"),
@@ -78,8 +86,5 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
     writeToFileSink: (jobId) => invoke("live_write_to_file_sink", { jobId }),
     releaseToPrinter: () => NOT_LIVE("Release to the printer"),
     resolveReview: (attemptId, outcome) => invoke("live_resolve_review", { attemptId, outcome }),
-    setWhitePolicy: () => NOT_LIVE("Changing the white policy"),
-    setWhiteMask: () => NOT_LIVE("Changing the white mask"),
-    setWhiteChoke: () => NOT_LIVE("Changing the white choke"),
   };
 }

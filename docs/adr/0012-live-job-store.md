@@ -25,7 +25,7 @@ Status: accepted (slices 1 and 2), 2026-11-20
   that uses them; `live::render_job` refuses blocking or unacknowledged findings and names them.
 - Operator identity does not exist, so acknowledgements say "Operator at this workstation".
 - The frontend adapter has a live mode (`createTauriServices(..., live)`), chosen when `VEYLORA_WORKSPACE` is set. It has no
-  fallback to fixture jobs; file sink, release, review, and white-setting edits reject with "not available for live jobs yet".
+  fallback to fixture jobs; file sink, release and review reject with "not available for live jobs yet".
 
 ## Slice 3 (completion)
 - Attempts are itemized from the stored attempt records with an honest outcome vocabulary ("Accepted" is not "Finished"; only an
@@ -46,4 +46,4 @@ Status: accepted (slices 1 and 2), 2026-11-20
   lists `rasterFiles` only for a verified run. Screened planes are shown as value / dot level. Composite simulation was added later (ADR 0014).
 
 ## Not done
-White-setting edits (jobs are immutable snapshots, so they would create a new job); slot letters for physical planes.
+Slot letters for physical planes.

@@ -264,6 +264,15 @@ fn live_create_job(
 }
 
 #[tauri::command]
+fn live_edit_white(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    change: veylora_app_lib::live::WhiteChange,
+) -> Result<JobDetail, String> {
+    veylora_app_lib::live::edit_white(&live.open()?, &job_id, &change)
+}
+
+#[tauri::command]
 fn live_plane_image(
     live: State<LiveWorkspace>,
     job_id: String,
@@ -401,6 +410,7 @@ fn main() {
             live_acknowledge_finding,
             live_render,
             live_plane_image,
+            live_edit_white,
             live_plane_window,
             live_creation_options,
             live_create_job,
