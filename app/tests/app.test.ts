@@ -434,6 +434,87 @@ describe("refused white settings", () => {
   });
 });
 
+describe("inspect loading", () => {
+  async function openInspect(overrides: Record<string, unknown>) {
+    const user = userEvent.setup();
+    const base = createMockServices("working-day");
+    render(App, { services: { ...base, ...overrides } as ReturnType<typeof createMockServices> });
+    await screen.findByRole("navigation", { name: "Sections" });
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    await screen.findByRole("group", { name: "Planes" });
+    return { user, base };
+  }
+
+  it("says it is loading while a view is pending instead of claiming nothing is drawn", async () => {
+    let release: (v: unknown) => void = () => {};
+    const base = createMockServices("working-day");
+    const { user } = await openInspect({
+      setInspectComposite: (id: string, sel: never, on: boolean) =>
+        new Promise((resolve) => {
+          release = () => resolve(base.setInspectComposite(id, sel, on));
+        }),
+    });
+    await user.click(screen.getByRole("button", { name: "Composite" }));
+    expect(await screen.findByRole("status", { name: "Loading inspect view" })).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing is drawn/)).not.toBeInTheDocument();
+    release(undefined);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("status", { name: "Loading inspect view" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("says it is loading on the first open too, before any view exists", async () => {
+    const user = userEvent.setup();
+    const base = createMockServices("working-day");
+    let release: () => void = () => {};
+    render(App, {
+      services: {
+        ...base,
+        getInspectView: (id: string, sel?: never) =>
+          new Promise((resolve) => {
+            release = () => resolve(base.getInspectView(id, sel));
+          }),
+      } as ReturnType<typeof createMockServices>,
+    });
+    await screen.findByRole("navigation", { name: "Sections" });
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    expect(await screen.findByRole("status", { name: "Loading inspect view" })).toBeInTheDocument();
+    release();
+    await screen.findByRole("group", { name: "Planes" });
+  });
+
+  it("keeps the newest answer when an older request finishes last", async () => {
+    const base = createMockServices("working-day");
+    const finish: Array<() => void> = [];
+    const { user } = await openInspect({
+      toggleInspectPlane: (id: string, sel: never, plane: never, on: boolean) =>
+        new Promise((resolve) => {
+          finish.push(() => resolve(base.toggleInspectPlane(id, sel, plane, on)));
+        }),
+    });
+    await user.click(screen.getByRole("button", { name: "Plane C" }));
+    await user.click(screen.getByRole("button", { name: "Plane M" }));
+    finish[1]();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Plane M" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
+    finish[0]();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole("button", { name: "Plane M" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Plane C" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+});
+
 describe("composite and stages", () => {
   it("leaves the composite when another stage is chosen, since it is built from logical planes", async () => {
     const user = userEvent.setup();
