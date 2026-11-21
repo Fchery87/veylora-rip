@@ -10,7 +10,7 @@ Status: accepted, 2026-11-20
 - The view is labeled `retained artifact`, never Fixture; failed verification is shown in the metadata and note.
 - Values are statistics computed from the retained bytes. No raster is drawn (`raster_shown` stays false).
 - Slot letters (W1/W2, C..K on physical stages) belong to the mode's channel map, so physical and
-  screened stages list files by name instead of guessing a mapping. Composite is refused until built.
+  screened stages list files by name instead of guessing a mapping. Composite was refused until built; see ADR 0014.
 - Tauri command `get_retained_inspect_view` uses `VEYLORA_WORKSPACE`; without it the app says only fixture jobs exist.
 
 ## Not done

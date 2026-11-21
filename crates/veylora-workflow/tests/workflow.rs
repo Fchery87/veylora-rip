@@ -770,3 +770,59 @@ fn a_u16_screened_plane_is_scaled_by_the_dot_level() {
     assert!(win.values.iter().all(|v| (0.0..=1.0).contains(v)));
     assert!(f.ws.plane_overview(id, screened, 100).is_ok());
 }
+
+fn decode_rgb(png: &[u8]) -> (u32, u32, Vec<u8>) {
+    let mut r = ::png::Decoder::new(std::io::Cursor::new(png))
+        .read_info()
+        .unwrap();
+    let mut buf = vec![0; r.output_buffer_size().unwrap()];
+    let info = r.next_frame(&mut buf).unwrap();
+    assert_eq!(info.color_type, ::png::ColorType::Rgb);
+    buf.truncate(info.buffer_size());
+    (info.width, info.height, buf)
+}
+
+#[test]
+fn a_composite_overview_is_a_bounded_color_picture_of_the_logical_planes() {
+    let (f, id) = wide_job();
+    let white = f.ws.plane_overview(id, "logical-w.f32", 2048).unwrap();
+    let comp = f.ws.composite_overview(id, 2048).unwrap();
+    assert_eq!(
+        (comp.width, comp.height, comp.scale),
+        (white.width, white.height, 1)
+    );
+    let (w, h, px) = decode_rgb(&comp.png);
+    assert_eq!((w as usize, h as usize), (comp.width, comp.height));
+    // With no colored ink in this job, white ink shows as white and its absence as the backdrop.
+    let (_, _, wpx) = decode_gray(&white.png);
+    for (i, cover) in wpx.iter().enumerate() {
+        let expected = if *cover == 255 {
+            [255; 3]
+        } else if *cover == 0 {
+            [128; 3]
+        } else {
+            continue;
+        };
+        assert_eq!(&px[i * 3..i * 3 + 3], &expected, "pixel {i}");
+    }
+    let small = f.ws.composite_overview(id, 10).unwrap();
+    assert!(small.scale > 1 && small.width <= 10 && small.height <= 10);
+    assert!(f.ws.composite_overview(id, 0).is_err());
+    assert!(f.ws.composite_overview(id, 100_000).is_err());
+}
+
+#[test]
+fn a_damaged_plane_is_never_part_of_a_composite() {
+    let (f, id) = wide_job();
+    let run = std::fs::read_dir(f.ws.root().join("artifacts").join(id.to_string()))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let file = run.join("logical-k.f32");
+    let mut bytes = std::fs::read(&file).unwrap();
+    bytes[0] ^= 0xff;
+    std::fs::write(&file, bytes).unwrap();
+    assert!(f.ws.composite_overview(id, 100).is_err());
+}

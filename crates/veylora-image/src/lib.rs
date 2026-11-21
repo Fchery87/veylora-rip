@@ -8,7 +8,7 @@ mod preview;
 pub use asset::*;
 pub use limits::DecodeLimits;
 pub use png::{decode_png, decode_png_with_policy};
-pub use preview::encode_gray8_png;
+pub use preview::{encode_gray8_png, encode_rgb8_png};
 
 /// Stable machine-readable import failures. No decoder messages leak into this contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

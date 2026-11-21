@@ -4,6 +4,8 @@
 
   let { store, jobId, files }: { store: AppStore; jobId: string; files: string[] } = $props();
 
+  /** Stands for the composite picture, which is built from several planes and has no single loupe. */
+  const COMPOSITE = "composite";
   const MAX_PX = 1024;
   const LOUPE = 7;
   /** Small planes are enlarged on screen by whole steps so single pixels stay visible. */
@@ -55,8 +57,24 @@
   {#each files as file (file)}
     {@const img = images[file]}
     <figure>
-      <figcaption class="mono">{file}</figcaption>
-      {#if img}
+      <figcaption class="mono">
+        {file === COMPOSITE ? "Composite simulation" : file}
+      </figcaption>
+      {#if img && file === COMPOSITE}
+        <div class="pic flat">
+          <img
+            src={img.dataUrl}
+            alt="Composite simulation of the retained logical planes"
+            width={img.width * zoom(img)}
+            height={img.height * zoom(img)}
+          />
+        </div>
+        <p class="muted note">
+          {img.sourceWidth} x {img.sourceHeight} px{img.scale > 1
+            ? `, shown reduced ${img.scale}:1 (averaged)`
+            : ", shown 1:1"}. Select a single plane to read exact values.
+        </p>
+      {:else if img}
         <button
           class="pic"
           type="button"
@@ -117,6 +135,9 @@
     cursor: crosshair;
     justify-self: start;
     max-width: 100%;
+  }
+  .pic.flat {
+    cursor: default;
   }
   img {
     display: block;

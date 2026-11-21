@@ -43,8 +43,7 @@ Status: accepted (slices 1 and 2), 2026-11-20
 - Render is offered for Held and PreflightFailed un-rendered jobs, not only Draft (preflight moves a job out of Draft).
 - Raster/loupe: `Workspace::plane_overview` (box-averaged gray PNG, at most 4096 px) and `plane_window` (at most 64 x 64 exact
   values) check the plane against the manifest hash before use; a damaged plane is refused rather than drawn. The Inspect view
-  lists `rasterFiles` only for a verified run. Screened planes are shown as value / dot level. Composite simulation is still
-  not built.
+  lists `rasterFiles` only for a verified run. Screened planes are shown as value / dot level. Composite simulation was added later (ADR 0014).
 
 ## Not done
-White-setting edits (jobs are immutable snapshots, so they would create a new job); composite simulation of retained planes; slot letters for physical planes.
+White-setting edits (jobs are immutable snapshots, so they would create a new job); slot letters for physical planes.

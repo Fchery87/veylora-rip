@@ -1044,6 +1044,16 @@ impl Workspace {
         crate::plane::overview(&self.latest_run_dir(id)?, plane, max_px)
     }
 
+    /// A colour picture of the newest run's logical planes stacked on a fixed backdrop. It is a
+    /// simulation of where ink goes (see `plane::composite_color`), not a colour-managed preview.
+    pub fn composite_overview(
+        &self,
+        id: JobId,
+        max_px: usize,
+    ) -> WorkflowResult<crate::plane::PlaneOverview> {
+        crate::plane::composite_overview(&self.latest_run_dir(id)?, max_px)
+    }
+
     /// Exact values of a small rectangle of one plane of the newest run, clipped to the plane.
     pub fn plane_window(
         &self,
