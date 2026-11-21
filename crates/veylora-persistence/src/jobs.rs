@@ -95,6 +95,16 @@ impl FileJobStore {
         self.root.join("jobs").join(format!("{id}.json"))
     }
 
+    /// Every raw record for `id` in the order it was appended, including the opening
+    /// `Submitting` record of each attempt. `list_attempts` only shows each attempt's latest state.
+    pub fn attempt_history(&self, id: JobId) -> PersistenceResult<Vec<SubmissionAttempt>> {
+        Ok(self
+            .read_attempts()?
+            .into_iter()
+            .filter(|r| r.job_id == id)
+            .collect())
+    }
+
     fn log_path(&self) -> PathBuf {
         self.root.join("attempts.log")
     }

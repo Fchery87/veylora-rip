@@ -21,6 +21,8 @@ use veylora_workflow::{
 };
 
 const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
+/// Archives carry source images, so they get a larger bound than the single-record inputs.
+const MAX_ARCHIVE_BYTES: u64 = 1024 * 1024 * 1024;
 const USAGE: &str = "usage: veylora-cli --workspace <dir> <command>
   setup import --input <setup.json>
   mode import --input <mode.json>
@@ -40,6 +42,9 @@ const USAGE: &str = "usage: veylora-cli --workspace <dir> <command>
       [--disk-budget-bytes N] [--acknowledge <code>[:<subject>]]...
   artifact inspect --dir <run directory>
   report export --job <id> --output <new.json>
+  archive export --job <id> --output <new.tar>
+  archive import --input <job.tar>
+      (portable job: inputs, sources and history; no renders, no device verification)
   report support-bundle --job <id> --output <new.tar> [--artwork include|omit]
       (local, redacted archive; artwork is omitted unless asked for; nothing is uploaded)
 Output is file-sink diagnostic output only. Submission, review and reprint are not available.";
@@ -161,6 +166,8 @@ fn execute(args: &[OsString]) -> Result<(), String> {
         ],
         ("artifact", "inspect") => &["--dir"],
         ("report", "export") => &["--job", "--output"],
+        ("archive", "export") => &["--job", "--output"],
+        ("archive", "import") => &["--input"],
         ("report", "support-bundle") => &["--job", "--output", "--artwork"],
         _ => return Err(format!("unknown command\n{USAGE}")),
     };
@@ -310,6 +317,14 @@ fn dispatch(root: &Path, p: &Parsed) -> Result<(), String> {
                 "label": "file-sink diagnostic output; not printer-ready",
             }))
         }
+        ("archive", "export") => {
+            let bytes = ws.export_job_archive(p.job()?).map_err(e)?;
+            write_new(Path::new(p.need("--output")?), &bytes)
+        }
+        ("archive", "import") => {
+            let bytes = read_up_to(Path::new(p.need("--input")?), MAX_ARCHIVE_BYTES)?;
+            print(&ws.import_job_archive(&bytes).map_err(e)?)
+        }
         ("report", "export") => {
             let report = ws.report(p.job()?).map_err(e)?;
             let mut bytes = serde_json::to_vec_pretty(&report).map_err(|x| x.to_string())?;
@@ -349,17 +364,22 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &str) -> Result<T, String> {
 }
 
 fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
+    read_up_to(path, MAX_INPUT_BYTES)
+}
+
+fn read_up_to(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
     let file = File::open(path).map_err(|e| format!("cannot open {}: {e}", path.display()))?;
     let meta = file.metadata().map_err(|e| e.to_string())?;
-    if !meta.is_file() || meta.len() > MAX_INPUT_BYTES {
-        return Err("input must be a regular file of at most 64 MiB".into());
+    let mib = limit >> 20;
+    if !meta.is_file() || meta.len() > limit {
+        return Err(format!("input must be a regular file of at most {mib} MiB"));
     }
     let mut bytes = Vec::new();
-    file.take(MAX_INPUT_BYTES + 1)
+    file.take(limit + 1)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
-    if bytes.len() as u64 > MAX_INPUT_BYTES {
-        return Err("input exceeds the 64 MiB bound".into());
+    if bytes.len() as u64 > limit {
+        return Err(format!("input exceeds the {mib} MiB bound"));
     }
     Ok(bytes)
 }
