@@ -22,8 +22,8 @@ You need two release zips (the version under test and the previous one), their S
 
    ```powershell
    pwsh -NoProfile -File installer\windows\clean-machine-test.ps1 `
-     -Zip C:\drop\veylora-rip-0.0.2.zip -ExpectedSha256 <hash of 0.0.2> `
-     -UpdateZip C:\drop\veylora-rip-0.0.1.zip -UpdateSha256 <hash of 0.0.1> |
+     -Zip C:\drop\veylora-rip-0.0.1.zip -ExpectedSha256 <hash of 0.0.1> `
+     -UpdateZip C:\drop\veylora-rip-0.0.2.zip -UpdateSha256 <hash of 0.0.2> |
      Tee-Object C:\drop\clean-machine-output.txt
    ```
 
