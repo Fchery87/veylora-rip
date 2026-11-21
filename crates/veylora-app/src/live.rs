@@ -15,7 +15,7 @@ use veylora_domain::{
 };
 use veylora_workflow::{
     JobSpec, LayoutSpec, PlacementSpec, PreflightOptions, RenderOptions, ReviewResolution,
-    WorkflowError, Workspace,
+    WhiteEdit, WorkflowError, Workspace,
 };
 
 use crate::state::{
@@ -166,6 +166,55 @@ fn white_policy(snapshot: &veylora_domain::job::JobSnapshot) -> Result<WhitePoli
         invert_mask: false,
         choke_mm: mm(white.spread_um.unsigned_abs()),
     })
+}
+
+/// What the operator changed in the white controls. Only what is present is changed.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhiteChange {
+    pub policy: Option<WhitePolicyKind>,
+    pub source: Option<MaskSource>,
+    pub invert_mask: Option<bool>,
+    /// Millimetres of contraction inside the artwork; zero is none.
+    pub choke_mm: Option<f64>,
+}
+
+/// Applies a white change by making a new job on a new recipe revision, returned as that job's
+/// detail. The stored job is never altered. Settings a recipe cannot state (an inverted mask, a
+/// whole-placement mask) are refused rather than approximated.
+pub fn edit_white(ws: &Workspace, job_id: &str, change: &WhiteChange) -> Result<JobDetail, String> {
+    let id = parse_id(job_id)?;
+    let snapshot = ws.job_snapshot(id).map_err(|e| e.to_string())?;
+    let current = white_policy(&snapshot)?;
+    if change.invert_mask == Some(true) {
+        return Err("A recipe cannot invert the white mask, so this cannot be applied.".to_owned());
+    }
+    if change.source == Some(MaskSource::WholePlacement) {
+        return Err(
+            "A whole placement mask is not something a recipe can state yet, so this cannot be applied."
+                .to_owned(),
+        );
+    }
+    let spread_um = match change.choke_mm {
+        None => snapshot.inputs().recipe.inputs().white.spread_um,
+        Some(mm) if mm.is_finite() && (0.0..=MAX_MM).contains(&mm) => {
+            -((mm * 1000.0).round() as i32)
+        }
+        Some(_) => {
+            return Err(format!(
+                "White choke must be a number of millimetres from 0 to {MAX_MM}."
+            ))
+        }
+    };
+    let enabled = change
+        .policy
+        .map_or(current.policy == WhitePolicyKind::Underbase, |p| {
+            p == WhitePolicyKind::Underbase
+        });
+    let made = ws
+        .derive_job_with_white(id, &WhiteEdit { enabled, spread_um }, now_ms())
+        .map_err(|e| e.to_string())?;
+    job_detail(ws, &made.job_id.to_string())
 }
 
 /// Detail for one job. Findings come only from a preflight run, so they are empty here.
@@ -464,9 +513,7 @@ pub fn create_job(ws: &Workspace, request: &NewJobRequest) -> Result<JobDetail, 
     let spec = JobSpec {
         schema_version: 1,
         job_id: None,
-        created_at_ms: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_millis() as u64),
+        created_at_ms: now_ms(),
         setup,
         mode,
         recipe,
@@ -755,11 +802,14 @@ fn humanize(code: ErrorCode) -> String {
         .unwrap_or_default()
 }
 
-fn now_utc() -> String {
-    let ms = std::time::SystemTime::now()
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis() as u64);
-    utc_text(ms)
+        .map_or(0, |d| d.as_millis() as u64)
+}
+
+fn now_utc() -> String {
+    utc_text(now_ms())
 }
 
 /// Operator recorded on acknowledgements: operator identity does not exist yet, so the record names

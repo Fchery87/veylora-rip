@@ -224,16 +224,41 @@ export class AppStore {
     }, "Written to file sink. Not physical output.");
   }
 
+  /**
+   * A white change on a real job returns a different job (the stored one is never altered), so the
+   * view moves to it. A fixture edit returns the same job and stays put.
+   */
+  private async editWhite(action: (s: AppServices) => Promise<JobDetail>, message: string) {
+    try {
+      this.error = "";
+      const before = this.job?.id;
+      const job = await action(this.#services);
+      if (job.id !== before) {
+        await this.load();
+        await this.selectJob(job.id);
+        this.tab = "sheet";
+        this.announcement = "New job created with the changed white settings";
+      } else {
+        await this.refresh();
+        this.announcement = message;
+      }
+      return job;
+    } catch (e) {
+      this.error = e instanceof Error ? e.message : String(e);
+      return undefined;
+    }
+  }
+
   setWhitePolicy(jobId: string, policy: string) {
-    return this.command((s) => s.setWhitePolicy(jobId, policy), "White policy changed");
+    return this.editWhite((s) => s.setWhitePolicy(jobId, policy), "White policy changed");
   }
 
   setWhiteMask(jobId: string, mask: { source: string; invert: boolean }) {
-    return this.command((s) => s.setWhiteMask(jobId, mask), "White mask changed");
+    return this.editWhite((s) => s.setWhiteMask(jobId, mask), "White mask changed");
   }
 
   setWhiteChoke(jobId: string, chokeMm: number) {
-    return this.command((s) => s.setWhiteChoke(jobId, chokeMm), "White choke changed");
+    return this.editWhite((s) => s.setWhiteChoke(jobId, chokeMm), "White choke changed");
   }
 
   releaseToPrinter(jobId: string) {

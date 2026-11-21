@@ -154,6 +154,21 @@ describe("tauri adapter", () => {
       ]);
     });
 
+    it("sends each white change to Rust as one change to apply, never to the fixture store", async () => {
+      const { calls, services } = live();
+      await services.setWhitePolicy("J-1", "No white");
+      await services.setWhiteMask("J-1", { source: "Auto from alpha", invert: false });
+      await services.setWhiteChoke("J-1", 0.3);
+      expect(calls).toEqual([
+        { command: "live_edit_white", args: { jobId: "J-1", change: { policy: "No white" } } },
+        {
+          command: "live_edit_white",
+          args: { jobId: "J-1", change: { source: "Auto from alpha", invertMask: false } },
+        },
+        { command: "live_edit_white", args: { jobId: "J-1", change: { chokeMm: 0.3 } } },
+      ]);
+    });
+
     it("opens the native picker only on a live workspace", async () => {
       const { calls, services } = live();
       await services.pickArtwork?.();
@@ -198,12 +213,7 @@ describe("tauri adapter", () => {
 
     it("rejects what the live backend cannot do instead of touching fixture state", async () => {
       const { calls, services } = live();
-      for (const attempt of [
-        () => services.releaseToPrinter("J-1"),
-        () => services.setWhitePolicy("J-1", "No white"),
-        () => services.setWhiteMask("J-1", { source: "Whole placement", invert: false }),
-        () => services.setWhiteChoke("J-1", 0.5),
-      ]) {
+      for (const attempt of [() => services.releaseToPrinter("J-1")]) {
         await expect(attempt()).rejects.toThrow(/not available for live jobs/);
       }
       expect(calls).toEqual([]);

@@ -16,7 +16,9 @@
   };
   const size = $derived(job.sheetMm ?? SIZES[job.sheet] ?? SIZES.A3);
   const unsupported = $derived(`Not supported by mode ${caps.mode.id}`);
-  const frozen = $derived(job.rendered);
+  const live = $derived(caps.dataSource === "live");
+  // A real job is never edited in place: a white change makes a new job, so it stays available.
+  const frozen = $derived(job.rendered && !live);
 
   function commitChoke(e: Event) {
     const value = (e.currentTarget as HTMLInputElement).valueAsNumber;
@@ -133,6 +135,11 @@
     />
     {#if !caps.mode.whiteChoke}
       <span id="white-choke-reason" class="reason">{unsupported}</span>
+    {/if}
+    {#if live}
+      <p class="muted note">
+        Changing a white setting makes a new job on a new recipe revision. This job stays as it is.
+      </p>
     {/if}
     <p class="muted note">Applied after mask combine, before choke. Never changes C, M, Y or K.</p>
     <Tag tone="warn">Experimental</Tag>
