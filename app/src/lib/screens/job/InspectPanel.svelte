@@ -59,7 +59,7 @@
 
 {#if error}<p class="muted" role="status">{error}</p>{/if}
 {#if !view && loading}
-  <p class="muted" role="status" aria-label="Loading inspect view">Loading the retained output…</p>
+  <p class="muted" role="status" aria-label="Loading inspect view">Loading the retained outputâ€¦</p>
 {/if}
 {#if view}
   <div class="wrap">
@@ -91,7 +91,7 @@
     <StageChip source={view.source} text={view.chip} />
     {#if loading}
       <div class="viewport" role="status" aria-label="Loading inspect view">
-        <p>Loading the retained output…</p>
+        <p>Loading the retained outputâ€¦</p>
       </div>
     {:else if view.rasterShown && view.rasterFiles?.length}
       <RasterView {store} jobId={job.id} files={view.rasterFiles} />
