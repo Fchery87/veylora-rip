@@ -123,7 +123,9 @@ function Invoke-PackageCheck {
     # The review is bound to the exact lock and manifests it was done against.
     $evidenceHashes = @{}
     foreach ($f in $inventory.files) { $evidenceHashes[[string]$f.path] = [string]$f.sha256 }
-    foreach ($path in (@('Cargo.lock') + @($graph.Manifests) | Sort-Object -Unique)) {
+    # Files the scope names (for the app: the frontend lock and manifest) are bound the same way.
+    $scopeFiles = if ($scope.ContainsKey('files')) { @($scope.files | Where-Object { $_ }) } else { @() }
+    foreach ($path in (@('Cargo.lock') + @($graph.Manifests) + $scopeFiles | Sort-Object -Unique)) {
         if (-not $evidenceHashes.ContainsKey($path)) { $failures.Add("Uninventoried file: $path") }
         elseif (-not (Test-Path "$Root/$path" -PathType Leaf)) { $failures.Add("Missing evidence: $path") }
         elseif ((Get-FileHash "$Root/$path" -Algorithm SHA256).Hash -ne $evidenceHashes[$path]) { $failures.Add("Inventory drift: $path") }

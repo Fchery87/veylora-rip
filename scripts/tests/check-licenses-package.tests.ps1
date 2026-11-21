@@ -157,6 +157,17 @@ try {
     Generate
     Check 'a commercial RIP is refused' 1 'Forbidden commercial RIP: cargo:acrorip-bridge@1.0.0'
 
+    # The real frontend bundle is derived from a build: compiled-in packages and byte-checkable fonts.
+    $bundleJson = & node (Join-Path $scripts 'frontend-bundle.mjs') (Join-Path $scripts '../app') 2>$null
+    if ($LASTEXITCODE -ne 0) { throw 'frontend-bundle.mjs failed' }
+    $bundle = ($bundleJson -join "`n") | ConvertFrom-Json
+    foreach ($needed in 'svelte', 'bits-ui', '@tauri-apps/api') {
+        if (@($bundle.packages | Where-Object { $_.name -eq $needed }).Count -ne 1) { throw "the bundle should list $needed" }
+    }
+    if (@($bundle.packages | Where-Object { $_.name -eq 'jsdom' -or $_.name -eq 'vitest' }).Count) { throw 'dev-only tooling must not be in the bundle' }
+    if (@($bundle.emitted | Where-Object { $_.file -like '*.woff2' }).Count -lt 1) { throw 'the bundle should emit fonts' }
+    Pass 'the frontend bundle is derived from a real build'
+
     # The global gate is untouched by all of this and still has its own blockers.
     $r = Run $checker @()
     if ($r.Exit -ne 0) { Pass 'the global gate still runs separately' } else { Pass 'the global gate still runs separately' }
