@@ -84,6 +84,16 @@ fn a_plane_image_is_a_png_data_url_with_its_scale() {
 }
 
 #[test]
+fn a_composite_image_is_a_png_data_url_and_refuses_what_it_cannot_verify() {
+    let (ws, id) = rendered();
+    let img = live::composite_image(&ws, &id, 512).unwrap();
+    assert!(img.data_url.starts_with("data:image/png;base64,"));
+    assert_eq!((img.source_width, img.scale), (img.width, 1));
+    assert!(live::composite_image(&ws, "nope", 512).is_err());
+    assert!(live::composite_image(&ws, &id, 0).is_err());
+}
+
+#[test]
 fn loupe_values_are_exact_and_bounded() {
     let (ws, id) = rendered();
     let w = live::plane_window(&ws, &id, "logical-w.f32", 0, 0, 4, 1).unwrap();

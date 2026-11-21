@@ -866,8 +866,27 @@ pub fn plane_image(
     file: &str,
     max_px: usize,
 ) -> Result<PlaneImage, String> {
+    if file == crate::screens::inspect::COMPOSITE_RASTER {
+        return composite_image(ws, job_id, max_px);
+    }
     let o = ws
         .plane_overview(parse_id(job_id)?, file, max_px)
+        .map_err(|e| e.to_string())?;
+    Ok(PlaneImage {
+        data_url: format!("data:image/png;base64,{}", base64_encode(&o.png)),
+        width: o.width,
+        height: o.height,
+        scale: o.scale,
+        source_width: o.source_width,
+        source_height: o.source_height,
+    })
+}
+
+/// A colour picture of the newest run's logical planes stacked on a fixed backdrop. A simulation of
+/// ink placement only; the planes are verified against the manifest before anything is drawn.
+pub fn composite_image(ws: &Workspace, job_id: &str, max_px: usize) -> Result<PlaneImage, String> {
+    let o = ws
+        .composite_overview(parse_id(job_id)?, max_px)
         .map_err(|e| e.to_string())?;
     Ok(PlaneImage {
         data_url: format!("data:image/png;base64,{}", base64_encode(&o.png)),

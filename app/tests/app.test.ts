@@ -282,7 +282,7 @@ describe("creating jobs", () => {
 });
 
 describe("retained raster", () => {
-  async function openRetained() {
+  async function openRetained(rasterFiles = ["logical-w.f32"]) {
     const user = userEvent.setup();
     const base = createMockServices("working-day");
     const calls: string[] = [];
@@ -292,7 +292,7 @@ describe("retained raster", () => {
         ...(await base.getInspectView(id, selection as never)),
         source: "retained" as const,
         rasterShown: true,
-        rasterFiles: ["logical-w.f32"],
+        rasterFiles,
         panels: [],
         placeholder: "Drawn from the retained bytes after checking them against the manifest.",
       }),
@@ -336,6 +336,71 @@ describe("retained raster", () => {
     expect(within(loupe).getByText("0.250")).toBeInTheDocument();
     expect(within(loupe).getByText("1.000")).toBeInTheDocument();
     expect(calls.some((c) => c.startsWith("window logical-w.f32"))).toBe(true);
+  });
+});
+
+describe("retained composite", () => {
+  it("draws the composite with its caption and offers no loupe, since it is not one plane", async () => {
+    const user = userEvent.setup();
+    const base = createMockServices("working-day");
+    const calls: string[] = [];
+    const services = {
+      ...base,
+      getInspectView: async (id: string, selection?: unknown) => ({
+        ...(await base.getInspectView(id, selection as never)),
+        source: "retained" as const,
+        rasterShown: true,
+        rasterFiles: ["composite"],
+        panels: [],
+        placeholder: "Composite of the retained logical planes. Not color managed.",
+      }),
+      getPlaneImage: async (_j: string, file: string) => {
+        calls.push(`image ${file}`);
+        return {
+          dataUrl: "data:image/png;base64,AAAA",
+          width: 4,
+          height: 1,
+          scale: 1,
+          sourceWidth: 4,
+          sourceHeight: 1,
+        };
+      },
+    } as ReturnType<typeof createMockServices>;
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    const img = await screen.findByRole("img", {
+      name: "Composite simulation of the retained logical planes",
+    });
+    expect(img).toHaveAttribute("src", "data:image/png;base64,AAAA");
+    expect(calls).toEqual(["image composite"]);
+    expect(screen.getByText(/Not color managed/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Inspect values in/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("composite and stages", () => {
+  it("leaves the composite when another stage is chosen, since it is built from logical planes", async () => {
+    const user = userEvent.setup();
+    const base = createMockServices("working-day");
+    const selections: { composite?: boolean; stage?: string }[] = [];
+    const services = {
+      ...base,
+      getInspectView: async (id: string, selection?: { composite?: boolean; stage?: string }) => {
+        if (selection) selections.push(selection);
+        return {
+          ...(await base.getInspectView(id, selection as never)),
+          selection: { stage: "logical", planes: [], composite: true },
+        };
+      },
+    } as ReturnType<typeof createMockServices>;
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    await user.click(await screen.findByRole("radio", { name: "Slots" }));
+    expect(selections.at(-1)).toMatchObject({ stage: "slots", composite: false });
   });
 });
 

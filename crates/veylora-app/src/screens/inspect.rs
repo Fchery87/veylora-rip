@@ -50,6 +50,9 @@ const INSPECT_STAGES: [StageId; 3] = [StageId::Logical, StageId::Slots, StageId:
 const NOT_RENDERED: &str = "Render the job to inspect its retained output.";
 const NO_SCREENED: &str = "The active print mode does not support screened inspection.";
 const COMPOSITE_LABEL: &str = "Composite simulation of retained planes";
+/// Stands in the raster list for the composite picture, which is not a plane file.
+pub const COMPOSITE_RASTER: &str = "composite";
+const COMPOSITE_NOTE: &str = "Composite of the retained logical planes on a mid-gray backdrop: white ink lifts the backdrop toward white and each colored ink then darkens what is under it. It is a simulation of where ink goes, not color managed and not what the print will look like. Drawn after checking every plane against the manifest.";
 const NEEDS_RASTER: &str = "Available when a raster exists";
 
 // Fixture values for artifact metadata. They are labeled as fixture data in the
@@ -338,11 +341,13 @@ pub fn present_retained(
     if !INSPECT_STAGES.contains(&selection.stage) {
         return Err("Inspect shows the Logical, Slots, and Screened stages.".to_owned());
     }
-    if selection.composite {
+    if selection.composite && selection.stage != StageId::Logical {
         return Err(
-            "Composite simulation of retained planes is not built yet; select a plane.".to_owned(),
+            "The composite simulation is built from the Logical planes; choose the Logical stage."
+                .to_owned(),
         );
     }
+    let composite = selection.composite;
     let prefix = stage_prefix(selection.stage);
     let stage_files: Vec<&crate::view_models::RetainedPlane> = artifact
         .planes
@@ -362,7 +367,7 @@ pub fn present_retained(
             .copied()
             .filter(|p| offered.contains(p))
             .collect(),
-        composite: false,
+        composite,
     };
     let stages = INSPECT_STAGES
         .iter()
@@ -471,6 +476,8 @@ pub fn present_retained(
     // Only a verified run is drawn; a damaged one is shown as statistics and a warning.
     let raster_files: Vec<String> = if !artifact.verified {
         Vec::new()
+    } else if composite {
+        vec![COMPOSITE_RASTER.to_owned()]
     } else if selection.stage == StageId::Logical {
         selection
             .planes
@@ -487,11 +494,11 @@ pub fn present_retained(
         message: NEEDS_RASTER.to_owned(),
     };
     Ok(InspectView {
-        chip: stage_chip_text(selection.stage, PreviewSource::Retained, false),
+        chip: stage_chip_text(selection.stage, PreviewSource::Retained, composite),
         metadata,
         composite: CompositeOption {
             label: COMPOSITE_LABEL.to_owned(),
-            pressed: false,
+            pressed: composite,
         },
         viewport_label: format!("Statistics for {}", plane_names(&selection)),
         selection,
@@ -506,7 +513,9 @@ pub fn present_retained(
         },
         raster_shown,
         raster_files,
-        placeholder: if raster_shown {
+        placeholder: if raster_shown && composite {
+            COMPOSITE_NOTE.to_owned()
+        } else if raster_shown {
             "Drawn from the retained bytes after checking them against the manifest.".to_owned()
         } else {
             "Nothing is drawn: select a plane, or the run failed verification.".to_owned()

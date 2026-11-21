@@ -161,17 +161,66 @@ fn physical_stages_list_files_without_guessing_slot_letters() {
     }
 }
 
-#[test]
-fn composite_is_refused_because_no_composite_of_retained_planes_exists() {
-    let (ws, id, _dir) = rendered_job();
-    let retained = retained_for_job(&ws, &id).unwrap().unwrap();
-    let composite = InspectSelection {
-        stage: StageId::Logical,
+fn composite_selection(stage: StageId) -> InspectSelection {
+    InspectSelection {
+        stage,
         planes: Vec::new(),
         composite: true,
-    };
-    let err = inspect::present_retained(&retained, &composite).unwrap_err();
-    assert!(err.contains("Composite"), "{err}");
+    }
+}
+
+#[test]
+fn a_verified_run_offers_a_labeled_composite_of_its_logical_planes() {
+    let (ws, id, _dir) = rendered_job();
+    let retained = retained_for_job(&ws, &id).unwrap().unwrap();
+    let view =
+        inspect::present_retained(&retained, &composite_selection(StageId::Logical)).unwrap();
+    assert!(view.composite.pressed && view.selection.composite);
+    assert_eq!(view.raster_files, vec!["composite".to_owned()]);
+    assert!(view.raster_shown && view.panels.is_empty());
+    assert!(
+        view.chip
+            .contains("Composite simulation of retained planes"),
+        "{}",
+        view.chip
+    );
+    assert!(view.chip.contains("retained artifact"), "{}", view.chip);
+    // It says what the picture is not.
+    let note = view.placeholder.to_lowercase();
+    assert!(
+        note.contains("not color managed") && note.contains("not what the print"),
+        "{note}"
+    );
+}
+
+#[test]
+fn the_composite_covers_only_the_logical_stage() {
+    let (ws, id, _dir) = rendered_job();
+    let retained = retained_for_job(&ws, &id).unwrap().unwrap();
+    for stage in [StageId::Slots, StageId::Screened] {
+        let err = inspect::present_retained(&retained, &composite_selection(stage)).unwrap_err();
+        assert!(err.contains("Logical"), "{err}");
+    }
+}
+
+#[test]
+fn a_damaged_run_is_not_composited() {
+    let (ws, id, dir) = rendered_job();
+    let run = std::fs::read_dir(ws.root().join("artifacts").join(&id))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let file = run.join("logical-w.f32");
+    let mut bytes = std::fs::read(&file).unwrap();
+    bytes[0] ^= 0xff;
+    std::fs::write(&file, bytes).unwrap();
+    let _ = dir;
+    let retained = retained_for_job(&ws, &id).unwrap().unwrap();
+    let view =
+        inspect::present_retained(&retained, &composite_selection(StageId::Logical)).unwrap();
+    assert!(!view.raster_shown && view.raster_files.is_empty());
 }
 
 #[test]

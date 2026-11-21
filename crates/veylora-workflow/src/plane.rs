@@ -189,8 +189,11 @@ pub fn composite_overview(run_dir: &Path, max_px: usize) -> WorkflowResult<Plane
     let (w, h, scale) = overview_size(first, max_px, "the composite")?;
     let r: Vec<Vec<f32>> = planes.iter().map(|p| reduce(p, w, h, scale)).collect();
     let mut pixels = Vec::with_capacity(w * h * 3);
+    let [c, m, y, k, white] = &r[..] else {
+        return Err(invalid("The composite needs the five logical planes."));
+    };
     for i in 0..w * h {
-        pixels.extend(composite_color(r[0][i], r[1][i], r[2][i], r[3][i], r[4][i]));
+        pixels.extend(composite_color(c[i], m[i], y[i], k[i], white[i]));
     }
     let png = veylora_image::encode_rgb8_png(w as u32, h as u32, &pixels).map_err(invalid)?;
     Ok(PlaneOverview {

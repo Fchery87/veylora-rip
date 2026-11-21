@@ -35,7 +35,14 @@
   const selectStage = (id: string) => {
     const stage = view?.stages.find((s) => s.id === id);
     if (view && stage) {
-      void show(store.queries.getInspectView(job.id, { ...view.selection, stage: stage.id }));
+      // The composite is built from the logical planes, so it does not follow a change of stage.
+      void show(
+        store.queries.getInspectView(job.id, {
+          ...view.selection,
+          stage: stage.id,
+          composite: false,
+        }),
+      );
     }
   };
 </script>
