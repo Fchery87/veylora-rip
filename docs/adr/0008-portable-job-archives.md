@@ -24,5 +24,16 @@ Accepted on 2026-11-20, recording choices made in task 9.1.
 ## Consequences
 
 An imported job in a state such as Ready has no retained render on the new machine; the operator
-holds it, renders again, and continues. A mid-replay write failure cannot be rolled back (the
-stores are append-only); the error says so.
+holds it, renders again, and continues.
+
+An import either completes or leaves nothing. The snapshot and attempt records are written
+together; the lifecycle history is written to a staging directory that readers ignore and moved
+into place in one step, last. If any step fails, what the import itself wrote is removed: the
+snapshot, and the attempt log cut back to where it ended before the import. The cut is made only
+after checking that everything past that point is this job's; if another job's record is found the
+log is left as it is and the error says the job could not be undone. A failed import that was undone
+says "nothing was imported" and the archive can be imported again.
+
+Not covered: a crash (not a failed write) between the snapshot and the history leaves a job with no
+history, which reads as a draft. An import is a deliberate operator action, and a job like that is
+removed by importing into a clean workspace; nothing detects it.

@@ -131,6 +131,54 @@ impl FileLifecycleStore {
         Ok(out)
     }
 
+    /// Writes a whole history for a job that has none, all or nothing. The records are written to a
+    /// staging directory that readers ignore and moved into place in one step, so a failure leaves
+    /// no partial history. Refuses a job that already has a history, however small.
+    pub fn import_events(&self, job: JobId, records: &[LifecycleRecord]) -> PersistenceResult<()> {
+        let dir = self.job_dir(job);
+        if dir.exists() {
+            return Err(PersistenceError::LifecycleViolation {
+                detail: format!("job {job} already has a history; an import never merges into it"),
+            });
+        }
+        static STAGE: AtomicU64 = AtomicU64::new(0);
+        let staging = self.root.join("lifecycle").join(format!(
+            "staging-{}-{}",
+            std::process::id(),
+            STAGE.fetch_add(1, Ordering::SeqCst)
+        ));
+        let result = (|| {
+            std::fs::create_dir_all(&staging).map_err(PersistenceError::from_io)?;
+            for r in records {
+                let mut file = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(staging.join(format!("{:08}.json", r.sequence)))
+                    .map_err(PersistenceError::from_io)?;
+                file.write_all(&serde_json::to_vec(r)?)
+                    .map_err(PersistenceError::from_io)?;
+                file.sync_all().map_err(PersistenceError::from_io)?;
+            }
+            sync_dir(&staging)?;
+            std::fs::rename(&staging, &dir).map_err(PersistenceError::from_io)?;
+            sync_dir(&self.root.join("lifecycle"))
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_dir_all(&staging);
+        }
+        result
+    }
+
+    /// Removes a history that [`Self::import_events`] just wrote, when a later step of the same
+    /// import failed. Only for a history the caller created itself.
+    pub fn discard_imported_events(&self, job: JobId) -> PersistenceResult<()> {
+        match std::fs::remove_dir_all(self.job_dir(job)) {
+            Ok(()) => sync_dir(&self.root.join("lifecycle")),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(PersistenceError::from_io(e)),
+        }
+    }
+
     pub fn state(&self, job: JobId) -> PersistenceResult<JobState> {
         Ok(self.events(job)?.last().map_or(JobState::Draft, |r| r.to))
     }

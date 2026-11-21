@@ -23,6 +23,12 @@ use veylora_domain::{
     provenance::ContentHash,
 };
 
+/// Where the attempt log ended before an import added to it.
+#[derive(Debug, Clone, Copy)]
+pub struct ImportMark {
+    log_len: u64,
+}
+
 /// Snapshot of the most recent known state of an attempt, derived by replaying
 /// the append-only log.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -103,6 +109,83 @@ impl FileJobStore {
             .into_iter()
             .filter(|r| r.job_id == id)
             .collect())
+    }
+
+    /// Stores an imported job: its snapshot, then its attempt records in order. If any step fails
+    /// everything this call wrote is undone before the error is returned, so a failed import leaves
+    /// no job behind. The returned mark lets the caller undo the same work later, when a step it
+    /// performs afterwards fails.
+    pub fn import_job(
+        &self,
+        snapshot: JobSnapshot,
+        attempts: &[SubmissionAttempt],
+    ) -> PersistenceResult<ImportMark> {
+        let id = snapshot.job_id();
+        let mark = ImportMark {
+            log_len: match std::fs::metadata(self.log_path()) {
+                Ok(m) => m.len(),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => 0,
+                Err(e) => return Err(PersistenceError::from_io(e)),
+            },
+        };
+        self.create_snapshot(snapshot)?;
+        for a in attempts {
+            if let Err(cause) = self.append_attempt(a.clone()) {
+                return match self.undo_import(id, &mark) {
+                    Ok(()) => Err(cause),
+                    Err(undo) => Err(PersistenceError::Corrupt {
+                        detail: format!("{cause}; and undoing the import failed: {undo}"),
+                    }),
+                };
+            }
+        }
+        Ok(mark)
+    }
+
+    /// Removes what [`Self::import_job`] wrote for `id`. It cuts the attempt log back to where it
+    /// ended before the import, but only after checking that everything after that point is this
+    /// job's: another job's record is never discarded, and if one is found the log is left as it is
+    /// and the failure says so. A last line without a newline is a torn write of the import's own.
+    pub fn undo_import(&self, id: JobId, mark: &ImportMark) -> PersistenceResult<()> {
+        match std::fs::read(self.log_path()) {
+            Ok(bytes) => {
+                let at = usize::try_from(mark.log_len).unwrap_or(usize::MAX);
+                let tail = bytes.get(at..).ok_or_else(|| PersistenceError::Corrupt {
+                    detail: "the attempt log is shorter than it was before the import".into(),
+                })?;
+                if !tail.is_empty() {
+                    let mut rest = tail;
+                    while let Some(end) = rest.iter().position(|b| *b == b'\n') {
+                        let line = &rest[..end];
+                        rest = &rest[end + 1..];
+                        let theirs = serde_json::from_slice::<SubmissionAttempt>(line)
+                            .map_or(true, |r| r.job_id != id);
+                        if theirs {
+                            return Err(PersistenceError::Corrupt {
+                                detail: "the attempt log holds records that are not this \
+                                         import's, so it was left as it is"
+                                    .into(),
+                            });
+                        }
+                    }
+                    let file = OpenOptions::new()
+                        .write(true)
+                        .open(self.log_path())
+                        .map_err(PersistenceError::from_io)?;
+                    file.set_len(mark.log_len)
+                        .map_err(PersistenceError::from_io)?;
+                    file.sync_all().map_err(PersistenceError::from_io)?;
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(PersistenceError::from_io(e)),
+        }
+        match std::fs::remove_file(self.job_path(id)) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(PersistenceError::from_io(e)),
+        }
+        sync_dir(&self.root.join("jobs"))
     }
 
     /// Ids named by the stored snapshot files, in no particular order. Contents are not read, so
