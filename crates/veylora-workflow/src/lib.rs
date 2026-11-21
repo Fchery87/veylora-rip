@@ -15,7 +15,7 @@ mod update;
 mod workspace;
 
 pub use archive::{ImportedJob, ARCHIVE_FORMAT, ARCHIVE_SCHEMA_VERSION};
-pub use derive::WhiteEdit;
+pub use derive::{JobParent, WhiteEdit};
 pub use error::{WorkflowError, WorkflowResult};
 pub use inspect::{inspect_artifacts, inspect_asset, ArtifactReport, AssetReport, PlaneStats};
 pub use jobflow::{RecoveryReport, ReviewResolution, SubmitOutcome};
