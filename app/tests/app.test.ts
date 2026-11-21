@@ -412,6 +412,28 @@ describe("white edits that make a new job", () => {
   });
 });
 
+describe("refused white settings", () => {
+  it("puts a dropdown back on what the job has when the change is refused", async () => {
+    const user = userEvent.setup();
+    const base = createMockServices("working-day");
+    const services = {
+      ...base,
+      setWhiteMask: async () => {
+        throw new Error("A whole placement mask is not something a recipe can state yet.");
+      },
+    } as ReturnType<typeof createMockServices>;
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    await openJob(user, /Pocket print/);
+    await user.click(screen.getByRole("tab", { name: "Sheet" }));
+    const select = (await screen.findByLabelText("Mask source")) as HTMLSelectElement;
+    const stored = select.value;
+    await user.selectOptions(select, "Whole placement");
+    expect(await screen.findByText(/not something a recipe can state/)).toBeInTheDocument();
+    expect(select.value).toBe(stored);
+  });
+});
+
 describe("composite and stages", () => {
   it("leaves the composite when another stage is chosen, since it is built from logical planes", async () => {
     const user = userEvent.setup();
