@@ -16,8 +16,8 @@ use veylora_diagnostics::targets::{PhysicalSize, TargetKind};
 use veylora_domain::{errors::ErrorCode, ids::JobId, recipe::PrintRecipe};
 use veylora_image::UntaggedPolicy;
 use veylora_workflow::{
-    inspect_artifacts, inspect_asset, JobSpec, PreflightOptions, RenderOptions, ReviewResolution,
-    SetupDraft, SupportBundleOptions, Workspace,
+    inspect_artifacts, inspect_asset, JobSpec, PreflightOptions, RecipeValidationRequest,
+    RenderOptions, ReviewResolution, SetupDraft, SupportBundleOptions, Workspace,
 };
 
 const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
@@ -27,6 +27,8 @@ const USAGE: &str = "usage: veylora-cli --workspace <dir> <command>
   setup import --input <setup.json>
   mode import --input <mode.json>
   recipe import --input <recipe.json>
+  recipe validate --recipe <hash> --setup <hash> --mode <hash> --evidence <validation.json>
+      (new revision from pressed samples across sessions and a named sign-off)
   asset import --input <file.png>
   asset inspect --input <file.png> [--untagged reject|assume-srgb]
   job create --spec <job.json>
@@ -147,6 +149,7 @@ fn execute(args: &[OsString]) -> Result<(), String> {
         ("job", "review") => &["--job", "--resolve", "--operator", "--note"],
         ("job", "status" | "hold" | "cancel" | "recover") => &["--job"],
         ("setup" | "mode" | "recipe" | "asset", "import") => &["--input"],
+        ("recipe", "validate") => &["--recipe", "--setup", "--mode", "--evidence"],
         ("asset", "inspect") => &["--input", "--untagged"],
         ("job", "create") => &["--spec"],
         ("job", "preflight") => &[
@@ -253,6 +256,31 @@ fn dispatch(root: &Path, p: &Parsed) -> Result<(), String> {
             let r: PrintRecipe = read_json(p.need("--input")?)?;
             hash_result(ws.import_recipe(&r).map_err(e)?)
         }
+        ("recipe", "validate") => {
+            let hash = |flag: &str| -> Result<veylora_domain::provenance::ContentHash, String> {
+                p.need(flag)?
+                    .parse()
+                    .map_err(|_| format!("{flag} is not a content hash"))
+            };
+            let input: ValidationInput = read_json(p.need("--evidence")?)?;
+            let made = ws
+                .validate_recipe(&RecipeValidationRequest {
+                    recipe: hash("--recipe")?,
+                    setup: hash("--setup")?,
+                    mode: hash("--mode")?,
+                    operator: input.operator,
+                    tolerances: input.tolerances,
+                    samples: input.samples,
+                    signed_off_by: input.signed_off_by,
+                    signed_off_at: input.signed_off_at,
+                    sign_off_note: input.sign_off_note,
+                    created_at_ms: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_or(1, |d| u64::try_from(d.as_millis()).unwrap_or(1)),
+                })
+                .map_err(e)?;
+            print(&serde_json::json!({ "content_hash": made.hash, "revision": made.revision }))
+        }
         ("asset", "import") => {
             let bytes = read_bounded(Path::new(p.need("--input")?))?;
             hash_result(ws.import_asset(&bytes).map_err(e)?)
@@ -344,6 +372,18 @@ fn dispatch(root: &Path, p: &Parsed) -> Result<(), String> {
         }
         _ => unreachable!("validated above"),
     }
+}
+
+/// What `recipe validate --evidence` reads: the observations and the sign-off.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ValidationInput {
+    operator: String,
+    tolerances: String,
+    samples: Vec<veylora_domain::recipe::PressedSample>,
+    signed_off_by: String,
+    signed_off_at: String,
+    sign_off_note: String,
 }
 
 fn hash_result(h: veylora_domain::provenance::ContentHash) -> Result<(), String> {

@@ -62,6 +62,7 @@ fn recipe(garment: &str) -> PrintRecipe {
             thresholds: vec![32768],
         },
         clear: ClearPolicy::default(),
+        validation: None,
         finish: FinishPolicy {
             ink_id: "i".into(),
             film_id: "f".into(),

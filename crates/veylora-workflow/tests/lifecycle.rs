@@ -54,7 +54,13 @@ fn env_with(verified_setup: bool, validated_mode: bool) -> Env {
         created_at_ms: 1735000000000,
         setup: setup_hash,
         mode: ws.import_mode(&m.to_record()).unwrap(),
-        recipe: ws.import_recipe(&recipe()).unwrap(),
+        recipe: ws
+            .import_recipe(&if verified_setup && validated_mode {
+                validated_recipe(&recipe(), s.content_hash(), m.content_hash())
+            } else {
+                recipe()
+            })
+            .unwrap(),
         assets: BTreeMap::from([(
             "art".to_string(),
             ws.import_asset(&fixture("alpha-ramp.png")).unwrap(),
@@ -682,14 +688,16 @@ fn spec_of(e: &Env) -> JobSpec {
 }
 
 #[test]
-fn a_mode_that_is_not_validated_blocks_submission_alone() {
+fn a_mode_that_is_not_validated_blocks_submission_and_so_does_the_recipe_that_depends_on_it() {
     let e = env_with(true, false);
     e.ws.render(e.job, &RenderOptions::default()).unwrap();
     let (t, calls) = counted(FailurePoint::None);
     match e.ws.submit(e.job, &artifact(), &t) {
         Err(WorkflowError::PreflightBlocked(f)) => {
-            assert_eq!(f.len(), 1, "{f:?}");
-            assert_eq!(f[0].subject.as_deref(), Some("print_mode"));
+            // The setup is verified, so the mode is the cause. A recipe cannot be validated under a
+            // mode that is not, so it is blocked too; nothing else is.
+            let subjects: Vec<_> = f.iter().filter_map(|x| x.subject.as_deref()).collect();
+            assert_eq!(subjects, ["print_mode", "recipe"], "{f:?}");
         }
         other => panic!("{other:?}"),
     }

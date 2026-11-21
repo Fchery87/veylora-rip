@@ -138,7 +138,9 @@
       Recipe
       <select bind:value={recipeChoice}>
         {#each recipes as r (r.hash)}
-          <option value={r.hash}>{r.id} rev {r.revision}</option>
+          <option value={r.hash}
+            >{r.id} rev {r.revision} ({r.validated ? "validated" : "experimental"})</option
+          >
         {/each}
       </select>
     </label>

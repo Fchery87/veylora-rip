@@ -42,6 +42,7 @@ fn recipe() -> PrintRecipeInput {
             thresholds: vec![32768],
         },
         clear: ClearPolicy::default(),
+        validation: None,
         finish: FinishPolicy {
             ink_id: "synthetic ink".into(),
             film_id: "synthetic film".into(),

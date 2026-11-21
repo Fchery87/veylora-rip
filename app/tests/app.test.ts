@@ -111,7 +111,9 @@ describe("creating jobs", () => {
         maturity: "experimental" as const,
       },
     ],
-    recipes: [{ hash: "d".repeat(64), id: "RECIPE-1", revision: 1, retired: false }],
+    recipes: [
+      { hash: "d".repeat(64), id: "RECIPE-1", revision: 1, retired: false, validated: false },
+    ],
   };
 
   async function openLive(

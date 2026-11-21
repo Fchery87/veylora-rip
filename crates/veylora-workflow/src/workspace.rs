@@ -154,6 +154,7 @@ pub struct CatalogRecipe {
     pub id: String,
     pub revision: u32,
     pub retired: bool,
+    pub validated: bool,
 }
 
 /// Stored records a new job can be built from.
@@ -327,7 +328,13 @@ impl Workspace {
             .map_err(|f| WorkflowError::Invalid(f.message))?;
         Ok(self.devices.put_mode(&mode)?)
     }
+    /// Stores a recipe. A validated one is accepted only if the setup and mode its evidence names
+    /// are held here, the setup physically verified and the mode validated; a record cannot claim
+    /// validation under conditions this workspace has not established.
     pub fn import_recipe(&self, recipe: &PrintRecipe) -> WorkflowResult<ContentHash> {
+        if let Some(v) = &recipe.inputs().validation {
+            self.check_validation_conditions(&v.evidence.setup_hash, &v.evidence.mode_hash)?;
+        }
         Ok(self.records.put_recipe(recipe)?)
     }
     pub fn import_asset(&self, bytes: &[u8]) -> WorkflowResult<ContentHash> {
@@ -885,6 +892,10 @@ impl Workspace {
                 retired: matches!(
                     recipe.inputs().status,
                     veylora_domain::recipe::RecipeStatus::Retired
+                ),
+                validated: matches!(
+                    recipe.inputs().status,
+                    veylora_domain::recipe::RecipeStatus::Validated
                 ),
             });
         }

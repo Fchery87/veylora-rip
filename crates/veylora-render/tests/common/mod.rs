@@ -173,6 +173,7 @@ pub fn recipe(clear: ClearPolicy, white: WhitePolicy) -> PrintRecipe {
             thresholds: vec![0, 11000, 22000, 33000, 44000, 55000],
         },
         clear,
+        validation: None,
         finish: FinishPolicy {
             ink_id: "synthetic ink".into(),
             film_id: "synthetic film".into(),

@@ -154,6 +154,7 @@ pub fn recipe() -> PrintRecipe {
             thresholds: vec![8192, 40960, 57344, 24576],
         },
         clear: ClearPolicy::default(),
+        validation: None,
         finish: FinishPolicy {
             ink_id: "i".into(),
             film_id: "f".into(),
@@ -254,4 +255,38 @@ pub fn gray_png(width: u32, height: u32, samples: &[u8]) -> Vec<u8> {
     chunk(&mut png, b"IDAT", &z);
     chunk(&mut png, b"IEND", &[]);
     png
+}
+
+/// A validated revision of `base`: the same policies, with pressed-sample evidence and a sign-off
+/// that name the given setup and mode, as the workflow would record.
+pub fn validated_recipe(base: &PrintRecipe, setup: ContentHash, mode: ContentHash) -> PrintRecipe {
+    use veylora_domain::recipe::{PressedSample, RecipeEvidence, RecipeValidation};
+    let sample = |session: &str, label: &str| PressedSample {
+        session: session.into(),
+        label: label.into(),
+        within_tolerance: true,
+        note: "pressed and measured".into(),
+    };
+    let mut input = base.inputs().clone();
+    input.revision = base.inputs().revision + 1;
+    input.status = RecipeStatus::Validated;
+    input.validation = Some(RecipeValidation {
+        evidence: RecipeEvidence {
+            validated_revision: base.inputs().revision,
+            validated_hash: base.content_hash(),
+            setup_hash: setup,
+            mode_hash: mode,
+            operator: "operator".into(),
+            tolerances: "fixture tolerances".into(),
+            samples: vec![
+                sample("session 1", "a"),
+                sample("session 1", "b"),
+                sample("session 2", "c"),
+            ],
+        },
+        signed_off_by: "operator".into(),
+        signed_off_at: "2026-11-20T09:00:00Z".into(),
+        sign_off_note: "reviewed".into(),
+    });
+    PrintRecipe::new(input).unwrap()
 }

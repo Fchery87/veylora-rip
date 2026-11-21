@@ -321,6 +321,7 @@ pub struct RecipeOption {
     pub id: String,
     pub revision: u32,
     pub retired: bool,
+    pub validated: bool,
 }
 
 /// What can be chosen when creating a job: the records stored in the workspace.
@@ -362,6 +363,7 @@ pub fn creation_options(ws: &Workspace) -> Result<CreationOptions, String> {
                 id: r.id,
                 revision: r.revision,
                 retired: r.retired,
+                validated: r.validated,
             })
             .collect(),
     })
