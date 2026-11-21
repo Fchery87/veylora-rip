@@ -532,3 +532,131 @@ fn an_archive_holds_only_its_own_jobs_attempts() {
     b.ws.import_job_archive(&archive).unwrap();
     assert_eq!(b.ws.export_job_archive(a.job).unwrap(), archive);
 }
+
+/// An archive with a snapshot, attempts and a history, so every step of the import has work to do.
+fn ambiguous_archive() -> (Env, Vec<u8>) {
+    let e = env(true);
+    e.ws.render(e.job, &RenderOptions::default()).unwrap();
+    e.ws.submit(
+        e.job,
+        &artifact(),
+        &FakeTransport::new(FailurePoint::DuringWrite { bytes: 100 }),
+    )
+    .unwrap();
+    let archive = e.ws.export_job_archive(e.job).unwrap();
+    (e, archive)
+}
+
+/// Everything the import could have left behind for this job.
+fn leftovers(ws: &Workspace, job: JobId) -> Vec<String> {
+    let mut found = Vec::new();
+    if ws.list_jobs().unwrap().contains(&job) {
+        found.push("job snapshot".to_string());
+    }
+    let log =
+        std::fs::read_to_string(ws.root().join("jobs").join("attempts.log")).unwrap_or_default();
+    if log.contains(&job.to_string()) {
+        found.push("attempt records".to_string());
+    }
+    let events = ws.root().join("state").join("lifecycle");
+    for entry in std::fs::read_dir(&events).unwrap() {
+        let name = entry.unwrap().file_name().to_string_lossy().into_owned();
+        if name.contains(&job.to_string()) {
+            found.push(format!("history entry {name}"));
+        }
+    }
+    found
+}
+
+#[test]
+fn an_import_whose_history_cannot_be_written_leaves_nothing_and_can_be_retried() {
+    let (e, archive) = ambiguous_archive();
+    let dest = fresh();
+    // A file where the history belongs: the final step of the import cannot complete.
+    let blocker = dest
+        .root()
+        .join("state")
+        .join("lifecycle")
+        .join(e.job.to_string());
+    std::fs::write(&blocker, b"in the way").unwrap();
+    let err = dest.import_job_archive(&archive).unwrap_err().to_string();
+    assert!(err.contains("nothing was imported"), "{err}");
+    std::fs::remove_file(&blocker).unwrap();
+    assert_eq!(leftovers(&dest, e.job), Vec::<String>::new());
+    // The same archive then imports completely and round-trips.
+    let got = dest.import_job_archive(&archive).unwrap();
+    assert_eq!(got.state, JobState::Ambiguous);
+    assert_eq!(dest.export_job_archive(e.job).unwrap(), archive);
+}
+
+#[test]
+fn an_import_whose_attempts_cannot_be_written_leaves_nothing_and_can_be_retried() {
+    let (e, archive) = ambiguous_archive();
+    let dest = fresh();
+    let log = dest.root().join("jobs").join("attempts.log");
+    std::fs::write(&log, b"").unwrap();
+    let lock = |locked: bool| {
+        let mut p = std::fs::metadata(&log).unwrap().permissions();
+        p.set_readonly(locked);
+        std::fs::set_permissions(&log, p).unwrap();
+    };
+    lock(true);
+    let err = dest.import_job_archive(&archive).unwrap_err().to_string();
+    lock(false);
+    assert!(err.contains("nothing was imported"), "{err}");
+    assert_eq!(leftovers(&dest, e.job), Vec::<String>::new());
+    dest.import_job_archive(&archive).unwrap();
+    assert_eq!(dest.export_job_archive(e.job).unwrap(), archive);
+}
+
+#[test]
+fn a_rolled_back_import_does_not_disturb_another_jobs_records() {
+    let (e, archive) = ambiguous_archive();
+    let dest = fresh();
+    let (other, other_archive) = ambiguous_archive();
+    dest.import_job_archive(&other_archive).unwrap();
+    let before = std::fs::read(dest.root().join("jobs").join("attempts.log")).unwrap();
+    let blocker = dest
+        .root()
+        .join("state")
+        .join("lifecycle")
+        .join(e.job.to_string());
+    std::fs::write(&blocker, b"in the way").unwrap();
+    assert!(dest.import_job_archive(&archive).is_err());
+    std::fs::remove_file(&blocker).unwrap();
+    assert_eq!(
+        std::fs::read(dest.root().join("jobs").join("attempts.log")).unwrap(),
+        before,
+        "the log is byte-for-byte what it was"
+    );
+    assert_eq!(dest.export_job_archive(other.job).unwrap(), other_archive);
+}
+
+#[test]
+fn undoing_an_import_never_cuts_another_jobs_records_out_of_the_log() {
+    use veylora_domain::job::AttemptState;
+    use veylora_persistence::{FileJobStore, JobStore};
+    let (e, _) = ambiguous_archive();
+    let (other, other_archive) = ambiguous_archive();
+    let dest = fresh();
+    dest.import_job_archive(&other_archive).unwrap();
+    let store = FileJobStore::open(dest.root().join("jobs")).unwrap();
+    let source = FileJobStore::open(e.ws.root().join("jobs")).unwrap();
+    let mark = store
+        .import_job(
+            source.get(e.job).unwrap(),
+            &source.attempt_history(e.job).unwrap(),
+        )
+        .unwrap();
+    // Another job's record lands after the import's, as it could in a busy workspace.
+    let mut follow = store.attempt_history(other.job).unwrap().pop().unwrap();
+    follow.sequence += 1;
+    follow.state = AttemptState::OperatorConfirmedFinished;
+    store.append_attempt(follow).unwrap();
+    let log = dest.root().join("jobs").join("attempts.log");
+    let before = std::fs::read(&log).unwrap();
+    let err = store.undo_import(e.job, &mark).unwrap_err().to_string();
+    assert!(err.contains("left as it is"), "{err}");
+    assert_eq!(std::fs::read(&log).unwrap(), before, "nothing was cut");
+    assert!(store.get(e.job).is_ok(), "the job was not half-removed");
+}

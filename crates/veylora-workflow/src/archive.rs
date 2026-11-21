@@ -301,26 +301,51 @@ impl Workspace {
         self.devices.put_setup(&setup)?;
         self.devices.put_mode(&mode)?;
         self.records.put_recipe(&recipe)?;
-        self.jobs.create_snapshot(snapshot)?;
-        let incomplete = |e: &dyn std::fmt::Display| {
-            WorkflowError::Invalid(format!(
-                "import of job {id} stopped part-way ({e}). The job exists here with incomplete \
-                 history: do not print it. Import the archive into a clean workspace instead."
-            ))
-        };
-        for a in &attempts {
-            self.jobs
-                .append_attempt(a.clone())
-                .map_err(|e| incomplete(&e))?;
-        }
-        for r in &events {
-            let written = self
-                .lifecycle
-                .append(id, r.event, &r.recorded_at, &r.note, r.attempt_id)
-                .map_err(|e| incomplete(&e))?;
-            if written != *r {
-                return Err(incomplete(&"a replayed event differs from the archive"));
+        // The snapshot and attempts go in together and undo themselves if one fails. The history
+        // is moved into place last, in one step; if that or the check after it fails, the job is
+        // taken out again, so an import either completes or leaves nothing.
+        let mark = match self.jobs.import_job(snapshot, &attempts) {
+            Ok(mark) => mark,
+            Err(e) if self.jobs.get(id).is_err() => {
+                return Err(WorkflowError::Invalid(format!(
+                    "import of job {id} failed ({e}); nothing was imported and the archive can be                      imported again"
+                )))
             }
+            Err(e) => {
+                return Err(WorkflowError::Invalid(format!(
+                    "import of job {id} stopped part-way ({e}) and could not be undone. The job                      exists here with incomplete history: do not print it. Import the archive                      into a clean workspace instead."
+                )))
+            }
+        };
+        let failed = |e: &dyn std::fmt::Display, history_in_place: bool| {
+            let history_undone =
+                !history_in_place || self.lifecycle.discard_imported_events(id).is_ok();
+            let job_undone = history_undone && self.jobs.undo_import(id, &mark).is_ok();
+            if job_undone {
+                WorkflowError::Invalid(format!(
+                    "import of job {id} failed ({e}); nothing was imported and the archive can be \
+                     imported again"
+                ))
+            } else {
+                WorkflowError::Invalid(format!(
+                    "import of job {id} stopped part-way ({e}) and could not be undone. The job \
+                     exists here with incomplete history: do not print it. Import the archive \
+                     into a clean workspace instead."
+                ))
+            }
+        };
+        if let Err(e) = self.lifecycle.import_events(id, &events) {
+            return Err(failed(&e, false));
+        }
+        match self.lifecycle.events(id) {
+            Ok(written) if written == events => {}
+            Ok(_) => {
+                return Err(failed(
+                    &"the written history differs from the archive",
+                    true,
+                ))
+            }
+            Err(e) => return Err(failed(&e, true)),
         }
         Ok(ImportedJob {
             job_id: id,
