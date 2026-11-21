@@ -5,6 +5,7 @@
 
 pub mod artifacts;
 pub mod jobs;
+pub mod live;
 pub mod screens;
 pub mod state;
 pub mod view_models;

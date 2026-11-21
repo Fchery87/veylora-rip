@@ -382,6 +382,8 @@ pub struct RetainedArtifact {
     pub pitch_y_nm: u32,
     pub verified: bool,
     pub problems: Vec<String>,
+    /// Confirmation-required findings the operator acknowledged for this render, as `code:subject`.
+    pub acknowledged_findings: Vec<String>,
     pub planes: Vec<RetainedPlane>,
 }
 

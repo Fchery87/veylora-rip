@@ -30,6 +30,11 @@ pub fn retained_for_job(ws: &Workspace, job_id: &str) -> Result<Option<RetainedA
         pitch_y_nm: m.pitch_y_nm,
         verified: report.verified,
         problems: report.problems,
+        acknowledged_findings: m
+            .acknowledged_layout_findings
+            .iter()
+            .map(|f| format!("{}:{}", f.code, f.subject.as_deref().unwrap_or("-")))
+            .collect(),
         planes: report
             .planes
             .into_iter()

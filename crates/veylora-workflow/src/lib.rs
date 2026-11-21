@@ -21,6 +21,6 @@ pub use spec::{CropSpec, JobSpec, LayoutSpec, PlacementSpec};
 pub use support::SupportBundleOptions;
 pub use update::UpdateBlocker;
 pub use workspace::{
-    asset_id_for, AttemptSummary, InspectedRun, JobCreated, JobReport, PreflightOptions,
+    asset_id_for, AttemptSummary, InspectedRun, JobCreated, JobDevice, JobReport, PreflightOptions,
     PreflightReport, RenderOptions, RenderOutcome, RenderSummary, Workspace, DIAGNOSTIC_BACKEND,
 };

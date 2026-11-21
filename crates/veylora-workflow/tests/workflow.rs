@@ -502,3 +502,51 @@ fn inspecting_the_latest_run_reports_tampering_instead_of_hiding_it() {
         .iter()
         .any(|p| p.contains("logical-w.f32")));
 }
+
+#[test]
+fn an_empty_workspace_lists_no_jobs() {
+    let ws = Workspace::open(dir("ws-empty")).unwrap();
+    assert!(ws.list_jobs().unwrap().is_empty());
+}
+
+#[test]
+fn jobs_are_listed_newest_first_and_their_snapshots_can_be_read() {
+    let f = fixture_job(|_| {});
+    let mut older = f.spec.clone();
+    older.created_at_ms = 1_000;
+    let mut newer = f.spec.clone();
+    newer.created_at_ms = 2_000;
+    let a = f.ws.create_job(&older).unwrap().job_id;
+    let b = f.ws.create_job(&newer).unwrap().job_id;
+    assert_eq!(f.ws.list_jobs().unwrap(), vec![b, a]);
+    let snap = f.ws.job_snapshot(a).unwrap();
+    assert_eq!(snap.inputs().created_at_ms, 1_000);
+    assert_eq!(snap.inputs().layout.inputs().placements.len(), 1);
+}
+
+#[test]
+fn listing_ignores_stray_files_and_reading_an_unknown_job_is_an_error() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    std::fs::write(f.ws.root().join("jobs").join("jobs").join("notes.txt"), "x").unwrap();
+    std::fs::write(
+        f.ws.root()
+            .join("jobs")
+            .join("jobs")
+            .join("not-a-uuid.json"),
+        "{}",
+    )
+    .unwrap();
+    std::fs::write(
+        f.ws.root()
+            .join("jobs")
+            .join("jobs")
+            .join("00000000-0000-4000-8000-000000000001.txt"),
+        "x",
+    )
+    .unwrap();
+    assert_eq!(f.ws.list_jobs().unwrap(), vec![id]);
+    let unknown: veylora_domain::ids::JobId =
+        "00000000-0000-4000-8000-000000000000".parse().unwrap();
+    assert!(f.ws.job_snapshot(unknown).is_err());
+}

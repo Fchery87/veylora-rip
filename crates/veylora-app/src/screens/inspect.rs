@@ -420,6 +420,15 @@ pub fn present_retained(
             MetaKind::Identifier,
         ),
         meta(
+            "Acknowledged findings",
+            if artifact.acknowledged_findings.is_empty() {
+                "None".to_owned()
+            } else {
+                artifact.acknowledged_findings.join(", ")
+            },
+            MetaKind::Text,
+        ),
+        meta(
             "Verification",
             if artifact.verified {
                 "Verified against the manifest".to_owned()

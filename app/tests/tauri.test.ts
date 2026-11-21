@@ -83,6 +83,75 @@ describe("tauri adapter", () => {
     expect(calls).toEqual([]);
   });
 
+  describe("with a live workspace", () => {
+    function live() {
+      const calls: Call[] = [];
+      const services = createTauriServices(
+        async <T>(command: string, args?: Record<string, unknown>) => {
+          calls.push({ command, args });
+          return { command } as T;
+        },
+        createMockServices("working-day"),
+        true,
+      );
+      return { calls, services };
+    }
+
+    it("routes jobs, views and actions to the live commands", async () => {
+      const { calls, services } = live();
+      await services.getCapabilities();
+      await services.listJobs();
+      await services.getJob("J-1");
+      await services.getPreflightView("J-1");
+      await services.getJobActions("J-1");
+      await services.acknowledgeFinding("J-1", "f1");
+      await services.renderAndHold("J-1");
+      expect(calls).toEqual([
+        { command: "live_get_capabilities", args: undefined },
+        { command: "live_list_jobs", args: undefined },
+        { command: "live_get_job", args: { jobId: "J-1" } },
+        { command: "live_get_preflight_view", args: { jobId: "J-1" } },
+        { command: "live_get_job_actions", args: { jobId: "J-1" } },
+        { command: "live_acknowledge_finding", args: { jobId: "J-1", findingId: "f1" } },
+        { command: "live_render", args: { jobId: "J-1" } },
+      ]);
+    });
+
+    it("inspects retained artifacts, never the fixture inspector", async () => {
+      const { calls, services } = live();
+      const selection: InspectSelection = { stage: "logical", planes: ["K"], composite: false };
+      await services.getInspectView("J-1", selection);
+      await services.toggleInspectPlane("J-1", selection, "C", true);
+      await services.setInspectComposite("J-1", selection, true);
+      expect(calls.map((c) => c.command)).toEqual([
+        "get_retained_inspect_view",
+        "live_toggle_inspect_plane",
+        "live_set_inspect_composite",
+      ]);
+    });
+
+    it("has no review for live jobs yet, and says so instead of showing fixture attempts", async () => {
+      const { calls, services } = live();
+      expect(await services.getReviewView("J-1")).toBeNull();
+      expect(calls).toEqual([]);
+    });
+
+    it("rejects what the live backend cannot do instead of touching fixture state", async () => {
+      const { calls, services } = live();
+      for (const attempt of [
+        () => services.writeToFileSink("J-1"),
+        () => services.releaseToPrinter("J-1"),
+        () => services.resolveReview("A-1", "decide-later"),
+        () => services.setWhitePolicy("J-1", "No white"),
+        () => services.setWhiteMask("J-1", { source: "Whole placement", invert: false }),
+        () => services.setWhiteChoke("J-1", 0.5),
+      ]) {
+        await expect(attempt()).rejects.toThrow(/not available for live jobs/);
+      }
+      expect(calls).toEqual([]);
+    });
+  });
+
   it("detects the Tauri runtime only when its internals are present", () => {
     expect(isTauriRuntime({})).toBe(false);
     expect(isTauriRuntime({ __TAURI_INTERNALS__: {} })).toBe(true);

@@ -13,12 +13,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+veylora-device = { path = "../veylora-device" }
 veylora-domain = { path = "../veylora-domain" }
 veylora-workflow = { path = "../veylora-workflow" }
 
 [lib]
 name = "veylora_app_lib"
 path = "src/lib.rs"
-
-[dev-dependencies]
-veylora-device = { path = "../veylora-device" }

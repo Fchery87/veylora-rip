@@ -133,6 +133,16 @@ pub struct RenderOutcome {
     pub manifest: RenderManifest,
 }
 
+/// What a job's stored device setup and print mode say about themselves.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JobDevice {
+    pub setup_id: String,
+    /// True only when the setup carries physical channel evidence.
+    pub setup_physically_verified: bool,
+    pub mode_id: String,
+    pub mode_status: veylora_device::mode::ModeStatus,
+}
+
 /// One completed render run and what re-reading its retained bytes found.
 #[derive(Debug, Clone)]
 pub struct InspectedRun {
@@ -765,6 +775,38 @@ impl Workspace {
         }
         names.sort();
         Ok(names)
+    }
+
+    /// Every stored job, newest first (ties broken by id so the order is stable). A snapshot that
+    /// cannot be read is still listed here and fails when opened.
+    pub fn list_jobs(&self) -> WorkflowResult<Vec<JobId>> {
+        let mut keyed: Vec<(u64, JobId)> = Vec::new();
+        for id in self.jobs.list_ids()? {
+            // An unreadable snapshot sorts last rather than vanishing from the list.
+            let created = self.jobs.get(id).map_or(0, |s| s.inputs().created_at_ms);
+            keyed.push((created, id));
+        }
+        keyed.sort_by(|a, b| {
+            b.0.cmp(&a.0)
+                .then_with(|| a.1.to_string().cmp(&b.1.to_string()))
+        });
+        Ok(keyed.into_iter().map(|(_, id)| id).collect())
+    }
+
+    /// The device facts a job was created against, read from its stored setup and mode records.
+    pub fn job_device(&self, id: JobId) -> WorkflowResult<JobDevice> {
+        let loaded = self.load(id)?;
+        Ok(JobDevice {
+            setup_id: loaded.setup.id().to_string(),
+            setup_physically_verified: loaded.setup.require_production().is_ok(),
+            mode_id: loaded.mode.id().to_string(),
+            mode_status: loaded.mode.status(),
+        })
+    }
+
+    /// The immutable record of what a job was created from.
+    pub fn job_snapshot(&self, id: JobId) -> WorkflowResult<veylora_domain::job::JobSnapshot> {
+        Ok(self.jobs.get(id)?)
     }
 
     /// Inspects the newest run that completed (wrote a manifest), from its retained bytes. A run
