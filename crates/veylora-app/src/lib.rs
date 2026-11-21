@@ -3,6 +3,7 @@
 //! Everything here is presentation over application-service data (ADR 0001).
 //! The Tauri binary in `main.rs` only exposes these as typed commands.
 
+pub mod artifacts;
 pub mod jobs;
 pub mod screens;
 pub mod state;

@@ -9,6 +9,7 @@
 use std::sync::Mutex;
 
 use tauri::State;
+use veylora_app_lib::artifacts::retained_for_job;
 use veylora_app_lib::jobs::JobStore;
 use veylora_app_lib::screens::{inspect, job_actions, preflight, review};
 use veylora_app_lib::state::CapabilityState;
@@ -153,9 +154,35 @@ fn set_white_choke(jobs: State<Jobs>, job_id: String, choke_mm: f64) -> Result<J
     jobs.with_store(|s| s.set_white_choke(&job_id, choke_mm))
 }
 
+/// Workspace folder of real jobs, from `VEYLORA_WORKSPACE`. Without it, only fixture data exists
+/// and the retained-artifact command says so instead of inventing values.
+struct LiveWorkspace(Option<std::path::PathBuf>);
+
+#[tauri::command]
+fn get_retained_inspect_view(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    selection: Option<InspectSelection>,
+) -> Result<InspectView, String> {
+    let root = live
+        .0
+        .as_ref()
+        .ok_or("No workspace is configured (set VEYLORA_WORKSPACE); only fixture jobs exist.")?;
+    let ws = veylora_workflow::Workspace::open(root).map_err(|e| e.to_string())?;
+    let retained = retained_for_job(&ws, &job_id)?
+        .ok_or("This job has no completed render. Render it to inspect its retained output.")?;
+    inspect::present_retained(
+        &retained,
+        &selection.unwrap_or_else(inspect::default_selection),
+    )
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(Jobs(Mutex::new(JobStore::fixture())))
+        .manage(LiveWorkspace(
+            std::env::var_os("VEYLORA_WORKSPACE").map(std::path::PathBuf::from),
+        ))
         .invoke_handler(tauri::generate_handler![
             get_capabilities,
             list_jobs,
@@ -163,6 +190,7 @@ fn main() {
             get_preflight_view,
             get_job_actions,
             get_inspect_view,
+            get_retained_inspect_view,
             toggle_inspect_plane,
             set_inspect_composite,
             get_review_view,

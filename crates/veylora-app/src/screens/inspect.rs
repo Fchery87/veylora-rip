@@ -4,7 +4,7 @@
 use crate::state::{CapabilityState, DataSource};
 use crate::view_models::{
     CompositeOption, InfoPanel, InspectView, JobDetail, MetaKind, MetaRow, Plane, PlaneOption,
-    PreviewSource, StageId, StageOption,
+    PreviewSource, RetainedArtifact, StageId, StageOption,
 };
 
 pub use crate::view_models::InspectSelection;
@@ -282,6 +282,203 @@ pub fn present(
         viewport_label,
         placeholder:
             "No raster is shown. Retained artifacts arrive when backend integration is unblocked."
+                .to_owned(),
+    })
+}
+
+fn plane_file(plane: Plane) -> Option<String> {
+    match plane {
+        Plane::C | Plane::M | Plane::Y | Plane::K | Plane::W => {
+            Some(format!("logical-{}.f32", plane.name().to_lowercase()))
+        }
+        // Slot letters belong to the mode's channel map; the file names carry protocol ids.
+        Plane::W1 | Plane::W2 => None,
+    }
+}
+
+fn stage_prefix(stage: StageId) -> &'static str {
+    match stage {
+        StageId::Logical => "logical-",
+        StageId::Slots => "physical-",
+        _ => "screened-",
+    }
+}
+
+fn percent(part: u64, whole: u64) -> String {
+    if whole == 0 {
+        "0%".to_owned()
+    } else {
+        format!("{:.2}%", part as f64 * 100.0 / whole as f64)
+    }
+}
+
+fn plane_row(label: String, p: &crate::view_models::RetainedPlane) -> MetaRow {
+    meta(
+        &label,
+        format!(
+            "{} of {} nonzero ({}) \u{b7} min {} \u{b7} max {} \u{b7} mean {:.6}",
+            p.nonzero,
+            p.pixels,
+            percent(p.nonzero, p.pixels),
+            p.min,
+            p.max,
+            p.mean
+        ),
+        MetaKind::Text,
+    )
+}
+
+/// The Inspect view for a real retained run. Values come from the bytes the run kept, are
+/// verified against its manifest, and a damaged run is shown as such. No raster is drawn.
+pub fn present_retained(
+    artifact: &RetainedArtifact,
+    selection: &InspectSelection,
+) -> Result<InspectView, String> {
+    if !INSPECT_STAGES.contains(&selection.stage) {
+        return Err("Inspect shows the Logical, Slots, and Screened stages.".to_owned());
+    }
+    if selection.composite {
+        return Err(
+            "Composite simulation of retained planes is not built yet; select a plane.".to_owned(),
+        );
+    }
+    let prefix = stage_prefix(selection.stage);
+    let stage_files: Vec<&crate::view_models::RetainedPlane> = artifact
+        .planes
+        .iter()
+        .filter(|p| p.file.starts_with(prefix))
+        .collect();
+    if stage_files.is_empty() {
+        return Err("This run retained no planes for that stage.".to_owned());
+    }
+
+    let offered = Plane::for_stage(selection.stage);
+    let selection = InspectSelection {
+        stage: selection.stage,
+        planes: selection
+            .planes
+            .iter()
+            .copied()
+            .filter(|p| offered.contains(p))
+            .collect(),
+        composite: false,
+    };
+    let stages = INSPECT_STAGES
+        .iter()
+        .map(|id| {
+            let has = artifact
+                .planes
+                .iter()
+                .any(|p| p.file.starts_with(stage_prefix(*id)));
+            StageOption {
+                id: *id,
+                label: stage_def(*id).label.to_owned(),
+                disabled: !has,
+                reason: (!has).then(|| "This run retained no planes for that stage.".to_owned()),
+            }
+        })
+        .collect();
+    let planes = offered
+        .iter()
+        .map(|plane| PlaneOption {
+            plane: *plane,
+            pressed: selection.planes.contains(plane),
+        })
+        .collect();
+
+    let mm = |px: u64, pitch_nm: u32| px as f64 * f64::from(pitch_nm) / 1_000_000.0;
+    let mut metadata = vec![
+        meta("Job", &artifact.job_id, MetaKind::Identifier),
+        meta("Run", &artifact.run, MetaKind::Identifier),
+        meta(
+            "Pixels",
+            format!("{} x {}", artifact.width_px, artifact.height_px),
+            MetaKind::Text,
+        ),
+        meta(
+            "Dimensions",
+            format!(
+                "{:.3} x {:.3} mm at {} x {} nm per pixel",
+                mm(artifact.width_px, artifact.pitch_x_nm),
+                mm(artifact.height_px, artifact.pitch_y_nm),
+                artifact.pitch_x_nm,
+                artifact.pitch_y_nm
+            ),
+            MetaKind::Text,
+        ),
+        meta("Evidence", &artifact.evidence, MetaKind::Text),
+        meta("Recipe hash", &artifact.recipe_hash, MetaKind::Identifier),
+        meta(
+            "Snapshot hash",
+            &artifact.snapshot_hash,
+            MetaKind::Identifier,
+        ),
+        meta("Layout hash", &artifact.layout_hash, MetaKind::Identifier),
+        meta(
+            "Artifact hash",
+            &artifact.manifest_hash,
+            MetaKind::Identifier,
+        ),
+        meta(
+            "Verification",
+            if artifact.verified {
+                "Verified against the manifest".to_owned()
+            } else {
+                format!("FAILED: {}", artifact.problems.join("; "))
+            },
+            MetaKind::Text,
+        ),
+    ];
+    let mut note = if artifact.verified {
+        format!(
+            "Read from retained run {}; every file matches its manifest hash.",
+            artifact.run
+        )
+    } else {
+        format!(
+            "Retained run {} failed verification. Do not trust these values.",
+            artifact.run
+        )
+    };
+    if selection.stage == StageId::Logical {
+        for plane in &selection.planes {
+            let Some(file) = plane_file(*plane) else {
+                continue;
+            };
+            if let Some(p) = stage_files.iter().find(|p| p.file == file) {
+                metadata.push(plane_row(format!("Coverage {}", plane.name()), p));
+            }
+        }
+    } else {
+        for p in &stage_files {
+            metadata.push(plane_row(p.file.clone(), p));
+        }
+        note.push_str(
+            " Slot letters come from the mode's channel map and are not mapped here, so files are listed by name.",
+        );
+    }
+
+    let panel = |title: &str| InfoPanel {
+        title: title.to_owned(),
+        message: NEEDS_RASTER.to_owned(),
+    };
+    Ok(InspectView {
+        chip: stage_chip_text(selection.stage, PreviewSource::Retained, false),
+        metadata,
+        composite: CompositeOption {
+            label: COMPOSITE_LABEL.to_owned(),
+            pressed: false,
+        },
+        viewport_label: format!("Statistics for {}", plane_names(&selection)),
+        selection,
+        stages,
+        planes,
+        source: PreviewSource::Retained,
+        metadata_note: note,
+        panels: vec![panel("Coverage"), panel("Loupe")],
+        raster_shown: false,
+        placeholder:
+            "Statistics are read from the retained bytes. Drawing the raster is not built yet."
                 .to_owned(),
     })
 }

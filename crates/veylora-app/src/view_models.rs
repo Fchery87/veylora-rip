@@ -365,6 +365,36 @@ pub struct InspectView {
     pub placeholder: String,
 }
 
+/// What re-reading one retained render run found. Built by `artifacts` from the workflow service;
+/// the presenter shows it and never recomputes a raster.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RetainedArtifact {
+    pub job_id: String,
+    pub run: String,
+    pub evidence: String,
+    pub manifest_hash: String,
+    pub snapshot_hash: String,
+    pub recipe_hash: String,
+    pub layout_hash: String,
+    pub width_px: u64,
+    pub height_px: u64,
+    pub pitch_x_nm: u32,
+    pub pitch_y_nm: u32,
+    pub verified: bool,
+    pub problems: Vec<String>,
+    pub planes: Vec<RetainedPlane>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RetainedPlane {
+    pub file: String,
+    pub pixels: u64,
+    pub nonzero: u64,
+    pub min: f64,
+    pub max: f64,
+    pub mean: f64,
+}
+
 // ---- Job actions and review presentation ----
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

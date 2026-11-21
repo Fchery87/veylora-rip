@@ -193,7 +193,7 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "Cargo.lock",
-      "sha256": "8627A8B2C7A36659A6B0460E53BCD93DBDBED809C4C78A5A328F5B1C96666339"
+      "sha256": "A7A9CE4793C9AF04873CF04CFF424B46923CB5E0B92B8DB2FDDF6C1E3F90CBAB"
     },
     {
       "path": "Cargo.toml",
@@ -205,7 +205,7 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "crates/veylora-app/Cargo.toml",
-      "sha256": "1870B8DD4C4D12D70012A54D475F524AD5C4AC06ABBCA1EDA979D21BAD197113"
+      "sha256": "3C58BA55703B41C474A5917BCE4D19A89A17B4523B3400A8EE1FDCEEDD79837F"
     },
     {
       "path": "crates/veylora-app/icons-src/veylora-mark.svg",

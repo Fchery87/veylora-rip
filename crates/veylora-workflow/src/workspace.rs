@@ -133,6 +133,13 @@ pub struct RenderOutcome {
     pub manifest: RenderManifest,
 }
 
+/// One completed render run and what re-reading its retained bytes found.
+#[derive(Debug, Clone)]
+pub struct InspectedRun {
+    pub run: String,
+    pub report: crate::inspect::ArtifactReport,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RenderSummary {
     pub run: String,
@@ -758,6 +765,23 @@ impl Workspace {
         }
         names.sort();
         Ok(names)
+    }
+
+    /// Inspects the newest run that completed (wrote a manifest), from its retained bytes. A run
+    /// directory without a manifest never finished and is skipped. `None` when nothing was ever
+    /// rendered; a damaged run is returned with its problems, not hidden.
+    pub fn inspect_latest_run(&self, id: JobId) -> WorkflowResult<Option<InspectedRun>> {
+        self.jobs.get(id)?;
+        let mut runs = self.run_names(id)?;
+        runs.reverse();
+        for run in runs {
+            let dir = self.artifacts_dir(id).join(&run);
+            if dir.join(MANIFEST_NAME).is_file() {
+                let report = crate::inspect::inspect_artifacts(&dir)?;
+                return Ok(Some(InspectedRun { run, report }));
+            }
+        }
+        Ok(None)
     }
 
     pub fn report(&self, id: JobId) -> WorkflowResult<JobReport> {
