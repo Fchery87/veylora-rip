@@ -57,6 +57,8 @@ All of the recovery lanes listed above were accepted and merged to `main` (persi
 
 9.1 (2026-11-20): portable job archives; see ADR 0008 and docs/job-format.md.
 
+9.2 (2026-11-20): release verification and update safety machinery; see ADR 0009. No installer chosen, nothing signed, no clean-machine run yet.
+
 ## Acceptance policy
 
 A passing stub, interface, or fixture is not completed product behavior. Each task requires coordinator spec review, quality review and fresh tests. Tests validate software behavior only. Production protocol fields, hardware mapping and physical quality gates remain unverified until real evidence exists.

@@ -57,7 +57,7 @@ The old statement that no source exists is obsolete. Tasks 8.2 and 8.3 have deli
 | 8.2 | Desktop shell | approved mock exception | Shell done, real file-sink integration pending |
 | 8.3 | Preflight/inspection presentation | 8.2 | Presentation done, retained-artifact integration pending |
 | 9.1 | Portable archives | 2.3, artifact contracts | Complete: path-independent job archive with checksums, version dispatch, history replay, safe import; `archive export/import`; docs/job-format.md (ADR 0008) |
-| 9.2 | Packaging/update safety | production workflow, clean-machine test | Pending |
+| 9.2 | Packaging/update safety | production workflow, clean-machine test | Machinery complete and tested: release manifest/verifier, side-by-side install with journaled switch, rollback, recovery, update guard, scripts (ADR 0009). Open: installer choice, signing, clean-machine run, desktop app packaging; packaging blocked by the 9.3 license gate |
 | 9.3 | License inventory/check | actual dependencies | Partial, fonts only |
 
 ## Gate policy
@@ -80,4 +80,4 @@ No print, firmware, maintenance, payment or external upload is authorized as a s
 
 ## Re-verification 2026-11-15
 
-Statuses above were re-checked against the code and plan. Gate B is not met: the inspector that reads retained artifacts does not exist yet. Real RGB-to-CMYK separation needs the licensed profile and color engine and is not built. Remaining printer-independent work: 8.1 residue, UI integration of real artifacts, 9.2, and the 9.3 license gate. Blocked on evidence or hardware: 5.1, 5.3, 6.3 baseline, native support claims.
+Statuses above were re-checked against the code and plan. Gate B is not met: the inspector that reads retained artifacts does not exist yet. Real RGB-to-CMYK separation needs the licensed profile and color engine and is not built. Remaining printer-independent work: 8.1 residue, UI integration of real artifacts, the 9.2 open items (installer choice, signing, clean-machine run) and the 9.3 license gate. Blocked on evidence or hardware: 5.1, 5.3, 6.3 baseline, native support claims.
