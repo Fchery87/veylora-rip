@@ -194,20 +194,29 @@ export interface CreationOptions {
 }
 
 /** One artwork placed on one sheet; sizes in millimetres. */
-export interface NewJobRequest {
+/** One artwork file on the sheet. */
+export interface NewPlacement {
   artworkPath: string;
-  setup: string;
-  mode: string;
-  recipe: string;
-  pageWidthMm: number;
-  pageHeightMm: number;
   xMm: number;
   yMm: number;
   widthMm: number;
   heightMm: number;
   rotationDeg: 0 | 90 | 180 | 270;
+}
+
+/** A sheet with one or more artworks (at most `MAX_PLACEMENTS`). */
+export interface NewJobRequest {
+  setup: string;
+  mode: string;
+  recipe: string;
+  pageWidthMm: number;
+  pageHeightMm: number;
+  placements: NewPlacement[];
   mirror: boolean;
 }
+
+/** Matches the limit Rust enforces. */
+export const MAX_PLACEMENTS = 32;
 
 export interface PlaneImage {
   dataUrl: string;

@@ -3,7 +3,7 @@
 mod common;
 
 use common::*;
-use veylora_app_lib::live::{self, NewJobRequest};
+use veylora_app_lib::live::{self, NewJobRequest, NewPlacement};
 use veylora_app_lib::view_models::JobState;
 use veylora_workflow::Workspace;
 
@@ -19,25 +19,35 @@ fn stocked() -> (Workspace, live::CreationOptions) {
 }
 
 fn art_path() -> String {
+    fixture_path("alpha-ramp.png")
+}
+
+fn fixture_path(name: &str) -> String {
     format!(
-        "{}/../../fixtures/images/alpha-ramp.png",
+        "{}/../../fixtures/images/{name}",
         env!("CARGO_MANIFEST_DIR")
     )
 }
 
+fn placement(path: String, x_mm: f64, width_mm: f64) -> NewPlacement {
+    NewPlacement {
+        artwork_path: path,
+        x_mm,
+        y_mm: 0.0,
+        width_mm,
+        height_mm: 0.25,
+        rotation_deg: 0,
+    }
+}
+
 fn request(o: &live::CreationOptions) -> NewJobRequest {
     NewJobRequest {
-        artwork_path: art_path(),
         setup: o.setups[0].hash.clone(),
         mode: o.modes[0].hash.clone(),
         recipe: o.recipes[0].hash.clone(),
         page_width_mm: 1.0,
         page_height_mm: 0.25,
-        x_mm: 0.0,
-        y_mm: 0.0,
-        width_mm: 1.0,
-        height_mm: 0.25,
-        rotation_deg: 0,
+        placements: vec![placement(art_path(), 0.0, 1.0)],
         mirror: false,
     }
 }
@@ -87,7 +97,7 @@ fn a_valid_request_creates_a_draft_job_that_then_lists_and_opens() {
 fn bad_files_are_refused_with_a_reason() {
     let (ws, o) = stocked();
     let mut r = request(&o);
-    r.artwork_path = format!("{}.missing", art_path());
+    r.placements[0].artwork_path = format!("{}.missing", art_path());
     assert!(live::create_job(&ws, &r)
         .unwrap_err()
         .contains("Cannot read"));
@@ -96,7 +106,7 @@ fn bad_files_are_refused_with_a_reason() {
     std::fs::create_dir_all(&dir).unwrap();
     let txt = dir.join("notes.txt");
     std::fs::write(&txt, b"not an image").unwrap();
-    r.artwork_path = txt.to_string_lossy().into_owned();
+    r.placements[0].artwork_path = txt.to_string_lossy().into_owned();
     assert!(live::create_job(&ws, &r).is_err());
     assert!(
         live::job_summaries(&ws).unwrap().is_empty(),
@@ -110,7 +120,7 @@ fn a_directory_or_an_oversized_file_is_refused() {
     let mut r = request(&o);
     let folder = dir("live-create-dir");
     std::fs::create_dir_all(&folder).unwrap();
-    r.artwork_path = folder.to_string_lossy().into_owned();
+    r.placements[0].artwork_path = folder.to_string_lossy().into_owned();
     assert!(live::create_job(&ws, &r).is_err());
 }
 
@@ -120,11 +130,11 @@ fn nonsense_sizes_are_refused_before_anything_is_created() {
     for mutate in [
         (|r: &mut NewJobRequest| r.page_width_mm = 0.0) as fn(&mut NewJobRequest),
         |r| r.page_height_mm = -1.0,
-        |r| r.width_mm = f64::NAN,
-        |r| r.height_mm = f64::INFINITY,
-        |r| r.x_mm = f64::NAN,
+        |r| r.placements[0].width_mm = f64::NAN,
+        |r| r.placements[0].height_mm = f64::INFINITY,
+        |r| r.placements[0].x_mm = f64::NAN,
         |r| r.page_width_mm = 5_000_000.0,
-        |r| r.rotation_deg = 45,
+        |r| r.placements[0].rotation_deg = 45,
     ] {
         let mut r = request(&o);
         mutate(&mut r);
@@ -161,9 +171,9 @@ fn unknown_or_mismatched_records_are_refused() {
 fn rotation_and_mirror_are_recorded() {
     let (ws, o) = stocked();
     let mut r = request(&o);
-    r.rotation_deg = 90;
-    r.width_mm = 0.25;
-    r.height_mm = 1.0;
+    r.placements[0].rotation_deg = 90;
+    r.placements[0].width_mm = 0.25;
+    r.placements[0].height_mm = 1.0;
     r.page_width_mm = 1.0;
     r.page_height_mm = 1.0;
     r.mirror = true;
@@ -176,4 +186,94 @@ fn rotation_and_mirror_are_recorded() {
         l.placements[0].rotation,
         veylora_domain::layout::Rotation::Deg90
     );
+}
+
+#[test]
+fn several_artworks_become_several_placements_in_one_job() {
+    let (ws, o) = stocked();
+    let mut r = request(&o);
+    r.page_width_mm = 2.0;
+    r.placements = vec![
+        placement(art_path(), 0.0, 1.0),
+        placement(fixture_path("srgb.png"), 1.0, 1.0),
+    ];
+    let d = live::create_job(&ws, &r).unwrap();
+    assert_eq!(d.placements.len(), 2);
+    assert_eq!(d.summary.placement_count, 2);
+    let mut xs: Vec<f64> = d.placements.iter().map(|p| p.x_mm).collect();
+    xs.sort_by(f64::total_cmp);
+    assert_eq!(xs, vec![0.0, 1.0]);
+    assert_ne!(
+        d.placements[0].name, d.placements[1].name,
+        "different files are different assets"
+    );
+    assert_eq!(d.sheet_mm, Some((2.0, 0.25)));
+}
+
+#[test]
+fn the_same_file_may_be_placed_more_than_once() {
+    let (ws, o) = stocked();
+    let mut r = request(&o);
+    r.page_width_mm = 2.0;
+    r.placements = vec![
+        placement(art_path(), 0.0, 1.0),
+        placement(art_path(), 1.0, 1.0),
+    ];
+    let d = live::create_job(&ws, &r).unwrap();
+    assert_eq!(d.placements.len(), 2);
+    assert_eq!(d.placements[0].name, d.placements[1].name);
+}
+
+#[test]
+fn a_job_needs_between_one_and_the_limit_of_placements() {
+    let (ws, o) = stocked();
+    let mut r = request(&o);
+    r.placements.clear();
+    assert!(live::create_job(&ws, &r)
+        .unwrap_err()
+        .contains("at least one"));
+    r.placements = (0..=live::MAX_PLACEMENTS)
+        .map(|i| placement(art_path(), i as f64, 1.0))
+        .collect();
+    assert!(live::create_job(&ws, &r)
+        .unwrap_err()
+        .contains("no more than"));
+    assert!(live::job_summaries(&ws).unwrap().is_empty());
+}
+
+#[test]
+fn a_bad_later_artwork_refuses_the_whole_job_and_names_it() {
+    let (ws, o) = stocked();
+    let mut r = request(&o);
+    r.page_width_mm = 2.0;
+    r.placements = vec![
+        placement(art_path(), 0.0, 1.0),
+        placement(format!("{}.missing", art_path()), 1.0, 1.0),
+    ];
+    let err = live::create_job(&ws, &r).unwrap_err();
+    assert!(err.contains("Artwork 2"), "{err}");
+    assert!(live::job_summaries(&ws).unwrap().is_empty());
+    // A bad size on a later placement is named the same way.
+    r.placements[1] = placement(art_path(), 1.0, -1.0);
+    let err = live::create_job(&ws, &r).unwrap_err();
+    assert!(err.contains("Artwork 2"), "{err}");
+}
+
+#[test]
+fn each_placement_keeps_its_own_rotation_and_position() {
+    let (ws, o) = stocked();
+    let mut r = request(&o);
+    r.page_width_mm = 2.0;
+    r.page_height_mm = 1.0;
+    let mut turned = placement(art_path(), 1.0, 0.25);
+    turned.height_mm = 1.0;
+    turned.rotation_deg = 90;
+    r.placements = vec![placement(art_path(), 0.0, 1.0), turned];
+    let d = live::create_job(&ws, &r).unwrap();
+    let id: veylora_domain::ids::JobId = d.summary.id.parse().unwrap();
+    let snap = ws.job_snapshot(id).unwrap();
+    let l = snap.inputs().layout.inputs();
+    let rotations: Vec<_> = l.placements.iter().map(|p| p.rotation).collect();
+    assert!(rotations.contains(&veylora_domain::layout::Rotation::Deg0));
+    assert!(rotations.contains(&veylora_domain::layout::Rotation::Deg90));
 }

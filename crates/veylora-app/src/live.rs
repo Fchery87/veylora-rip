@@ -308,26 +308,35 @@ pub fn creation_options(ws: &Workspace) -> Result<CreationOptions, String> {
     })
 }
 
-/// One artwork placed on one sheet. Sizes are millimetres as the operator thinks of them.
+/// One artwork file placed on the sheet. Sizes are millimetres as the operator thinks of them.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NewJobRequest {
+pub struct NewPlacement {
     pub artwork_path: String,
-    pub setup: String,
-    pub mode: String,
-    pub recipe: String,
-    pub page_width_mm: f64,
-    pub page_height_mm: f64,
     pub x_mm: f64,
     pub y_mm: f64,
     pub width_mm: f64,
     pub height_mm: f64,
     pub rotation_deg: u16,
+}
+
+/// A sheet with one or more artworks on it.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewJobRequest {
+    pub setup: String,
+    pub mode: String,
+    pub recipe: String,
+    pub page_width_mm: f64,
+    pub page_height_mm: f64,
+    pub placements: Vec<NewPlacement>,
     pub mirror: bool,
 }
 
 /// An artwork file may not exceed this, matching the CLI's input bound.
 const MAX_ARTWORK_BYTES: u64 = 64 * 1024 * 1024;
+/// Most artworks on one sheet. A bound, not a layout rule; preflight judges fit and overlap.
+pub const MAX_PLACEMENTS: usize = 32;
 /// The largest single dimension accepted, in millimetres (50 m).
 const MAX_MM: f64 = 50_000.0;
 
@@ -346,42 +355,111 @@ fn parse_hash(label: &str, text: &str) -> Result<ContentHash, String> {
         .map_err(|_| format!("{label} is not a valid content hash."))
 }
 
-/// Creates a draft job from one artwork file. Everything is checked before anything is stored, so a
-/// refused request leaves no job behind; the artwork is kept by content hash.
-pub fn create_job(ws: &Workspace, request: &NewJobRequest) -> Result<JobDetail, String> {
-    let page_w = um("Sheet width", request.page_width_mm, false)?;
-    let page_h = um("Sheet height", request.page_height_mm, false)?;
-    let x = um("Position x", request.x_mm, true)?;
-    let y = um("Position y", request.y_mm, true)?;
-    let w = um("Artwork width", request.width_mm, false)?;
-    let h = um("Artwork height", request.height_mm, false)?;
-    let rotation = match request.rotation_deg {
+/// A placement whose numbers and file have been checked, ready to store.
+struct CheckedPlacement {
+    path: std::path::PathBuf,
+    x: i64,
+    y: i64,
+    w: u32,
+    h: u32,
+    rotation: Rotation,
+}
+
+/// Checks everything about one placement except reading the file's bytes. Errors name the
+/// artwork by position so the operator knows which one to fix.
+fn check_placement(n: usize, p: &NewPlacement) -> Result<CheckedPlacement, String> {
+    let at = |e: String| format!("Artwork {n}: {e}");
+    let x = um("Position x", p.x_mm, true).map_err(at)?;
+    let y = um("Position y", p.y_mm, true).map_err(at)?;
+    let w = um("Width", p.width_mm, false).map_err(at)?;
+    let h = um("Height", p.height_mm, false).map_err(at)?;
+    let rotation = match p.rotation_deg {
         0 => Rotation::Deg0,
         90 => Rotation::Deg90,
         180 => Rotation::Deg180,
         270 => Rotation::Deg270,
-        other => return Err(format!("Rotation must be 0, 90, 180 or 270, not {other}.")),
+        other => {
+            return Err(at(format!(
+                "Rotation must be 0, 90, 180 or 270, not {other}."
+            )))
+        }
     };
+    let path = std::path::Path::new(&p.artwork_path);
+    let meta = std::fs::metadata(path)
+        .map_err(|e| at(format!("Cannot read '{}': {e}", p.artwork_path)))?;
+    if !meta.is_file() {
+        return Err(at(format!("'{}' is not a file.", p.artwork_path)));
+    }
+    if meta.len() > MAX_ARTWORK_BYTES {
+        return Err(at(format!(
+            "'{}' is larger than the {} MiB limit.",
+            p.artwork_path,
+            MAX_ARTWORK_BYTES / 1024 / 1024
+        )));
+    }
+    Ok(CheckedPlacement {
+        path: path.to_path_buf(),
+        x,
+        y,
+        w: u32::try_from(w).map_err(|_| at("Width is too large.".into()))?,
+        h: u32::try_from(h).map_err(|_| at("Height is too large.".into()))?,
+        rotation,
+    })
+}
+
+/// Creates a draft job from one or more artwork files. Every placement is checked before anything
+/// is stored, so a refused request leaves no job behind; artwork is kept by content hash, so a
+/// file used twice is stored once.
+pub fn create_job(ws: &Workspace, request: &NewJobRequest) -> Result<JobDetail, String> {
+    let page_w = um("Sheet width", request.page_width_mm, false)?;
+    let page_h = um("Sheet height", request.page_height_mm, false)?;
     let setup = parse_hash("Setup", &request.setup)?;
     let mode = parse_hash("Print mode", &request.mode)?;
     let recipe = parse_hash("Recipe", &request.recipe)?;
-
-    let path = std::path::Path::new(&request.artwork_path);
-    let meta = std::fs::metadata(path)
-        .map_err(|e| format!("Cannot read '{}': {e}", request.artwork_path))?;
-    if !meta.is_file() {
-        return Err(format!("'{}' is not a file.", request.artwork_path));
+    if request.placements.is_empty() {
+        return Err("Add at least one artwork to the sheet.".into());
     }
-    if meta.len() > MAX_ARTWORK_BYTES {
+    if request.placements.len() > MAX_PLACEMENTS {
         return Err(format!(
-            "'{}' is larger than the {} MiB limit.",
-            request.artwork_path,
-            MAX_ARTWORK_BYTES / 1024 / 1024
+            "A sheet holds no more than {MAX_PLACEMENTS} artworks here."
         ));
     }
-    let bytes =
-        std::fs::read(path).map_err(|e| format!("Cannot read '{}': {e}", request.artwork_path))?;
-    let artwork = ws.import_asset(&bytes).map_err(|e| e.to_string())?;
+    let checked = request
+        .placements
+        .iter()
+        .enumerate()
+        .map(|(i, p)| check_placement(i + 1, p))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut assets: std::collections::BTreeMap<String, ContentHash> =
+        std::collections::BTreeMap::new();
+    let mut placements = Vec::with_capacity(checked.len());
+    for (i, c) in checked.iter().enumerate() {
+        let bytes = std::fs::read(&c.path)
+            .map_err(|e| format!("Artwork {}: cannot read '{}': {e}", i + 1, c.path.display()))?;
+        let hash = ws
+            .import_asset(&bytes)
+            .map_err(|e| format!("Artwork {}: {e}", i + 1))?;
+        // One asset entry per distinct file; a file placed twice is the same asset twice.
+        let key = match assets.iter().find(|(_, h)| **h == hash) {
+            Some((key, _)) => key.clone(),
+            None => {
+                let key = format!("artwork-{}", assets.len() + 1);
+                assets.insert(key.clone(), hash);
+                key
+            }
+        };
+        placements.push(PlacementSpec {
+            asset: key,
+            mask: None,
+            x_um: c.x,
+            y_um: c.y,
+            width_um: c.w,
+            height_um: c.h,
+            rotation: c.rotation,
+            crop: None,
+        });
+    }
 
     let spec = JobSpec {
         schema_version: 1,
@@ -392,22 +470,13 @@ pub fn create_job(ws: &Workspace, request: &NewJobRequest) -> Result<JobDetail, 
         setup,
         mode,
         recipe,
-        assets: std::collections::BTreeMap::from([("artwork".to_owned(), artwork)]),
+        assets,
         masks: std::collections::BTreeMap::new(),
         layout: LayoutSpec {
             page_width_um: u32::try_from(page_w).map_err(|_| "Sheet width is too large.")?,
             page_height_um: u32::try_from(page_h).map_err(|_| "Sheet height is too large.")?,
             mirror: request.mirror,
-            placements: vec![PlacementSpec {
-                asset: "artwork".to_owned(),
-                mask: None,
-                x_um: x,
-                y_um: y,
-                width_um: u32::try_from(w).map_err(|_| "Artwork width is too large.")?,
-                height_um: u32::try_from(h).map_err(|_| "Artwork height is too large.")?,
-                rotation,
-                crop: None,
-            }],
+            placements,
         },
     };
     let created = ws.create_job(&spec).map_err(|e| e.to_string())?;

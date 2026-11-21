@@ -145,7 +145,7 @@ describe("creating jobs", () => {
     await user.click(screen.getByRole("button", { name: "New job" }));
     const form = await screen.findByRole("form", { name: "New job" });
     expect(within(form).getByRole("button", { name: "Create job" })).toBeDisabled();
-    await user.type(within(form).getByLabelText(/Artwork file/), "C:Artlogo.png");
+    await user.type(within(form).getByLabelText(/Artwork 1 file/), "C:Artlogo.png");
     // Each select starts on a real choice instead of showing blank.
     expect(within(form).getByLabelText("Print mode")).toHaveValue(options.modes[0].hash);
     expect(within(form).getByLabelText("Recipe")).toHaveValue(options.recipes[0].hash);
@@ -154,11 +154,10 @@ describe("creating jobs", () => {
     await user.click(within(form).getByRole("button", { name: "Create job" }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toMatchObject({
-      artworkPath: "C:Artlogo.png",
       setup: options.setups[0].hash,
       mode: options.modes[0].hash,
       recipe: options.recipes[0].hash,
-      rotationDeg: 0,
+      placements: [{ artworkPath: "C:Artlogo.png", rotationDeg: 0 }],
       mirror: false,
     });
     await screen.findByRole("heading", { level: 1, name: created.name });
@@ -173,7 +172,7 @@ describe("creating jobs", () => {
     const form = await screen.findByRole("form", { name: "New job" });
     await user.click(within(form).getByRole("button", { name: "Browse…" }));
     await waitFor(() =>
-      expect(within(form).getByLabelText(/Artwork file/)).toHaveValue("C:/Art/logo.png"),
+      expect(within(form).getByLabelText(/Artwork 1 file/)).toHaveValue("C:/Art/logo.png"),
     );
   });
 
@@ -181,9 +180,9 @@ describe("creating jobs", () => {
     const { user } = await openLive(async () => ({}), { pickArtwork: async () => null });
     await user.click(screen.getByRole("button", { name: "New job" }));
     const form = await screen.findByRole("form", { name: "New job" });
-    await user.type(within(form).getByLabelText(/Artwork file/), "typed.png");
+    await user.type(within(form).getByLabelText(/Artwork 1 file/), "typed.png");
     await user.click(within(form).getByRole("button", { name: "Browse…" }));
-    expect(within(form).getByLabelText(/Artwork file/)).toHaveValue("typed.png");
+    expect(within(form).getByLabelText(/Artwork 1 file/)).toHaveValue("typed.png");
   });
 
   it("offers no Browse button when there is no native picker", async () => {
@@ -191,6 +190,50 @@ describe("creating jobs", () => {
     await user.click(screen.getByRole("button", { name: "New job" }));
     const form = await screen.findByRole("form", { name: "New job" });
     expect(within(form).queryByRole("button", { name: "Browse…" })).not.toBeInTheDocument();
+  });
+
+  it("places several artworks on one sheet, each with its own position", async () => {
+    const sent: { placements: Record<string, unknown>[] }[] = [];
+    const created = await createMockServices("working-day").getJob("J-0142");
+    const picks = ["C:/Art/one.png", "C:/Art/two.png"];
+    const { user } = await openLive(
+      async (req) => {
+        sent.push(req as never);
+        return created;
+      },
+      { pickArtwork: async () => picks.shift() ?? null },
+    );
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    expect(within(form).queryByRole("button", { name: /Remove artwork/ })).not.toBeInTheDocument();
+    await user.click(within(form).getByRole("button", { name: "Add artwork" }));
+    const one = within(within(form).getByRole("group", { name: "Artwork 1" }));
+    const two = within(within(form).getByRole("group", { name: "Artwork 2" }));
+    await user.click(one.getByRole("button", { name: "Browse…" }));
+    await user.click(two.getByRole("button", { name: "Browse…" }));
+    await waitFor(() => expect(two.getByLabelText(/file/)).toHaveValue("C:/Art/two.png"));
+    expect(one.getByLabelText(/file/)).toHaveValue("C:/Art/one.png");
+    // The second artwork starts beside the first, not on top of it.
+    expect(Number((two.getByLabelText("X (mm)") as HTMLInputElement).value)).toBeGreaterThan(0);
+    await user.click(within(form).getByRole("button", { name: "Create job" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0].placements.map((p) => p.artworkPath)).toEqual([
+      "C:/Art/one.png",
+      "C:/Art/two.png",
+    ]);
+  });
+
+  it("removes an artwork and will not create with an empty one", async () => {
+    const { user } = await openLive(async () => ({}));
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    await user.click(within(form).getByRole("button", { name: "Add artwork" }));
+    await user.type(within(form).getByLabelText(/Artwork 1 file/), "a.png");
+    // Artwork 2 has no file yet, so the job cannot be created.
+    expect(within(form).getByRole("button", { name: "Create job" })).toBeDisabled();
+    await user.click(within(form).getByRole("button", { name: "Remove artwork 2" }));
+    expect(within(form).queryByRole("group", { name: "Artwork 2" })).not.toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Create job" })).toBeEnabled();
   });
 
   it("draws the sheet at the job's real shape, not a fixture paper size", async () => {
@@ -202,7 +245,7 @@ describe("creating jobs", () => {
     const { user } = await openLive(async () => created, { getJob: async () => created });
     await user.click(screen.getByRole("button", { name: "New job" }));
     const form = await screen.findByRole("form", { name: "New job" });
-    await user.type(within(form).getByLabelText(/Artwork file/), "a.png");
+    await user.type(within(form).getByLabelText(/Artwork 1 file/), "a.png");
     await user.click(within(form).getByRole("button", { name: "Create job" }));
     await user.click(await screen.findByRole("tab", { name: /Sheet/ }));
     const sheet = await screen.findByRole("img", { name: /Simulated 1 x 0.250 mm sheet/ });
@@ -215,7 +258,7 @@ describe("creating jobs", () => {
     });
     await user.click(screen.getByRole("button", { name: "New job" }));
     const form = await screen.findByRole("form", { name: "New job" });
-    await user.type(within(form).getByLabelText(/Artwork file/), "x.png");
+    await user.type(within(form).getByLabelText(/Artwork 1 file/), "x.png");
     await user.click(within(form).getByRole("button", { name: "Create job" }));
     expect(await within(form).findByRole("alert")).toHaveTextContent("Cannot read 'x.png'");
     expect(screen.getByRole("form", { name: "New job" })).toBeInTheDocument();

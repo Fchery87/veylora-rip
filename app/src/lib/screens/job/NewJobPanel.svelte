@@ -1,7 +1,7 @@
 <script lang="ts">
   import Button from "../../components/Button.svelte";
   import type { AppStore } from "../../store.svelte";
-  import type { CreationOptions, NewJobRequest } from "../../services/types";
+  import { MAX_PLACEMENTS, type CreationOptions, type NewJobRequest } from "../../services/types";
 
   let { store, options }: { store: AppStore; options: CreationOptions } = $props();
 
@@ -23,53 +23,87 @@
   const mode = $derived(modeChoice);
   const recipe = $derived(recipeChoice);
 
-  let artworkPath = $state("");
+  type Row = {
+    key: number;
+    artworkPath: string;
+    xMm: number;
+    yMm: number;
+    widthMm: number;
+    heightMm: number;
+    rotationDeg: 0 | 90 | 180 | 270;
+  };
+  let nextKey = 1;
+  const blankRow = (xMm = 0): Row => ({
+    key: nextKey++,
+    artworkPath: "",
+    xMm,
+    yMm: 0,
+    widthMm: 100,
+    heightMm: 100,
+    rotationDeg: 0,
+  });
+  let rows = $state<Row[]>([blankRow()]);
   let pageWidthMm = $state(297);
   let pageHeightMm = $state(420);
-  let xMm = $state(0);
-  let yMm = $state(0);
-  let widthMm = $state(100);
-  let heightMm = $state(100);
-  let rotationDeg = $state<0 | 90 | 180 | 270>(0);
   let mirror = $state(false);
   let busy = $state(false);
+
+  // A new artwork starts beside the last one rather than on top of it; the operator moves it from
+  // there. Preflight, not this form, judges whether everything fits.
+  function addRow() {
+    const last = rows[rows.length - 1];
+    rows.push(blankRow(last ? last.xMm + last.widthMm : 0));
+  }
+  function removeRow(key: number) {
+    rows = rows.filter((r) => r.key !== key);
+  }
 
   const missing = $derived(
     options.setups.length === 0 || options.modes.length === 0 || options.recipes.length === 0,
   );
-  const canSubmit = $derived(!busy && !missing && artworkPath.trim() !== "" && !!setup && !!mode && !!recipe);
+  const canSubmit = $derived(
+    !busy &&
+      !missing &&
+      rows.length > 0 &&
+      rows.every((r) => r.artworkPath.trim() !== "") &&
+      !!setup &&
+      !!mode &&
+      !!recipe,
+  );
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     busy = true;
     const request: NewJobRequest = {
-      artworkPath: artworkPath.trim(),
       setup,
       mode,
       recipe,
       pageWidthMm,
       pageHeightMm,
-      xMm,
-      yMm,
-      widthMm,
-      heightMm,
-      rotationDeg,
+      placements: rows.map((r) => ({
+        artworkPath: r.artworkPath.trim(),
+        xMm: r.xMm,
+        yMm: r.yMm,
+        widthMm: r.widthMm,
+        heightMm: r.heightMm,
+        rotationDeg: r.rotationDeg,
+      })),
       mirror,
     };
     await store.createJob(request);
     busy = false;
   }
 
-  async function browse() {
+  async function browse(row: Row) {
     const chosen = await store.pickArtwork();
-    if (chosen) artworkPath = chosen;
+    if (chosen) row.artworkPath = chosen;
   }
 </script>
 
 <form class="new" onsubmit={submit} aria-label="New job">
   <h2>New job</h2>
   <p class="muted">
-    Place one artwork on a sheet. The job is a draft: nothing is rendered or sent until you
+    Place one or more artworks on a sheet. The job is a draft: nothing is rendered or sent until you
     preflight and render it.
   </p>
 
@@ -82,16 +116,6 @@
           : "recipe"} yet. Import one first (for example with the command line), then come back.
     </p>
   {/if}
-
-  <div class="pick">
-    <label>
-      Artwork file (PNG path)
-      <input type="text" bind:value={artworkPath} placeholder="C:\Art\logo.png" spellcheck="false" />
-    </label>
-    {#if store.canPickArtwork}
-      <Button onclick={browse} disabled={busy}>Browse…</Button>
-    {/if}
-  </div>
 
   <div class="grid">
     <label>
@@ -125,20 +149,55 @@
     <label>Width <input type="number" step="any" min="0" bind:value={pageWidthMm} /></label>
     <label>Height <input type="number" step="any" min="0" bind:value={pageHeightMm} /></label>
   </fieldset>
-  <fieldset>
-    <legend>Artwork placement (mm)</legend>
-    <label>X <input type="number" step="any" bind:value={xMm} /></label>
-    <label>Y <input type="number" step="any" bind:value={yMm} /></label>
-    <label>Width <input type="number" step="any" min="0" bind:value={widthMm} /></label>
-    <label>Height <input type="number" step="any" min="0" bind:value={heightMm} /></label>
-    <label>
-      Rotation
-      <select bind:value={rotationDeg}>
-        {#each [0, 90, 180, 270] as r (r)}<option value={r}>{r}°</option>{/each}
-      </select>
-    </label>
-    <label class="check"><input type="checkbox" bind:checked={mirror} /> Mirror the sheet</label>
-  </fieldset>
+  <label class="check"><input type="checkbox" bind:checked={mirror} /> Mirror the sheet</label>
+
+  {#each rows as row, i (row.key)}
+    <fieldset class="artwork">
+      <legend>Artwork {i + 1}</legend>
+      <div class="pick">
+        <label>
+          Artwork {i + 1} file (PNG path)
+          <input
+            type="text"
+            bind:value={row.artworkPath}
+            placeholder="C:\Art\logo.png"
+            spellcheck="false"
+          />
+        </label>
+        {#if store.canPickArtwork}
+          <Button onclick={() => browse(row)} disabled={busy}>Browse…</Button>
+        {/if}
+      </div>
+      <div class="dims">
+        <label>X (mm) <input type="number" step="any" bind:value={row.xMm} /></label>
+        <label>Y (mm) <input type="number" step="any" bind:value={row.yMm} /></label>
+        <label>
+          Width (mm)
+          <input type="number" step="any" min="0" bind:value={row.widthMm} />
+        </label>
+        <label>
+          Height (mm)
+          <input type="number" step="any" min="0" bind:value={row.heightMm} />
+        </label>
+        <label>
+          Rotation
+          <select bind:value={row.rotationDeg}>
+            {#each [0, 90, 180, 270] as r (r)}<option value={r}>{r}°</option>{/each}
+          </select>
+        </label>
+      </div>
+      {#if rows.length > 1}
+        <div>
+          <Button onclick={() => removeRow(row.key)} aria-label="Remove artwork {i + 1}">
+            Remove
+          </Button>
+        </div>
+      {/if}
+    </fieldset>
+  {/each}
+  {#if rows.length < MAX_PLACEMENTS}
+    <div><Button onclick={addRow}>Add artwork</Button></div>
+  {/if}
 
   {#if store.error}<p class="error" role="alert">{store.error}</p>{/if}
 
@@ -180,6 +239,16 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 12px;
+  }
+  .artwork {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dims {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+  }
+  fieldset {
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 10px 12px;
