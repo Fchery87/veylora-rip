@@ -133,6 +133,46 @@ pub struct RenderOutcome {
     pub manifest: RenderManifest,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogSetup {
+    pub hash: ContentHash,
+    pub id: String,
+    pub physically_verified: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogMode {
+    pub hash: ContentHash,
+    pub id: String,
+    pub setup_id: String,
+    pub status: veylora_device::mode::ModeStatus,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogRecipe {
+    pub hash: ContentHash,
+    pub id: String,
+    pub revision: u32,
+    pub retired: bool,
+}
+
+/// Stored records a new job can be built from.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Catalog {
+    pub setups: Vec<CatalogSetup>,
+    pub modes: Vec<CatalogMode>,
+    pub recipes: Vec<CatalogRecipe>,
+}
+
+/// A run copied out of the workspace by `export_latest_run`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportedRun {
+    pub dir: PathBuf,
+    pub run: String,
+    pub files: usize,
+    pub bytes: u64,
+}
+
 /// What a job's stored device setup and print mode say about themselves.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JobDevice {
@@ -795,6 +835,140 @@ impl Workspace {
                 .then_with(|| a.1.to_string().cmp(&b.1.to_string()))
         });
         Ok(keyed.into_iter().map(|(_, id)| id).collect())
+    }
+
+    /// What is stored and can be chosen when creating a job.
+    pub fn catalog(&self) -> WorkflowResult<Catalog> {
+        let mut setups = Vec::new();
+        for hash in self.devices.list_setups()? {
+            let setup = self.devices.get_setup(&hash)?;
+            setups.push(CatalogSetup {
+                hash,
+                id: setup.id().to_string(),
+                physically_verified: setup.require_production().is_ok(),
+            });
+        }
+        let mut modes = Vec::new();
+        for hash in self.devices.list_modes()? {
+            let mode = self.devices.get_mode(&hash)?;
+            modes.push(CatalogMode {
+                hash,
+                id: mode.id().to_string(),
+                setup_id: mode.device_setup().to_string(),
+                status: mode.status(),
+            });
+        }
+        let mut recipes = Vec::new();
+        for hash in self.records.list_recipes()? {
+            let recipe = self.records.get_recipe(&hash)?;
+            recipes.push(CatalogRecipe {
+                hash,
+                id: recipe.inputs().id.to_string(),
+                revision: recipe.inputs().revision,
+                retired: matches!(
+                    recipe.inputs().status,
+                    veylora_domain::recipe::RecipeStatus::Retired
+                ),
+            });
+        }
+        Ok(Catalog {
+            setups,
+            modes,
+            recipes,
+        })
+    }
+
+    fn exports_dir(&self) -> PathBuf {
+        self.root.join("exports")
+    }
+
+    /// Folders this job's runs were exported to, oldest first.
+    pub fn exports(&self, id: JobId) -> WorkflowResult<Vec<PathBuf>> {
+        self.jobs.get(id)?;
+        let prefix = format!("{id}-");
+        let mut found = Vec::new();
+        match std::fs::read_dir(self.exports_dir()) {
+            Ok(entries) => {
+                for entry in entries {
+                    let entry = entry?;
+                    let name = entry.file_name();
+                    let name = name.to_string_lossy();
+                    if name.starts_with(&prefix)
+                        && !name.ends_with(".partial")
+                        && entry.path().is_dir()
+                    {
+                        found.push(entry.path());
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.into()),
+        }
+        found.sort();
+        Ok(found)
+    }
+
+    /// Copies the newest completed run to `exports/<job>-<run>`: the manifest and every file it
+    /// names, byte for byte. Diagnostic output only; these are not printer bytes and nothing is
+    /// sent anywhere, so no submission attempt is recorded. A damaged run is refused, an existing
+    /// export is never overwritten, and the copy is re-verified before it is shown to exist.
+    pub fn export_latest_run(&self, id: JobId) -> WorkflowResult<ExportedRun> {
+        let inspected = self.inspect_latest_run(id)?.ok_or_else(|| {
+            WorkflowError::Invalid("Nothing to export: the job has no completed render.".into())
+        })?;
+        if !inspected.report.verified {
+            return Err(WorkflowError::Invalid(format!(
+                "Run {} failed verification and is not exported: {}",
+                inspected.run,
+                inspected.report.problems.join("; ")
+            )));
+        }
+        let source = self.artifacts_dir(id).join(&inspected.run);
+        let dest = self.exports_dir().join(format!("{id}-{}", inspected.run));
+        if dest.exists() {
+            return Err(WorkflowError::Invalid(format!(
+                "Run {} is already exported to {}.",
+                inspected.run,
+                dest.display()
+            )));
+        }
+        let partial = self
+            .exports_dir()
+            .join(format!("{id}-{}.partial", inspected.run));
+        let _ = std::fs::remove_dir_all(&partial);
+        std::fs::create_dir_all(&partial)?;
+        let m = &inspected.report.manifest;
+        let mut names: Vec<&str> = vec![MANIFEST_NAME];
+        for stage in [&m.logical_planes, &m.physical_planes, &m.screened_planes] {
+            names.extend(stage.files.iter().map(|f| f.name.as_str()));
+        }
+        let copied = (|| -> WorkflowResult<u64> {
+            let mut bytes = 0;
+            for name in &names {
+                bytes += std::fs::copy(source.join(name), partial.join(name))?;
+            }
+            let again = crate::inspect::inspect_artifacts(&partial)?;
+            if !again.verified {
+                return Err(WorkflowError::Invalid(format!(
+                    "The exported copy did not verify: {}",
+                    again.problems.join("; ")
+                )));
+            }
+            std::fs::rename(&partial, &dest)?;
+            Ok(bytes)
+        })();
+        match copied {
+            Ok(bytes) => Ok(ExportedRun {
+                dir: dest,
+                run: inspected.run,
+                files: names.len(),
+                bytes,
+            }),
+            Err(e) => {
+                let _ = std::fs::remove_dir_all(&partial);
+                Err(e)
+            }
+        }
     }
 
     /// Every submission attempt of a job at its latest recorded state, oldest first.

@@ -1,6 +1,7 @@
 //! Job list and job detail read from a real workspace. Nothing here is fixture data and nothing
 //! is approximated: a value the UI model cannot represent exactly is an error, not a guess.
 
+use serde::{Deserialize, Serialize};
 use veylora_device::mode::ModeStatus;
 use veylora_domain::{
     errors::ErrorCode,
@@ -9,10 +10,12 @@ use veylora_domain::{
     layout::Rotation,
     lifecycle::JobState as DomainState,
     preflight::{Finding as DomainFinding, Severity as DomainSeverity},
+    provenance::ContentHash,
     recipe::WhiteSource,
 };
 use veylora_workflow::{
-    PreflightOptions, RenderOptions, ReviewResolution, WorkflowError, Workspace,
+    JobSpec, LayoutSpec, PlacementSpec, PreflightOptions, RenderOptions, ReviewResolution,
+    WorkflowError, Workspace,
 };
 
 use crate::state::{
@@ -178,7 +181,7 @@ pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
         value,
     };
     let recipe = &snapshot.inputs().recipe.inputs();
-    let provenance = vec![
+    let mut provenance = vec![
         row("Device setup", report.setup.to_string()),
         row("Print mode", report.mode.to_string()),
         row(
@@ -193,6 +196,12 @@ pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
             report.submission_attempts.len().to_string(),
         ),
     ];
+    for dir in ws.exports(id).map_err(|e| e.to_string())? {
+        provenance.push(row(
+            "Exported to",
+            format!("{} (diagnostic planes, not printer bytes)", dir.display()),
+        ));
+    }
     Ok(JobDetail {
         summary: summary(ws, id)?,
         placements,
@@ -202,6 +211,182 @@ pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
         white_policy: white_policy(&snapshot)?,
         rendered: !report.renders.is_empty(),
     })
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupOption {
+    pub hash: String,
+    pub id: String,
+    pub verified: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModeOption {
+    pub hash: String,
+    pub id: String,
+    pub setup_id: String,
+    pub maturity: ModeMaturity,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeOption {
+    pub hash: String,
+    pub id: String,
+    pub revision: u32,
+    pub retired: bool,
+}
+
+/// What can be chosen when creating a job: the records stored in the workspace.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreationOptions {
+    pub setups: Vec<SetupOption>,
+    pub modes: Vec<ModeOption>,
+    pub recipes: Vec<RecipeOption>,
+}
+
+pub fn creation_options(ws: &Workspace) -> Result<CreationOptions, String> {
+    let c = ws.catalog().map_err(|e| e.to_string())?;
+    Ok(CreationOptions {
+        setups: c
+            .setups
+            .into_iter()
+            .map(|s| SetupOption {
+                hash: s.hash.to_string(),
+                id: s.id,
+                verified: s.physically_verified,
+            })
+            .collect(),
+        modes: c
+            .modes
+            .into_iter()
+            .map(|m| ModeOption {
+                hash: m.hash.to_string(),
+                id: m.id,
+                setup_id: m.setup_id,
+                maturity: maturity(m.status),
+            })
+            .collect(),
+        recipes: c
+            .recipes
+            .into_iter()
+            .map(|r| RecipeOption {
+                hash: r.hash.to_string(),
+                id: r.id,
+                revision: r.revision,
+                retired: r.retired,
+            })
+            .collect(),
+    })
+}
+
+/// One artwork placed on one sheet. Sizes are millimetres as the operator thinks of them.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewJobRequest {
+    pub artwork_path: String,
+    pub setup: String,
+    pub mode: String,
+    pub recipe: String,
+    pub page_width_mm: f64,
+    pub page_height_mm: f64,
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub width_mm: f64,
+    pub height_mm: f64,
+    pub rotation_deg: u16,
+    pub mirror: bool,
+}
+
+/// An artwork file may not exceed this, matching the CLI's input bound.
+const MAX_ARTWORK_BYTES: u64 = 64 * 1024 * 1024;
+/// The largest single dimension accepted, in millimetres (50 m).
+const MAX_MM: f64 = 50_000.0;
+
+fn um(label: &str, mm: f64, allow_negative: bool) -> Result<i64, String> {
+    if !mm.is_finite() || mm.abs() > MAX_MM || (!allow_negative && mm <= 0.0) {
+        return Err(format!(
+            "{label} must be a {}number of millimetres no larger than {MAX_MM}.",
+            if allow_negative { "" } else { "positive " }
+        ));
+    }
+    Ok((mm * 1000.0).round() as i64)
+}
+
+fn parse_hash(label: &str, text: &str) -> Result<ContentHash, String> {
+    text.parse()
+        .map_err(|_| format!("{label} is not a valid content hash."))
+}
+
+/// Creates a draft job from one artwork file. Everything is checked before anything is stored, so a
+/// refused request leaves no job behind; the artwork is kept by content hash.
+pub fn create_job(ws: &Workspace, request: &NewJobRequest) -> Result<JobDetail, String> {
+    let page_w = um("Sheet width", request.page_width_mm, false)?;
+    let page_h = um("Sheet height", request.page_height_mm, false)?;
+    let x = um("Position x", request.x_mm, true)?;
+    let y = um("Position y", request.y_mm, true)?;
+    let w = um("Artwork width", request.width_mm, false)?;
+    let h = um("Artwork height", request.height_mm, false)?;
+    let rotation = match request.rotation_deg {
+        0 => Rotation::Deg0,
+        90 => Rotation::Deg90,
+        180 => Rotation::Deg180,
+        270 => Rotation::Deg270,
+        other => return Err(format!("Rotation must be 0, 90, 180 or 270, not {other}.")),
+    };
+    let setup = parse_hash("Setup", &request.setup)?;
+    let mode = parse_hash("Print mode", &request.mode)?;
+    let recipe = parse_hash("Recipe", &request.recipe)?;
+
+    let path = std::path::Path::new(&request.artwork_path);
+    let meta = std::fs::metadata(path)
+        .map_err(|e| format!("Cannot read '{}': {e}", request.artwork_path))?;
+    if !meta.is_file() {
+        return Err(format!("'{}' is not a file.", request.artwork_path));
+    }
+    if meta.len() > MAX_ARTWORK_BYTES {
+        return Err(format!(
+            "'{}' is larger than the {} MiB limit.",
+            request.artwork_path,
+            MAX_ARTWORK_BYTES / 1024 / 1024
+        ));
+    }
+    let bytes =
+        std::fs::read(path).map_err(|e| format!("Cannot read '{}': {e}", request.artwork_path))?;
+    let artwork = ws.import_asset(&bytes).map_err(|e| e.to_string())?;
+
+    let spec = JobSpec {
+        schema_version: 1,
+        job_id: None,
+        created_at_ms: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as u64),
+        setup,
+        mode,
+        recipe,
+        assets: std::collections::BTreeMap::from([("artwork".to_owned(), artwork)]),
+        masks: std::collections::BTreeMap::new(),
+        layout: LayoutSpec {
+            page_width_um: u32::try_from(page_w).map_err(|_| "Sheet width is too large.")?,
+            page_height_um: u32::try_from(page_h).map_err(|_| "Sheet height is too large.")?,
+            mirror: request.mirror,
+            placements: vec![PlacementSpec {
+                asset: "artwork".to_owned(),
+                mask: None,
+                x_um: x,
+                y_um: y,
+                width_um: u32::try_from(w).map_err(|_| "Artwork width is too large.")?,
+                height_um: u32::try_from(h).map_err(|_| "Artwork height is too large.")?,
+                rotation,
+                crop: None,
+            }],
+        },
+    };
+    let created = ws.create_job(&spec).map_err(|e| e.to_string())?;
+    job_detail(ws, &created.job_id.to_string())
 }
 
 /// Acknowledgements the operator has made this session, per job. They are shown at once and
@@ -546,6 +731,14 @@ pub fn run_preflight(
         .map(|f| view_finding(f, acknowledged, &at))
         .collect();
     Ok(detail)
+}
+
+/// The file sink: copies the newest verified run to a new folder in the workspace. It is diagnostic
+/// output, not printer bytes (there is no encoder), and nothing is sent, so it is not an attempt.
+pub fn write_to_file_sink(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
+    let id = parse_id(job_id)?;
+    ws.export_latest_run(id).map_err(|e| e.to_string())?;
+    job_detail(ws, job_id)
 }
 
 /// Renders the job with the acknowledged confirmations, which the render records in its manifest.

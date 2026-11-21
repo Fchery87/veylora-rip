@@ -180,7 +180,38 @@ export type ChannelTestResult = "matched" | "mismatch";
 
 export const WHITE_MASK_SOURCES = ["Auto from alpha", "Whole placement"] as const;
 
+export interface CreationOptions {
+  setups: { hash: string; id: string; verified: boolean }[];
+  modes: {
+    hash: string;
+    id: string;
+    setupId: string;
+    maturity: "experimental" | "validated" | "retired";
+  }[];
+  recipes: { hash: string; id: string; revision: number; retired: boolean }[];
+}
+
+/** One artwork placed on one sheet; sizes in millimetres. */
+export interface NewJobRequest {
+  artworkPath: string;
+  setup: string;
+  mode: string;
+  recipe: string;
+  pageWidthMm: number;
+  pageHeightMm: number;
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+  rotationDeg: 0 | 90 | 180 | 270;
+  mirror: boolean;
+}
+
 export interface AppServices {
+  /** Null when jobs cannot be created here (fixture data). */
+  getCreationOptions(): Promise<CreationOptions | null>;
+  /** Creates a draft job from one artwork file. Rejects with the reason when refused. */
+  createJob(request: NewJobRequest): Promise<JobDetail>;
   getCapabilities(): Promise<CapabilityState>;
   listJobs(): Promise<JobSummary[]>;
   getJob(jobId: string): Promise<JobDetail>;

@@ -7,6 +7,7 @@
   import type { ArtworkCandidate } from "../services/types";
   import AttemptsPanel from "./job/AttemptsPanel.svelte";
   import ImportPanel from "./job/ImportPanel.svelte";
+  import NewJobPanel from "./job/NewJobPanel.svelte";
   import InspectPanel from "./job/InspectPanel.svelte";
   import JobHeader from "./job/JobHeader.svelte";
   import PreflightPanel from "./job/PreflightPanel.svelte";
@@ -27,9 +28,19 @@
 </script>
 
 <div class="jobs">
-  <JobLedger jobs={store.jobs} selectedId={job?.id ?? null} onSelect={(id) => store.selectJob(id)} />
+  <JobLedger
+    jobs={store.jobs}
+    selectedId={job?.id ?? null}
+    onSelect={(id) => {
+      store.cancelCreating();
+      store.selectJob(id);
+    }}
+    onNew={store.creationOptions ? () => store.startCreating() : undefined}
+  />
   <section class="detail" aria-label="Job detail">
-    {#if job && caps && store.views}
+    {#if store.creating && store.creationOptions}
+      <NewJobPanel {store} options={store.creationOptions} />
+    {:else if job && caps && store.views}
       {@const views = store.views}
       <JobHeader {store} {job} {caps} actions={views.actions} preflight={views.preflight} />
       <Tabs tabs={store.tabs} value={store.tab} onValueChange={(v) => (store.tab = v as JobTabId)}>

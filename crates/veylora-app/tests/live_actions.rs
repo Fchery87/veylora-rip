@@ -297,3 +297,63 @@ fn a_mode_without_white_offers_only_no_white() {
         vec![veylora_app_lib::view_models::WhitePolicyKind::NoWhite]
     );
 }
+
+#[test]
+fn render_is_offered_after_preflight_moves_the_job_to_held() {
+    let (ws, id) = job(|_| {});
+    // Preflight records the job as Held; Render must still be available, not "already rendered".
+    let d = live::run_preflight(&ws, &id, &[]).unwrap();
+    assert_eq!(d.summary.state, JobState::Held);
+    let caps = live::capabilities(&ws, &id).unwrap();
+    let open = job_actions::present(&caps, &d).render_and_hold;
+    assert!(!open.enabled);
+    assert!(
+        open.reason
+            .as_deref()
+            .unwrap()
+            .contains("Confirm 1 finding"),
+        "{open:?}"
+    );
+    let confirm = d
+        .findings
+        .iter()
+        .find(|f| f.severity == Severity::Confirm)
+        .unwrap();
+    let d = live::run_preflight(&ws, &id, std::slice::from_ref(&confirm.id)).unwrap();
+    assert!(job_actions::present(&caps, &d).render_and_hold.enabled);
+}
+
+#[test]
+fn the_file_sink_export_writes_a_verified_folder_and_is_listed_in_provenance() {
+    let (ws, id) = job(|_| {});
+    let confirm = live::run_preflight(&ws, &id, &[])
+        .unwrap()
+        .findings
+        .into_iter()
+        .find(|f| f.severity == Severity::Confirm)
+        .unwrap();
+    let d = live::render_job(&ws, &id, std::slice::from_ref(&confirm.id)).unwrap();
+    let caps = live::capabilities(&ws, &id).unwrap();
+    assert!(job_actions::present(&caps, &d).write_to_file_sink.enabled);
+    let d = live::write_to_file_sink(&ws, &id).unwrap();
+    let row = d
+        .provenance
+        .iter()
+        .find(|r| r.label == "Exported to")
+        .expect("export row");
+    assert!(row.value.contains("exports"), "{}", row.value);
+    assert!(row.value.contains("diagnostic"), "{}", row.value);
+    assert!(
+        d.attempts.is_empty(),
+        "an export sends nothing, so it is not an attempt"
+    );
+    assert!(live::write_to_file_sink(&ws, &id)
+        .unwrap_err()
+        .contains("already exported"));
+}
+
+#[test]
+fn the_file_sink_refuses_a_job_that_was_never_rendered() {
+    let (ws, id) = job(|_| {});
+    assert!(live::write_to_file_sink(&ws, &id).is_err());
+}

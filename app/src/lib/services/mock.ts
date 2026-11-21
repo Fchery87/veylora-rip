@@ -313,6 +313,8 @@ export function createMockServices(scenario: Scenario = "working-day"): MockServ
     setInspectComposite: async (id, selection, on) =>
       inspectView(find(id), capabilities(jobs, setup, modeId), setInspectComposite(selection, on)),
     getReviewView: async (id) => reviewView(find(id), capabilities(jobs, setup, modeId)),
+    getCreationOptions: async () => null,
+    createJob: () => Promise.reject(new Error("Creating jobs needs a live workspace.")),
     getDeviceSetup: async () => setup,
     createDeviceSetup: async (name) => {
       setup = newSetup(name);

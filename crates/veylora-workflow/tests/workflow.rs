@@ -550,3 +550,82 @@ fn listing_ignores_stray_files_and_reading_an_unknown_job_is_an_error() {
         "00000000-0000-4000-8000-000000000000".parse().unwrap();
     assert!(f.ws.job_snapshot(unknown).is_err());
 }
+
+#[test]
+fn an_export_copies_the_verified_run_to_a_new_folder_and_re_verifies_it() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    assert!(f.ws.exports(id).unwrap().is_empty());
+    assert!(f.ws.export_latest_run(id).is_err(), "nothing rendered yet");
+    let out = f.ws.render(id, &RenderOptions::default()).unwrap();
+    let exported = f.ws.export_latest_run(id).unwrap();
+    assert!(exported.dir.starts_with(f.ws.root().join("exports")));
+    assert!(exported.dir.is_dir());
+    let again = inspect_artifacts(&exported.dir).unwrap();
+    assert!(again.verified, "{:?}", again.problems);
+    assert_eq!(again.manifest, out.manifest);
+    assert_eq!(
+        exported.files,
+        1 + out.manifest.logical_planes.files.len()
+            + out.manifest.physical_planes.files.len()
+            + out.manifest.screened_planes.files.len()
+    );
+    assert_eq!(f.ws.exports(id).unwrap(), vec![exported.dir.clone()]);
+    // Exports never touch the job's history: nothing was sent anywhere.
+    assert!(f.ws.report(id).unwrap().submission_attempts.is_empty());
+}
+
+#[test]
+fn an_export_is_never_overwritten_and_a_damaged_run_is_not_exported() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    let out = f.ws.render(id, &RenderOptions::default()).unwrap();
+    let first = f.ws.export_latest_run(id).unwrap();
+    let err = f.ws.export_latest_run(id).unwrap_err().to_string();
+    assert!(err.contains("already exported"), "{err}");
+    assert!(first.dir.is_dir());
+
+    // A second, damaged run is refused and leaves no partial folder behind.
+    let second = f.ws.render(id, &RenderOptions::default()).unwrap();
+    let file = second.dir.join("logical-w.f32");
+    let mut bytes = std::fs::read(&file).unwrap();
+    bytes[0] ^= 0xff;
+    std::fs::write(&file, bytes).unwrap();
+    let err = f.ws.export_latest_run(id).unwrap_err().to_string();
+    assert!(err.contains("logical-w.f32"), "{err}");
+    assert_eq!(f.ws.exports(id).unwrap().len(), 1);
+    let leftovers: Vec<_> = std::fs::read_dir(f.ws.root().join("exports"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
+        .collect();
+    assert!(
+        leftovers.iter().all(|n| !n.ends_with(".partial")),
+        "{leftovers:?}"
+    );
+    let _ = out;
+}
+
+#[test]
+fn the_catalog_lists_imported_setups_modes_and_recipes() {
+    let ws = Workspace::open(dir("ws-catalog")).unwrap();
+    let c = ws.catalog().unwrap();
+    assert!(c.setups.is_empty() && c.modes.is_empty() && c.recipes.is_empty());
+
+    let s = setup();
+    let m = mode(s.id());
+    let r = recipe();
+    let setup_hash = ws.import_setup(&s.to_record()).unwrap();
+    let mode_hash = ws.import_mode(&m.to_record()).unwrap();
+    let recipe_hash = ws.import_recipe(&r).unwrap();
+    let c = ws.catalog().unwrap();
+    assert_eq!(c.setups.len(), 1);
+    assert_eq!(c.setups[0].hash, setup_hash);
+    assert_eq!(c.setups[0].id, s.id().to_string());
+    assert!(!c.setups[0].physically_verified);
+    assert_eq!(c.modes.len(), 1);
+    assert_eq!(c.modes[0].hash, mode_hash);
+    assert_eq!(c.modes[0].setup_id, s.id().to_string());
+    assert_eq!(c.recipes.len(), 1);
+    assert_eq!(c.recipes[0].hash, recipe_hash);
+    assert_eq!(c.recipes[0].revision, 1);
+}

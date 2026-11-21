@@ -241,6 +241,29 @@ fn live_resolve_review(
 }
 
 #[tauri::command]
+fn live_write_to_file_sink(
+    live: State<LiveWorkspace>,
+    job_id: String,
+) -> Result<JobDetail, String> {
+    veylora_app_lib::live::write_to_file_sink(&live.open()?, &job_id)
+}
+
+#[tauri::command]
+fn live_creation_options(
+    live: State<LiveWorkspace>,
+) -> Result<veylora_app_lib::live::CreationOptions, String> {
+    veylora_app_lib::live::creation_options(&live.open()?)
+}
+
+#[tauri::command]
+fn live_create_job(
+    live: State<LiveWorkspace>,
+    request: veylora_app_lib::live::NewJobRequest,
+) -> Result<JobDetail, String> {
+    veylora_app_lib::live::create_job(&live.open()?, &request)
+}
+
+#[tauri::command]
 fn live_render(
     live: State<LiveWorkspace>,
     acks: State<Acks>,
@@ -326,6 +349,9 @@ fn main() {
             live_get_job_actions,
             live_acknowledge_finding,
             live_render,
+            live_creation_options,
+            live_create_job,
+            live_write_to_file_sink,
             live_get_review_view,
             live_resolve_review,
             live_toggle_inspect_plane,

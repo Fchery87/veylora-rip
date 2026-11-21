@@ -22,6 +22,7 @@ pub use support::SupportBundleOptions;
 pub use update::UpdateBlocker;
 pub use veylora_persistence::AttemptView;
 pub use workspace::{
-    asset_id_for, AttemptSummary, InspectedRun, JobCreated, JobDevice, JobReport, PreflightOptions,
-    PreflightReport, RenderOptions, RenderOutcome, RenderSummary, Workspace, DIAGNOSTIC_BACKEND,
+    asset_id_for, AttemptSummary, Catalog, CatalogMode, CatalogRecipe, CatalogSetup, ExportedRun,
+    InspectedRun, JobCreated, JobDevice, JobReport, PreflightOptions, PreflightReport,
+    RenderOptions, RenderOutcome, RenderSummary, Workspace, DIAGNOSTIC_BACKEND,
 };

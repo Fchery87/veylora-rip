@@ -56,6 +56,8 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
   return {
     ...fallback,
     getCapabilities: () => invoke<CapabilityState>("live_get_capabilities"),
+    getCreationOptions: () => invoke("live_creation_options"),
+    createJob: (request) => invoke("live_create_job", { request }),
     listJobs: () => invoke("live_list_jobs"),
     getJob: (jobId) => invoke("live_get_job", { jobId }),
     getPreflightView: (jobId) => invoke("live_get_preflight_view", { jobId }),
@@ -69,7 +71,7 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
     acknowledgeFinding: (jobId, findingId) =>
       invoke("live_acknowledge_finding", { jobId, findingId }),
     renderAndHold: (jobId) => invoke("live_render", { jobId }),
-    writeToFileSink: () => NOT_LIVE("Writing to the file sink"),
+    writeToFileSink: (jobId) => invoke("live_write_to_file_sink", { jobId }),
     releaseToPrinter: () => NOT_LIVE("Release to the printer"),
     resolveReview: (attemptId, outcome) => invoke("live_resolve_review", { attemptId, outcome }),
     setWhitePolicy: () => NOT_LIVE("Changing the white policy"),
