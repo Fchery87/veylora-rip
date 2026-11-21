@@ -102,10 +102,23 @@ export class AppStore {
     return { preflight, actions, review };
   }
 
+  /**
+   * Reads a job after its views are loaded. Loading the preflight view can record a change (a
+   * draft that passes becomes held), so the job and the list are read again afterwards; reading
+   * them first would show the state from before.
+   */
+  private async settled(id: string) {
+    const views = await this.loadViews(id);
+    const [job, jobs] = await Promise.all([this.#services.getJob(id), this.#services.listJobs()]);
+    return { views, job, jobs };
+  }
+
   /** Keep the active tab valid when the job's state changes which tabs exist. */
-  private async applyJob(job: JobDetail) {
+  private async applyJob(loaded: JobDetail) {
+    const { views, job, jobs } = await this.settled(loaded.id);
     this.markFreshAttempts(this.job, job);
-    this.views = await this.loadViews(job.id);
+    this.views = views;
+    this.jobs = jobs;
     this.job = job;
     const current = this.tabs.find((t) => t.id === this.tab);
     if (!current || current.disabled) this.tab = defaultTab(job);
@@ -124,8 +137,9 @@ export class AppStore {
 
   async selectJob(id: string) {
     this.section = "jobs";
-    const job = await this.#services.getJob(id);
-    this.views = await this.loadViews(id);
+    const { views, job, jobs } = await this.settled(id);
+    this.views = views;
+    this.jobs = jobs;
     this.job = job;
     this.selectedPlacementId = null;
     this.tab = defaultTab(job);
@@ -164,10 +178,19 @@ export class AppStore {
     }
   }
 
-  /** Opens the form. Nothing is created until it is submitted. */
-  startCreating() {
+  /**
+   * Opens the form. Nothing is created until it is submitted. The records a job can be built from
+   * are read again, because setups, modes and recipes can be added from outside while the app is
+   * open (the command line), and the options were last read at startup.
+   */
+  async startCreating() {
     this.error = "";
     this.creating = true;
+    try {
+      this.creationOptions = (await this.#services.getCreationOptions()) ?? this.creationOptions;
+    } catch {
+      // Keep the options already shown; creating from them still works.
+    }
   }
 
   cancelCreating() {
