@@ -733,6 +733,110 @@ pub fn run_preflight(
     Ok(detail)
 }
 
+/// A retained plane as a PNG the viewer can show. `scale` source pixels make one picture pixel.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaneImage {
+    pub data_url: String,
+    pub width: usize,
+    pub height: usize,
+    pub scale: usize,
+    pub source_width: usize,
+    pub source_height: usize,
+}
+
+/// Exact values (0 to 1) of a small rectangle of a retained plane, for the loupe.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaneValues {
+    pub x: usize,
+    pub y: usize,
+    pub width: usize,
+    pub height: usize,
+    pub values: Vec<f64>,
+}
+
+pub fn plane_image(
+    ws: &Workspace,
+    job_id: &str,
+    file: &str,
+    max_px: usize,
+) -> Result<PlaneImage, String> {
+    let o = ws
+        .plane_overview(parse_id(job_id)?, file, max_px)
+        .map_err(|e| e.to_string())?;
+    Ok(PlaneImage {
+        data_url: format!("data:image/png;base64,{}", base64_encode(&o.png)),
+        width: o.width,
+        height: o.height,
+        scale: o.scale,
+        source_width: o.source_width,
+        source_height: o.source_height,
+    })
+}
+
+pub fn plane_window(
+    ws: &Workspace,
+    job_id: &str,
+    file: &str,
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+) -> Result<PlaneValues, String> {
+    let w = ws
+        .plane_window(parse_id(job_id)?, file, x, y, width, height)
+        .map_err(|e| e.to_string())?;
+    Ok(PlaneValues {
+        x: w.x,
+        y: w.y,
+        width: w.width,
+        height: w.height,
+        values: w.values,
+    })
+}
+
+const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+pub fn base64_encode(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, b)| n | u32::from(*b) << (16 - 8 * i));
+        for i in 0..4 {
+            if i <= chunk.len() {
+                out.push(B64[(n >> (18 - 6 * i) & 63) as usize] as char);
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
+pub fn base64_decode(text: &str) -> Result<Vec<u8>, String> {
+    if !text.len().is_multiple_of(4) {
+        return Err("Base64 text must be a multiple of four characters.".to_owned());
+    }
+    let mut out = Vec::new();
+    for quad in text.as_bytes().chunks(4) {
+        let pad = quad.iter().filter(|c| **c == b'=').count();
+        let mut n = 0u32;
+        for (i, c) in quad.iter().enumerate() {
+            let v = if *c == b'=' && i >= 4 - pad {
+                0
+            } else {
+                B64.iter().position(|b| b == c).ok_or("Not valid base64.")? as u32
+            };
+            n = n << 6 | v;
+        }
+        out.extend_from_slice(&n.to_be_bytes()[1..4 - pad]);
+    }
+    Ok(out)
+}
+
 /// The file sink: copies the newest verified run to a new folder in the workspace. It is diagnostic
 /// output, not printer bytes (there is no encoder), and nothing is sent, so it is not an attempt.
 pub fn write_to_file_sink(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {

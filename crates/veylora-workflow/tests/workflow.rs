@@ -593,6 +593,10 @@ fn an_export_is_never_overwritten_and_a_damaged_run_is_not_exported() {
     std::fs::write(&file, bytes).unwrap();
     let err = f.ws.export_latest_run(id).unwrap_err().to_string();
     assert!(err.contains("logical-w.f32"), "{err}");
+    assert!(
+        err.contains("not exported"),
+        "refused before any copy: {err}"
+    );
     assert_eq!(f.ws.exports(id).unwrap().len(), 1);
     let leftovers: Vec<_> = std::fs::read_dir(f.ws.root().join("exports"))
         .unwrap()
@@ -628,4 +632,141 @@ fn the_catalog_lists_imported_setups_modes_and_recipes() {
     assert_eq!(c.recipes.len(), 1);
     assert_eq!(c.recipes[0].hash, recipe_hash);
     assert_eq!(c.recipes[0].revision, 1);
+}
+
+fn wide_job() -> (Fixture, veylora_domain::ids::JobId) {
+    // 1 x 0.25 mm at 1270 dpi is about 50 x 13 device pixels, enough to need downsampling.
+    let f = fixture_job(|l| {
+        l.page_width_um = 1_000;
+        l.page_height_um = 250;
+        l.placements[0].width_um = 1_000;
+        l.placements[0].height_um = 250;
+    });
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    f.ws.render(
+        id,
+        &RenderOptions {
+            layout: PreflightOptions {
+                min_effective_ppi: 1,
+                ..PreflightOptions::default()
+            },
+            ..RenderOptions::default()
+        },
+    )
+    .unwrap();
+    (f, id)
+}
+
+fn decode_gray(png: &[u8]) -> (u32, u32, Vec<u8>) {
+    let mut r = ::png::Decoder::new(std::io::Cursor::new(png))
+        .read_info()
+        .unwrap();
+    let mut buf = vec![0; r.output_buffer_size().unwrap()];
+    let info = r.next_frame(&mut buf).unwrap();
+    buf.truncate(info.buffer_size());
+    (info.width, info.height, buf)
+}
+
+#[test]
+fn a_plane_overview_is_a_bounded_gray_picture_of_the_retained_bytes() {
+    let (f, id) = wide_job();
+    let full = f.ws.plane_overview(id, "logical-w.f32", 2048).unwrap();
+    assert_eq!(
+        (full.width, full.height, full.scale),
+        (full.source_width, full.source_height, 1)
+    );
+    let (w, h, pixels) = decode_gray(&full.png);
+    assert_eq!((w as usize, h as usize), (full.width, full.height));
+    assert!(pixels.contains(&255), "opaque alpha is full white coverage");
+    assert!(pixels.contains(&0), "the transparent edge has none");
+
+    let small = f.ws.plane_overview(id, "logical-w.f32", 10).unwrap();
+    assert!(small.scale > 1);
+    assert!(small.width <= 10 && small.height <= 10);
+    assert_eq!(small.source_width, full.source_width);
+    let (sw, sh, spx) = decode_gray(&small.png);
+    assert_eq!((sw as usize, sh as usize), (small.width, small.height));
+    assert_eq!(spx.len(), small.width * small.height);
+
+    // A plane with no ink is shown as black, not as noise.
+    let cyan = f.ws.plane_overview(id, "logical-c.f32", 2048).unwrap();
+    assert!(decode_gray(&cyan.png).2.iter().all(|p| *p == 0));
+}
+
+#[test]
+fn a_loupe_window_returns_exact_values_clipped_to_the_plane() {
+    let (f, id) = wide_job();
+    let full = f.ws.plane_overview(id, "logical-w.f32", 2048).unwrap();
+    let win = f.ws.plane_window(id, "logical-w.f32", 0, 0, 4, 2).unwrap();
+    assert_eq!((win.width, win.height), (4, 2));
+    assert_eq!(win.values.len(), 8);
+    assert!(win.values.iter().all(|v| (0.0..=1.0).contains(v)));
+    // Values agree with the overview at 1:1.
+    let (_, _, px) = decode_gray(&full.png);
+    for (i, v) in win.values.iter().enumerate() {
+        let (x, y) = (i % 4, i / 4);
+        assert_eq!(px[y * full.width + x], (v * 255.0).round() as u8);
+    }
+    // A window hanging off the edge is clipped, never padded with invented values.
+    let edge =
+        f.ws.plane_window(
+            id,
+            "logical-w.f32",
+            full.source_width - 2,
+            full.source_height - 1,
+            10,
+            10,
+        )
+        .unwrap();
+    assert_eq!((edge.width, edge.height), (2, 1));
+    assert_eq!(
+        (edge.x, edge.y),
+        (full.source_width - 2, full.source_height - 1)
+    );
+    assert!(f
+        .ws
+        .plane_window(id, "logical-w.f32", full.source_width, 0, 4, 4)
+        .is_err());
+}
+
+#[test]
+fn plane_reads_are_bounded_and_refuse_unknown_or_damaged_files() {
+    let (f, id) = wide_job();
+    assert!(f.ws.plane_window(id, "logical-w.f32", 0, 0, 65, 1).is_err());
+    assert!(f.ws.plane_window(id, "logical-w.f32", 0, 0, 0, 1).is_err());
+    assert!(f.ws.plane_overview(id, "logical-w.f32", 0).is_err());
+    assert!(f.ws.plane_overview(id, "logical-w.f32", 100_000).is_err());
+    assert!(f.ws.plane_overview(id, "../manifest.json", 100).is_err());
+    assert!(f.ws.plane_overview(id, "not-a-plane.f32", 100).is_err());
+
+    let dir = f.ws.root().join("artifacts").join(id.to_string());
+    let run = std::fs::read_dir(&dir)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let file = run.join("logical-w.f32");
+    let mut bytes = std::fs::read(&file).unwrap();
+    bytes[0] ^= 0xff;
+    std::fs::write(&file, bytes).unwrap();
+    let err =
+        f.ws.plane_overview(id, "logical-w.f32", 100)
+            .unwrap_err()
+            .to_string();
+    assert!(
+        err.contains("logical-w.f32") && err.contains("manifest"),
+        "{err}"
+    );
+    assert!(f.ws.plane_window(id, "logical-w.f32", 0, 0, 2, 2).is_err());
+}
+
+#[test]
+fn a_u16_screened_plane_is_scaled_by_the_dot_level() {
+    let (f, id) = wide_job();
+    let latest = f.ws.inspect_latest_run(id).unwrap().unwrap();
+    let screened = &latest.report.manifest.screened_planes.files[0].name;
+    let win = f.ws.plane_window(id, screened, 0, 0, 4, 1).unwrap();
+    assert!(win.values.iter().all(|v| (0.0..=1.0).contains(v)));
+    assert!(f.ws.plane_overview(id, screened, 100).is_ok());
 }

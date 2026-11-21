@@ -193,7 +193,7 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "Cargo.lock",
-      "sha256": "0236EAE4E765B54FDE4BE6A2280909DD86C9BC1F73D1F32D98B63FA0FC38EBCD"
+      "sha256": "14B09E54BADF2C7DBAF6F6C1827E9423A3ED9D7380A9D3CF210AB38BFFAB03BB"
     },
     {
       "path": "Cargo.toml",
@@ -477,7 +477,7 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "crates/veylora-workflow/Cargo.toml",
-      "sha256": "7E46EAC5F37039352B27E30DEF82C3BF34FA6DE1EE8160DFA7E9C1D4E089C5AB"
+      "sha256": "794CA932A9879B83263FAA6FC1510D29A51D69D18CBBE158EB05672E1F37851B"
     },
     {
       "path": "fixtures/images/alpha-ramp.png",

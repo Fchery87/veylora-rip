@@ -3,6 +3,7 @@
   import PlaneToggle from "../../components/PlaneToggle.svelte";
   import SegmentedControl from "../../components/SegmentedControl.svelte";
   import StageChip from "../../components/StageChip.svelte";
+  import RasterView from "./RasterView.svelte";
   import type { AppStore } from "../../store.svelte";
   import type { InspectView, JobDetail, Plane } from "../../services/types";
 
@@ -68,9 +69,14 @@
       </div>
     </div>
     <StageChip source={view.source} text={view.chip} />
-    <div class="viewport" role="img" aria-label={view.viewportLabel}>
-      <p>{view.placeholder}</p>
-    </div>
+    {#if view.rasterShown && view.rasterFiles?.length}
+      <RasterView {store} jobId={job.id} files={view.rasterFiles} />
+      <p class="muted note">{view.placeholder}</p>
+    {:else}
+      <div class="viewport" role="img" aria-label={view.viewportLabel}>
+        <p>{view.placeholder}</p>
+      </div>
+    {/if}
     <p class="muted note">{view.metadataNote}</p>
     <dl class="meta">
       {#each view.metadata as row (row.label)}

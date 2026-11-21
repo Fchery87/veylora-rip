@@ -1023,6 +1023,40 @@ impl Workspace {
         Ok(None)
     }
 
+    fn latest_run_dir(&self, id: JobId) -> WorkflowResult<PathBuf> {
+        self.jobs.get(id)?;
+        let mut runs = self.run_names(id)?;
+        runs.reverse();
+        runs.into_iter()
+            .map(|r| self.artifacts_dir(id).join(r))
+            .find(|d| d.join(MANIFEST_NAME).is_file())
+            .ok_or_else(|| WorkflowError::Invalid("The job has no completed render.".into()))
+    }
+
+    /// A gray picture of one plane of the newest run, no larger than `max_px` on a side. The file is
+    /// checked against the manifest first; a damaged plane is refused rather than drawn.
+    pub fn plane_overview(
+        &self,
+        id: JobId,
+        plane: &str,
+        max_px: usize,
+    ) -> WorkflowResult<crate::plane::PlaneOverview> {
+        crate::plane::overview(&self.latest_run_dir(id)?, plane, max_px)
+    }
+
+    /// Exact values of a small rectangle of one plane of the newest run, clipped to the plane.
+    pub fn plane_window(
+        &self,
+        id: JobId,
+        plane: &str,
+        x: usize,
+        y: usize,
+        width: usize,
+        height: usize,
+    ) -> WorkflowResult<crate::plane::PlaneWindow> {
+        crate::plane::window(&self.latest_run_dir(id)?, plane, x, y, width, height)
+    }
+
     pub fn report(&self, id: JobId) -> WorkflowResult<JobReport> {
         let snapshot = self.jobs.get(id)?;
         let inputs = snapshot.inputs();

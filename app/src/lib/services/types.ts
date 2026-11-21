@@ -207,7 +207,37 @@ export interface NewJobRequest {
   mirror: boolean;
 }
 
+export interface PlaneImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+  /** Source pixels per picture pixel; 1 is exact. */
+  scale: number;
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+export interface PlaneValues {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Row-major values from 0 to 1, read from the retained bytes. */
+  values: number[];
+}
+
 export interface AppServices {
+  /** A picture of one retained plane. Only live jobs have retained planes. */
+  getPlaneImage(jobId: string, file: string, maxPx: number): Promise<PlaneImage>;
+  /** Exact values around a point of one retained plane, for the loupe. */
+  getPlaneWindow(
+    jobId: string,
+    file: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Promise<PlaneValues>;
   /** Null when jobs cannot be created here (fixture data). */
   getCreationOptions(): Promise<CreationOptions | null>;
   /** Creates a draft job from one artwork file. Rejects with the reason when refused. */
@@ -329,6 +359,8 @@ export interface InspectView {
   /** Coverage and loupe stubs shown until a raster exists. */
   panels: { title: string; message: string }[];
   rasterShown: boolean;
+  /** Retained plane files the viewer can draw. Absent for fixture views. */
+  rasterFiles?: string[];
   viewportLabel: string;
   placeholder: string;
 }

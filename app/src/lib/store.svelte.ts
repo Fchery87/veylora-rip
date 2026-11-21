@@ -28,6 +28,8 @@ export type QueryServices = Pick<
   | "listTargets"
   | "listArtworkCandidates"
   | "getInspectView"
+  | "getPlaneImage"
+  | "getPlaneWindow"
   | "toggleInspectPlane"
   | "setInspectComposite"
 >;

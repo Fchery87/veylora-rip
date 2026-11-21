@@ -57,6 +57,9 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
     ...fallback,
     getCapabilities: () => invoke<CapabilityState>("live_get_capabilities"),
     getCreationOptions: () => invoke("live_creation_options"),
+    getPlaneImage: (jobId, file, maxPx) => invoke("live_plane_image", { jobId, file, maxPx }),
+    getPlaneWindow: (jobId, file, x, y, width, height) =>
+      invoke("live_plane_window", { jobId, file, x, y, width, height }),
     createJob: (request) => invoke("live_create_job", { request }),
     listJobs: () => invoke("live_list_jobs"),
     getJob: (jobId) => invoke("live_get_job", { jobId }),

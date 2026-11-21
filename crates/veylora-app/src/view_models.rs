@@ -368,6 +368,9 @@ pub struct InspectView {
     /// Reserved for retained artifacts: always false until a backend emits a
     /// raster, and the UI shows `placeholder` instead.
     pub raster_shown: bool,
+    /// Retained plane files the viewer can draw for this selection; empty for fixtures.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub raster_files: Vec<String>,
     pub viewport_label: String,
     pub placeholder: String,
 }

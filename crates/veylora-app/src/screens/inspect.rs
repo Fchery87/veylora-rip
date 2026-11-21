@@ -279,6 +279,7 @@ pub fn present(
         metadata_note: metadata_note.to_owned(),
         panels: vec![panel("Coverage"), panel("Loupe")],
         raster_shown: false,
+        raster_files: Vec::new(),
         viewport_label,
         placeholder:
             "No raster is shown. Retained artifacts arrive when backend integration is unblocked."
@@ -467,6 +468,20 @@ pub fn present_retained(
         );
     }
 
+    // Only a verified run is drawn; a damaged one is shown as statistics and a warning.
+    let raster_files: Vec<String> = if !artifact.verified {
+        Vec::new()
+    } else if selection.stage == StageId::Logical {
+        selection
+            .planes
+            .iter()
+            .filter_map(|plane| plane_file(*plane))
+            .filter(|file| stage_files.iter().any(|p| p.file == *file))
+            .collect()
+    } else {
+        stage_files.iter().map(|p| p.file.clone()).collect()
+    };
+    let raster_shown = !raster_files.is_empty();
     let panel = |title: &str| InfoPanel {
         title: title.to_owned(),
         message: NEEDS_RASTER.to_owned(),
@@ -484,10 +499,17 @@ pub fn present_retained(
         planes,
         source: PreviewSource::Retained,
         metadata_note: note,
-        panels: vec![panel("Coverage"), panel("Loupe")],
-        raster_shown: false,
-        placeholder:
-            "Statistics are read from the retained bytes. Drawing the raster is not built yet."
-                .to_owned(),
+        panels: if raster_shown {
+            Vec::new()
+        } else {
+            vec![panel("Coverage"), panel("Loupe")]
+        },
+        raster_shown,
+        raster_files,
+        placeholder: if raster_shown {
+            "Drawn from the retained bytes after checking them against the manifest.".to_owned()
+        } else {
+            "Nothing is drawn: select a plane, or the run failed verification.".to_owned()
+        },
     })
 }

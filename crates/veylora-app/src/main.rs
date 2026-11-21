@@ -264,6 +264,29 @@ fn live_create_job(
 }
 
 #[tauri::command]
+fn live_plane_image(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    file: String,
+    max_px: usize,
+) -> Result<veylora_app_lib::live::PlaneImage, String> {
+    veylora_app_lib::live::plane_image(&live.open()?, &job_id, &file, max_px)
+}
+
+#[tauri::command]
+fn live_plane_window(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    file: String,
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+) -> Result<veylora_app_lib::live::PlaneValues, String> {
+    veylora_app_lib::live::plane_window(&live.open()?, &job_id, &file, x, y, width, height)
+}
+
+#[tauri::command]
 fn live_render(
     live: State<LiveWorkspace>,
     acks: State<Acks>,
@@ -349,6 +372,8 @@ fn main() {
             live_get_job_actions,
             live_acknowledge_finding,
             live_render,
+            live_plane_image,
+            live_plane_window,
             live_creation_options,
             live_create_job,
             live_write_to_file_sink,

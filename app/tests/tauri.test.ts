@@ -150,6 +150,19 @@ describe("tauri adapter", () => {
       ]);
     });
 
+    it("draws retained planes through Rust", async () => {
+      const { calls, services } = live();
+      await services.getPlaneImage("J-1", "logical-w.f32", 512);
+      await services.getPlaneWindow("J-1", "logical-w.f32", 1, 2, 7, 7);
+      expect(calls).toEqual([
+        { command: "live_plane_image", args: { jobId: "J-1", file: "logical-w.f32", maxPx: 512 } },
+        {
+          command: "live_plane_window",
+          args: { jobId: "J-1", file: "logical-w.f32", x: 1, y: 2, width: 7, height: 7 },
+        },
+      ]);
+    });
+
     it("inspects retained artifacts, never the fixture inspector", async () => {
       const { calls, services } = live();
       const selection: InspectSelection = { stage: "logical", planes: ["K"], composite: false };

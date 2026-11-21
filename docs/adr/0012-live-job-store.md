@@ -27,6 +27,23 @@ Status: accepted (slices 1 and 2), 2026-11-20
 - The frontend adapter has a live mode (`createTauriServices(..., live)`), chosen when `VEYLORA_WORKSPACE` is set. It has no
   fallback to fixture jobs; file sink, release, review, and white-setting edits reject with "not available for live jobs yet".
 
+## Slice 3 (completion)
+- Attempts are itemized from the stored attempt records with an honest outcome vocabulary ("Accepted" is not "Finished"; only an
+  operator confirmation is Finished). Review offers only the outcomes the workflow can record.
+- Capabilities come from the stored mode: printable area, white capability. Anything the record does not state stays off.
+- File sink: `Workspace::export_latest_run` copies the newest verified run (manifest and planes, byte for byte) to
+  `exports/<job>-<run>`, via a `.partial` folder, re-verified, never overwriting. It is diagnostic output, not printer bytes (no
+  encoder exists), nothing is sent, so it is not a submission attempt; the folder is listed under Provenance as "Exported to".
+- Job creation: `Workspace::catalog` lists stored setups, modes and recipes; `live::create_job` validates every number, file
+  size and hash before importing the artwork or creating anything, then calls `Workspace::create_job`. One artwork per job from
+  the form; multi-placement layouts still go through the CLI spec. The artwork is given as a file path typed into the form
+  (no native file picker yet).
+- Render is offered for Held and PreflightFailed un-rendered jobs, not only Draft (preflight moves a job out of Draft).
+- Raster/loupe: `Workspace::plane_overview` (box-averaged gray PNG, at most 4096 px) and `plane_window` (at most 64 x 64 exact
+  values) check the plane against the manifest hash before use; a damaged plane is refused rather than drawn. The Inspect view
+  lists `rasterFiles` only for a verified run. Screened planes are shown as value / dot level. Composite simulation is still
+  not built.
+
 ## Not done
-Creating jobs from the UI; attempt itemization and review for live jobs; file-sink writes from the app; white-setting edits
-(jobs are immutable snapshots, so they would create a new job); real sheet/white capabilities from the mode; raster/loupe view.
+White-setting edits (jobs are immutable snapshots, so they would create a new job); multi-artwork layouts in the UI; native file
+picker; composite simulation of retained planes; slot letters for physical planes.
