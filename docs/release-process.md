@@ -2,8 +2,12 @@
 
 1. **Gate.** `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
    `cargo test --workspace`, and `scripts/tests/verify-release.tests.ps1` pass.
-2. **License check.** `scripts/check-licenses.ps1` must pass. It fails closed and is not yet
-   passing (task 9.3), so `package-release.ps1` cannot produce a release today.
+2. **License check.** `scripts/check-licenses.ps1 -Package veylora-cli` must pass (it is run by
+   `package-release.ps1`). It covers exactly what the packaged CLI links for Windows. The
+   repository-wide check (no `-Package`) still fails closed because the Tauri app, frontend,
+   profiles and fonts are not cleared; the desktop app cannot be packaged until they are.
+   After any dependency or toolchain change run `scripts/generate-package-notices.ps1
+   -Package veylora-cli` and commit the regenerated inventory and notices.
 3. **Package.** `scripts/package-release.ps1 -Version X.Y.Z -MaxDataSchema N` builds, stages,
    writes `release-manifest.json`, verifies, zips and writes `veylora-rip-X.Y.Z.zip.sha256`. It
    never overwrites an existing release. `MaxDataSchema` is `current_schema_version()` of the

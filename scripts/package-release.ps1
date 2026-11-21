@@ -27,16 +27,31 @@ function Invoke-Checked([string]$What, [scriptblock]$Block) {
 }
 
 $hostExe = (Get-Process -Id $PID).Path
-Invoke-Checked 'license check' { & $hostExe -NoProfile -File (Join-Path $PSScriptRoot 'check-licenses.ps1') -Root $root }
+# Fails closed: the program being packaged must have every linked component reviewed with its notice.
+Invoke-Checked 'license check' { & $hostExe -NoProfile -File (Join-Path $PSScriptRoot 'check-licenses.ps1') -Root $root -Package veylora-cli }
+# The C runtime is linked statically so a clean machine needs no Visual C++ redistributable.
+$env:RUSTFLAGS = '-C target-feature=+crt-static'
 Invoke-Checked 'release build' { & cargo build --release --locked -p veylora-cli --manifest-path (Join-Path $root 'Cargo.toml') }
+$built = Join-Path $root 'target/release/veylora-cli.exe'
+$imports = [Text.Encoding]::Latin1.GetString([IO.File]::ReadAllBytes($built))
+if ($imports -match '(?i)(vcruntime|msvcp)\d*\.dll') { throw 'the program still imports the Visual C++ runtime' }
 
 $name = "veylora-rip-$Version"
 $stage = Join-Path $OutDir $name
 if (Test-Path $stage) { throw "$stage already exists; releases are never overwritten" }
 New-Item $stage -ItemType Directory | Out-Null
 $cli = Join-Path $stage 'veylora-cli.exe'
-Copy-Item (Join-Path $root 'target/release/veylora-cli.exe') $cli
+Copy-Item $built $cli
 Copy-Item (Join-Path $root 'THIRD_PARTY_NOTICES.md') $stage
+# The Rust standard library's own third-party notices. They must be the ones that were reviewed.
+$inventoryText = Get-Content (Join-Path $root 'docs/dependency-inventory.md') -Raw
+$reviewed = [regex]::Match($inventoryText, '"rustStdCopyrightSha256":\s*"([0-9A-Fa-f]{64})"').Groups[1].Value
+$stdNotice = Join-Path ((& rustc --print sysroot).Trim()) 'share/doc/rust/COPYRIGHT-library.html'
+if (-not $reviewed -or (Get-FileHash $stdNotice -Algorithm SHA256).Hash -ne $reviewed.ToUpperInvariant()) {
+    throw "the toolchain's Rust standard library notices are not the ones that were reviewed; regenerate with scripts/generate-package-notices.ps1"
+}
+New-Item (Join-Path $stage 'licenses') -ItemType Directory | Out-Null
+Copy-Item $stdNotice (Join-Path $stage 'licenses/rust-std-COPYRIGHT.html')
 New-Item (Join-Path $stage 'docs') -ItemType Directory | Out-Null
 Copy-Item (Join-Path $root 'docs/job-format.md') (Join-Path $stage 'docs')
 

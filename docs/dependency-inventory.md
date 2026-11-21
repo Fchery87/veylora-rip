@@ -77,6 +77,30 @@ build scripts, Tauri configuration and CI workflows. These hashes detect additio
 removals and content changes in that scope. Icons and synthetic fixtures have
 unresolved provenance and distribution authorization, not assumed public-domain status.
 
+## Release scopes
+
+The repository-wide gate below still fails closed. Separately, a **release scope** gates one
+packaged program: `scripts/check-licenses.ps1 -Package veylora-cli` checks the exact set Cargo
+links for `x86_64-pc-windows-msvc` (normal dependencies only; dev and build-only crates are not
+shipped) plus the Rust standard library of the toolchain that builds it.
+
+- `scripts/generate-package-notices.ps1` is the single writer. It marks a crate `reviewed` only
+  if its cached archive matches the `Cargo.lock` checksum, its declared SPDX expression can be
+  satisfied with permissive licenses only, and the crate source carries license text, which is
+  copied verbatim into `THIRD_PARTY_NOTICES.md` (qcms ships no LICENSE file, so the identical
+  grant in its source headers is reproduced). Anything else stays unresolved and is listed as a
+  scope blocker. This is an automated policy decision under the owner's authorization for this
+  scope, not a lawyer's review of each license.
+- The review is bound to the hashes of `Cargo.lock` and the member manifests; drift fails.
+- The program is built with a statically linked C runtime, so no Visual C++ runtime is needed
+  or redistributed. The standard library's own third-party notice file is shipped as
+  `licenses/rust-std-COPYRIGHT.html` and checked against the reviewed hash.
+- **Project terms:** proprietary, all rights reserved (owner decision 2026-11-20). Binaries may
+  be distributed; no license to source is granted. `Cargo.toml` keeps `UNLICENSED`, which is why
+  the repository-wide gate still reports the workspace license blocker.
+- **Not covered, still blocked:** the Tauri desktop app, the frontend packages and lock defect,
+  icons, ICC profiles, fonts and fixtures. Passing the CLI scope clears nothing else.
+
 ## Executable release gate
 
 From repository root, using PowerShell 7.2+ and Git:
@@ -169,11 +193,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "Cargo.lock",
-      "sha256": "8EE6B4438FE278720095576965D627490AFE947F439838AE338AD30DBDBB87A6"
+      "sha256": "8627A8B2C7A36659A6B0460E53BCD93DBDBED809C4C78A5A328F5B1C96666339"
     },
     {
       "path": "Cargo.toml",
-      "sha256": "1E777BDD372B612A18F21120CE168252EAF3B273F94F65A6AD946B191255DE4B"
+      "sha256": "E8058342D40B566EA1F7AFAB6928A8476E0342815F0FBE972A5AC2EBBCB877A3"
     },
     {
       "path": "crates/veylora-app/build.rs",
@@ -397,11 +421,19 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "crates/veylora-cli/Cargo.toml",
-      "sha256": "D0D5EA79A4938585B8990694B8344E73FCF0E7A557C05DBEFADDE9A9BD5F112A"
+      "sha256": "3817BFA322CFAA6419ADF95A17600290AB9B5A566D84875A4C61B318AEE046E5"
+    },
+    {
+      "path": "crates/veylora-color/Cargo.toml",
+      "sha256": "9D5DBD96CF7853D03ACDE9A8343B7B4A810E6956C81151C8002BBB9090AEA9FE"
+    },
+    {
+      "path": "crates/veylora-compose/Cargo.toml",
+      "sha256": "9CCDBFCA73946807B75A0EFE5F5816D1D0B70B6383344D06853E92DE98F3404B"
     },
     {
       "path": "crates/veylora-device/Cargo.toml",
-      "sha256": "ABB5F5C761AB480737B0D32C5790ACBA9B287122AA8DCF47117E138B123FBFEE"
+      "sha256": "787D95A7E6B9165B274C9D23652527FEF2C0B911FEC9D09B6967228ADF69555B"
     },
     {
       "path": "crates/veylora-diagnostics/Cargo.toml",
@@ -409,7 +441,79 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "crates/veylora-domain/Cargo.toml",
-      "sha256": "A309EBC0CD29AD8A02FD5EE98E10AAC7F9BABEBA83480AE572AB451D716B28E4"
+      "sha256": "582F1DF4C58081D5D89957F149FDACDD7CBF96863FD8561D3B3676A98C63A56A"
+    },
+    {
+      "path": "crates/veylora-image/Cargo.toml",
+      "sha256": "D96DACBC241E55FDEA709AA9E83AD59CEAC8ECE613E0527480E47C4ED579EBAA"
+    },
+    {
+      "path": "crates/veylora-layout/Cargo.toml",
+      "sha256": "8E50A071C5723CF07F417C7067FF1EBC4E2BC73DE95D68A791D1C051C0B6E317"
+    },
+    {
+      "path": "crates/veylora-persistence/Cargo.toml",
+      "sha256": "FCC7DF46DC9F4C46850D46EDBFDB307724EE7E85225590B17174FF2714E31EAC"
+    },
+    {
+      "path": "crates/veylora-release/Cargo.toml",
+      "sha256": "405A8B8653C0BE7BB63DED32CF8A8F187F7778BCE7F6FFFA9FE372BE41A376CC"
+    },
+    {
+      "path": "crates/veylora-render/Cargo.toml",
+      "sha256": "553B6CC2052A507D51BD2D33FB8218BB67EBD37F90CC112C1957BCC2C8011E03"
+    },
+    {
+      "path": "crates/veylora-screen/Cargo.toml",
+      "sha256": "98E716A37E9CA0CC373902848D16CA457FB1AAA00EC6D129D1F7FFEAF7B720A1"
+    },
+    {
+      "path": "crates/veylora-separation/Cargo.toml",
+      "sha256": "E47096A85C95FAE1AC3F4C09294A93D9E66585A9CBCD4B154E52219A3F3B6573"
+    },
+    {
+      "path": "crates/veylora-transport/Cargo.toml",
+      "sha256": "B95FF222999BB650DAD77AFA3AABC8B8B43CD31DE4A25E32F1ABF473A84D1A90"
+    },
+    {
+      "path": "crates/veylora-workflow/Cargo.toml",
+      "sha256": "7E46EAC5F37039352B27E30DEF82C3BF34FA6DE1EE8160DFA7E9C1D4E089C5AB"
+    },
+    {
+      "path": "fixtures/images/alpha-ramp.png",
+      "sha256": "684FFAD6FB1558221B206FA6E9F6757BA4113B5C359FAA3EFCBA1CA29435E70F"
+    },
+    {
+      "path": "fixtures/images/conflicting-color-tags.png",
+      "sha256": "1719A6D7B0F6ECE933ED01C265FD7D40932F510190AB78FE5278E2D9369E18B4"
+    },
+    {
+      "path": "fixtures/images/generate.cjs",
+      "sha256": "4AEC953318B15029A734C9DCC6D7B422A8D75C398CD287E0BE06A33C7A2598C2"
+    },
+    {
+      "path": "fixtures/images/hidden-rgb.png",
+      "sha256": "E0050DF646F740024F7EABEFBBE064310AD3CE57EC21477382F00EAA188ABEBD"
+    },
+    {
+      "path": "fixtures/images/non-square-ppi.png",
+      "sha256": "E9E546475BF3D602D91C722F39D014FD3F57495DBB1270E7D9CF26D2898EF115"
+    },
+    {
+      "path": "fixtures/images/README.md",
+      "sha256": "1D419C092E5D813C06B3988EFF8AA47341A42377D5DD50C1212C94597AF14598"
+    },
+    {
+      "path": "fixtures/images/srgb.png",
+      "sha256": "41172845A57A3105444614B2EF806E6591BC815F2D7CB6C1ABC23D2BBE25B019"
+    },
+    {
+      "path": "fixtures/images/unsupported-apng.png",
+      "sha256": "9269DC6A9C1878BB2DC5B4ED9A6191DA30CA3FAF9C6603BF30C4369DD7FA4E10"
+    },
+    {
+      "path": "fixtures/images/unsupported-hdr.png",
+      "sha256": "E0EB39AE704E263B855E3E7D2D619ED835EA9706544598A2A16D93E565871B98"
     },
     {
       "path": "fixtures/physical/README.md",
@@ -424,11 +528,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:adler2@2.0.1",
       "license": "0BSD OR MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/adler2/2.0.1/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/adler2/2.0.1/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/adler2/2.0.1/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-adler2-2.0.1",
+      "noticeSha256": "44569F4A8B8498999B7CA38D14AAA3992AEF591E265D2F9F485226C2B84B9CA7"
     },
     {
       "id": "cargo:aho-corasick@1.1.5",
@@ -559,20 +663,20 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:bitflags@2.13.2",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/bitflags/2.13.2/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/bitflags/2.13.2/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/bitflags/2.13.2/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-bitflags-2.13.2",
+      "noticeSha256": "D8D2CDCE50E2975D15E683768DB306F1B3DDE62128BE82840880D74640325C3A"
     },
     {
       "id": "cargo:block-buffer@0.10.4",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/block-buffer/0.10.4/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/block-buffer/0.10.4/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/block-buffer/0.10.4/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-block-buffer-0.10.4",
+      "noticeSha256": "69469D2130322C72BFAF1690D563C3700FEF49EFEBEB6F8B3715B89A8B039248"
     },
     {
       "id": "cargo:block2@0.6.2",
@@ -739,11 +843,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:cfg-if@1.0.5",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/cfg-if/1.0.5/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/cfg-if/1.0.5/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/cfg-if/1.0.5/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-cfg-if-1.0.5",
+      "noticeSha256": "790A8D926C117DAAF540A4B1CDA1A68E4E46FC7B63889DFC0EFB9D96B53B998D"
     },
     {
       "id": "cargo:chrono@0.4.45",
@@ -811,20 +915,20 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:cpufeatures@0.2.17",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/cpufeatures/0.2.17/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/cpufeatures/0.2.17/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/cpufeatures/0.2.17/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-cpufeatures-0.2.17",
+      "noticeSha256": "DEA2855385F7F90D60F49CB426E4E0E1FF7A8C936A5C816C9B0C240C39C5782D"
     },
     {
       "id": "cargo:crc32fast@1.5.4",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/crc32fast/1.5.4/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/crc32fast/1.5.4/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/crc32fast/1.5.4/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-crc32fast-1.5.4",
+      "noticeSha256": "8A8673BA0F187534BAD4A661883D8A2F3994ED37A242F0D331A2A044667ED492"
     },
     {
       "id": "cargo:crossbeam-channel@0.5.17",
@@ -847,11 +951,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:crypto-common@0.1.7",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/crypto-common/0.1.7/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/crypto-common/0.1.7/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/crypto-common/0.1.7/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-crypto-common-0.1.7",
+      "noticeSha256": "E8F28ECA512D4F1B844F5BF494E195533F0838AE269A42530B508D175AA9CFD8"
     },
     {
       "id": "cargo:cssparser-macros@0.7.1",
@@ -946,11 +1050,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:digest@0.10.7",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/digest/0.10.7/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/digest/0.10.7/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/digest/0.10.7/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-digest-0.10.7",
+      "noticeSha256": "1591C6A828009B8F3BB22E6F48FACDB4121D4DAB96ED2CB7A748FE7B5CCEAD6A"
     },
     {
       "id": "cargo:dirs-sys@0.5.0",
@@ -1097,6 +1201,15 @@ It reads only locally available Rust manifests and does not download or alter lo
       "noticeSha256": ""
     },
     {
+      "id": "cargo:errno@0.3.15",
+      "license": "UNKNOWN",
+      "source": "https://docs.rs/crate/errno/0.3.15/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/errno/0.3.15/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
       "id": "cargo:fastrand@2.5.0",
       "license": "Apache-2.0 OR MIT",
       "source": "https://docs.rs/crate/fastrand/2.5.0/source/Cargo.toml",
@@ -1108,11 +1221,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:fdeflate@0.3.7",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/fdeflate/0.3.7/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/fdeflate/0.3.7/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/fdeflate/0.3.7/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-fdeflate-0.3.7",
+      "noticeSha256": "4CDCBAB4D5688D7955AA24E3356A3E5C0511F4066CC272CA266FE83BFF157558"
     },
     {
       "id": "cargo:field-offset@0.3.6",
@@ -1135,11 +1248,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:flate2@1.1.11",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/flate2/1.1.11/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/flate2/1.1.11/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/flate2/1.1.11/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-flate2-1.1.11",
+      "noticeSha256": "835A4C2B53B6B21AB78DFD934E0731691F9468CE5F2788CADC20B0625EBFEED3"
     },
     {
       "id": "cargo:fnv@1.0.7",
@@ -1333,11 +1446,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:generic-array@0.14.7",
       "license": "MIT",
-      "source": "https://docs.rs/crate/generic-array/0.14.7/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/generic-array/0.14.7/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/generic-array/0.14.7/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-generic-array-0.14.7",
+      "noticeSha256": "8F81C1CFDA0D812F8A12C5A5DA16DEB62CA2881A76E1980348456C464F690000"
     },
     {
       "id": "cargo:getrandom@0.3.4",
@@ -1351,11 +1464,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:getrandom@0.4.3",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/getrandom/0.4.3/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/getrandom/0.4.3/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/getrandom/0.4.3/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-getrandom-0.4.3",
+      "noticeSha256": "05977A84ECBB1743D70C45F34D00B8D0324C586BA89C0A908811C7FDF44C128E"
     },
     {
       "id": "cargo:gio-sys@0.18.1",
@@ -1711,11 +1824,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:itoa@1.0.18",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/itoa/1.0.18/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/itoa/1.0.18/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/itoa/1.0.18/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-itoa-1.0.18",
+      "noticeSha256": "3686BC0E6106DD427A6FC0D8FEA4096152EDD98BF105A74A3DD9BADBDEF94A0B"
     },
     {
       "id": "cargo:javascriptcore-rs-sys@1.1.1",
@@ -1907,6 +2020,15 @@ It reads only locally available Rust manifests and does not download or alter lo
       "noticeSha256": ""
     },
     {
+      "id": "cargo:linux-raw-sys@0.12.1",
+      "license": "UNKNOWN",
+      "source": "https://docs.rs/crate/linux-raw-sys/0.12.1/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/linux-raw-sys/0.12.1/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
       "id": "cargo:litemap@0.8.3",
       "license": "Unicode-3.0",
       "source": "https://docs.rs/crate/litemap/0.8.3/source/Cargo.toml",
@@ -1945,11 +2067,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:memchr@2.8.3",
       "license": "Unlicense OR MIT",
-      "source": "https://docs.rs/crate/memchr/2.8.3/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/memchr/2.8.3/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/memchr/2.8.3/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-memchr-2.8.3",
+      "noticeSha256": "5FA23CF0559BB4D458C17E04A4D919B9C7D06115518EA394E37B3650A8177832"
     },
     {
       "id": "cargo:memoffset@0.9.1",
@@ -1972,20 +2094,20 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:miniz_oxide@0.8.9",
       "license": "MIT OR Zlib OR Apache-2.0",
-      "source": "https://docs.rs/crate/miniz_oxide/0.8.9/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/miniz_oxide/0.8.9/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/miniz_oxide/0.8.9/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-miniz_oxide-0.8.9",
+      "noticeSha256": "BDEA9118ABBA2EED16C8DB8C32AD83BCEBDB2046BD11072AFF1EFF2662CA7686"
     },
     {
       "id": "cargo:miniz_oxide@0.9.1",
       "license": "MIT OR Zlib OR Apache-2.0",
-      "source": "https://docs.rs/crate/miniz_oxide/0.9.1/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/miniz_oxide/0.9.1/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/miniz_oxide/0.9.1/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-miniz_oxide-0.9.1",
+      "noticeSha256": "CD50A3776215B87999932DF0BC5D0842C793EA47B59329EED4F2AF3C0C7BDFE6"
     },
     {
       "id": "cargo:mio@1.2.4",
@@ -2368,11 +2490,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:png@0.18.1",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/png/0.18.1/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/png/0.18.1/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/png/0.18.1/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-png-0.18.1",
+      "noticeSha256": "33D05821A63B1E88ACBB0183E539C9A5188ED427E6A31810566CC2587C4B849A"
     },
     {
       "id": "cargo:portable-atomic-util@0.2.8",
@@ -2467,11 +2589,20 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:proc-macro2@1.0.107",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/proc-macro2/1.0.107/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/proc-macro2/1.0.107/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/proc-macro2/1.0.107/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-proc-macro2-1.0.107",
+      "noticeSha256": "DCBFBDA7221CE578D93F4D3416332A480B9B7A0375124B6CAF0C3B2AB8D3C8C3"
+    },
+    {
+      "id": "cargo:qcms@0.3.0",
+      "license": "MIT",
+      "source": "https://crates.io/api/v1/crates/qcms/0.3.0/download (checksum from Cargo.lock)",
+      "licenseSource": "license text from source-file headers of the checksum-verified crate (no LICENSE file shipped); permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-qcms-0.3.0",
+      "noticeSha256": "497835806E951F6327B2ACEC5F96C935E6ECF1DD227D1CE40E08A99BB8BDF1B6"
     },
     {
       "id": "cargo:quick-xml@0.42.0",
@@ -2485,11 +2616,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:quote@1.0.47",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/quote/1.0.47/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/quote/1.0.47/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/quote/1.0.47/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-quote-1.0.47",
+      "noticeSha256": "836CD81CC11BEF99FACC44598FD22BE3FDF74E8150DF3C231FB29101CFA89CCA"
     },
     {
       "id": "cargo:r-efi@5.3.0",
@@ -2609,6 +2740,15 @@ It reads only locally available Rust manifests and does not download or alter lo
       "noticeSha256": ""
     },
     {
+      "id": "cargo:rustix@1.1.6",
+      "license": "UNKNOWN",
+      "source": "https://docs.rs/crate/rustix/1.1.6/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/rustix/1.1.6/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
       "id": "cargo:rustversion@1.0.23",
       "license": "UNKNOWN",
       "source": "https://docs.rs/crate/rustversion/1.0.23/source/Cargo.toml",
@@ -2692,11 +2832,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:serde_core@1.0.229",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/serde_core/1.0.229/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/serde_core/1.0.229/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/serde_core/1.0.229/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-serde_core-1.0.229",
+      "noticeSha256": "09BFAE9244517B3FFA124BFE2473E48F0B38488AF339A1CF59594FA34C48BD17"
     },
     {
       "id": "cargo:serde_derive_internals@0.29.1",
@@ -2710,20 +2850,20 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:serde_derive@1.0.229",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/serde_derive/1.0.229/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/serde_derive/1.0.229/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/serde_derive/1.0.229/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-serde_derive-1.0.229",
+      "noticeSha256": "56C6ED2ED9F22EAFBDF8ED066BE61DF0A12763B0A8B1313AFCC2BC493A4E273B"
     },
     {
       "id": "cargo:serde_json@1.0.154",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/serde_json/1.0.154/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/serde_json/1.0.154/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/serde_json/1.0.154/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-serde_json-1.0.154",
+      "noticeSha256": "B15842CE2BAB94C45FEF049204391530A699183BA2433ADE969086EA58215989"
     },
     {
       "id": "cargo:serde_repr@0.1.21",
@@ -2782,11 +2922,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:serde@1.0.229",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/serde/1.0.229/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/serde/1.0.229/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/serde/1.0.229/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-serde-1.0.229",
+      "noticeSha256": "8CE03DC1F1AC0D97EE77E85AE6A244ADB46944C050206843D2FE14EF8CDF6877"
     },
     {
       "id": "cargo:serialize-to-javascript-impl@0.1.2",
@@ -2818,11 +2958,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:sha2@0.10.9",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/sha2/0.10.9/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/sha2/0.10.9/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/sha2/0.10.9/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-sha2-0.10.9",
+      "noticeSha256": "607A1C8660F4CC189002CBEF5C22D892BF45F5EA92914AB3FA62AA25CDC85FDC"
     },
     {
       "id": "cargo:shlex@2.0.1",
@@ -2836,11 +2976,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:simd-adler32@0.3.10",
       "license": "MIT",
-      "source": "https://docs.rs/crate/simd-adler32/0.3.10/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/simd-adler32/0.3.10/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/simd-adler32/0.3.10/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-simd-adler32-0.3.10",
+      "noticeSha256": "DD6C56F85DF68B434EADA07E0FF037916719C1DAE66ABF1B996158BE0BAA7155"
     },
     {
       "id": "cargo:siphasher@1.0.4",
@@ -2980,11 +3120,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:syn@3.0.9",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/syn/3.0.9/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/syn/3.0.9/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/syn/3.0.9/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-syn-3.0.9",
+      "noticeSha256": "918FB51402C362BB4AD1DF273C28564A70EEB5CB4102BDF7099A1665025E6089"
     },
     {
       "id": "cargo:sync_wrapper@1.0.2",
@@ -3113,6 +3253,15 @@ It reads only locally available Rust manifests and does not download or alter lo
       "noticeSha256": ""
     },
     {
+      "id": "cargo:tempfile@3.27.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://docs.rs/crate/tempfile/3.27.0/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/tempfile/3.27.0/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
       "id": "cargo:tendril@0.5.1",
       "license": "MIT OR Apache-2.0",
       "source": "https://docs.rs/crate/tendril/0.5.1/source/Cargo.toml",
@@ -3123,7 +3272,7 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "id": "cargo:thiserror-impl@1.0.69",
-      "license": "UNKNOWN",
+      "license": "MIT OR Apache-2.0",
       "source": "https://docs.rs/crate/thiserror-impl/1.0.69/source/Cargo.toml",
       "licenseSource": "https://docs.rs/crate/thiserror-impl/1.0.69/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
       "status": "unresolved",
@@ -3133,15 +3282,15 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:thiserror-impl@2.0.21",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/thiserror-impl/2.0.21/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/thiserror-impl/2.0.21/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/thiserror-impl/2.0.21/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-thiserror-impl-2.0.21",
+      "noticeSha256": "471BFB8AA6EB7DB5C95D53278366451E03626C9D04BABD22E2942D984ECAC76D"
     },
     {
       "id": "cargo:thiserror@1.0.69",
-      "license": "UNKNOWN",
+      "license": "MIT OR Apache-2.0",
       "source": "https://docs.rs/crate/thiserror/1.0.69/source/Cargo.toml",
       "licenseSource": "https://docs.rs/crate/thiserror/1.0.69/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
       "status": "unresolved",
@@ -3151,11 +3300,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:thiserror@2.0.21",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/thiserror/2.0.21/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/thiserror/2.0.21/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/thiserror/2.0.21/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-thiserror-2.0.21",
+      "noticeSha256": "E43FBBB94DBE99C3F6C5FAEE1159C89F2E89C8C8A4174B62927D2EAFAB75E961"
     },
     {
       "id": "cargo:time-core@0.1.9",
@@ -3385,20 +3534,20 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:typenum@1.20.1",
       "license": "MIT OR Apache-2.0",
-      "source": "https://docs.rs/crate/typenum/1.20.1/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/typenum/1.20.1/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/typenum/1.20.1/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-typenum-1.20.1",
+      "noticeSha256": "A6CF4DED8707E6C7BF77598E3D939C1D78D2E61D34F35FB65ED0837E5747135C"
     },
     {
       "id": "cargo:unicode-ident@1.0.27",
       "license": "(MIT OR Apache-2.0) AND Unicode-3.0",
-      "source": "https://docs.rs/crate/unicode-ident/1.0.27/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/unicode-ident/1.0.27/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/unicode-ident/1.0.27/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-unicode-ident-1.0.27",
+      "noticeSha256": "A32D9B7626589DDAD5AECE21FC14A58C886E7765F4A0CD2E81EA344D6D6B5E2D"
     },
     {
       "id": "cargo:unicode-segmentation@1.13.3",
@@ -3448,11 +3597,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:uuid@1.29.1",
       "license": "Apache-2.0 OR MIT",
-      "source": "https://docs.rs/crate/uuid/1.29.1/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/uuid/1.29.1/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/uuid/1.29.1/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-uuid-1.29.1",
+      "noticeSha256": "B419410EE85825C26A8C30DCE636BFB76C931946A2ED42B0A7691E6233448F01"
     },
     {
       "id": "cargo:version_check@0.9.5",
@@ -3483,39 +3632,138 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "id": "cargo:veylora-cli@0.0.0",
-      "license": "UNLICENSED",
+      "license": "LicenseRef-Veylora-Proprietary",
       "source": "Cargo.toml [workspace.package] and member Cargo.toml",
-      "licenseSource": "UNRESOLVED: project owner distribution authorization",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-color@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-compose@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
     },
     {
       "id": "cargo:veylora-device@0.0.0",
-      "license": "UNLICENSED",
+      "license": "LicenseRef-Veylora-Proprietary",
       "source": "Cargo.toml [workspace.package] and member Cargo.toml",
-      "licenseSource": "UNRESOLVED: project owner distribution authorization",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
     },
     {
       "id": "cargo:veylora-diagnostics@0.0.0",
-      "license": "UNLICENSED",
+      "license": "LicenseRef-Veylora-Proprietary",
       "source": "Cargo.toml [workspace.package] and member Cargo.toml",
-      "licenseSource": "UNRESOLVED: project owner distribution authorization",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
     },
     {
       "id": "cargo:veylora-domain@0.0.0",
-      "license": "UNLICENSED",
+      "license": "LicenseRef-Veylora-Proprietary",
       "source": "Cargo.toml [workspace.package] and member Cargo.toml",
-      "licenseSource": "UNRESOLVED: project owner distribution authorization",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-image@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-layout@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-persistence@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-release@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-render@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-screen@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-separation@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-transport@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
+    },
+    {
+      "id": "cargo:veylora-workflow@0.0.0",
+      "license": "LicenseRef-Veylora-Proprietary",
+      "source": "Cargo.toml [workspace.package] and member Cargo.toml",
+      "licenseSource": "project owner decision 2026-11-20: proprietary, all rights reserved, binary distribution authorised",
+      "status": "reviewed",
+      "notice": "veylora-rip",
+      "noticeSha256": "12FD9F1834F91635830E3C011950D844CDB16DF04EDF47058AA7114ECBC79EB6"
     },
     {
       "id": "cargo:vswhom-sys@0.1.3",
@@ -4087,11 +4335,11 @@ It reads only locally available Rust manifests and does not download or alter lo
     {
       "id": "cargo:zmij@1.0.23",
       "license": "MIT",
-      "source": "https://docs.rs/crate/zmij/1.0.23/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/zmij/1.0.23/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "source": "https://crates.io/api/v1/crates/zmij/1.0.23/download (checksum from Cargo.lock)",
+      "licenseSource": "verbatim license files from the checksum-verified crate source; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "cargo-zmij-1.0.23",
+      "noticeSha256": "727A95D404711F004DC855AE7E34AD458FCAD5C9E443EE1FCDCA4418F7E540D5"
     },
     {
       "id": "npm:@fontsource-variable/geist-mono@5.3.0",
@@ -4362,6 +4610,15 @@ It reads only locally available Rust manifests and does not download or alter lo
       "status": "unresolved",
       "notice": "",
       "noticeSha256": ""
+    },
+    {
+      "id": "toolchain:rust-std@1.99.1",
+      "license": "Apache-2.0 OR MIT",
+      "source": "https://github.com/rust-lang/rust/tree/1.99.1/library",
+      "licenseSource": "rustc 1.99.1 distribution: share/doc/rust/licenses and COPYRIGHT-library.html",
+      "status": "reviewed",
+      "notice": "toolchain-rust-std-1.99.1",
+      "noticeSha256": "8B96674E7F9E4A3519C20D47745501321AC4BC52837B99A471AB62ADCB30CBED"
     }
   ],
   "blockers": [
@@ -4369,6 +4626,16 @@ It reads only locally available Rust manifests and does not download or alter lo
     "Frontend lock contains pnpm only, not the declared application graph. Resolve and review the complete frontend lock before release.",
     "Review native libraries, external tools, profiles, fonts and fixture rights described above. Verify final installer and About notices.",
     "Project workspace license is UNLICENSED. Obtain explicit project distribution authorization."
-  ]
+  ],
+  "scopes": {
+    "veylora-cli": {
+      "target": "x86_64-pc-windows-msvc",
+      "extra": [
+        "toolchain:rust-std@1.99.1"
+      ],
+      "rustStdCopyrightSha256": "5647BE074C8EDF7339FD863055923A8FC80BC5610A8D4661EC3B767B9D392C27",
+      "blockers": []
+    }
+  }
 }
 ```
