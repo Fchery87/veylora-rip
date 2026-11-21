@@ -638,6 +638,7 @@ impl Workspace {
     /// confirmations) leave the job where it was. A failure once rendering has begun marks the
     /// job failed; an operator can render again, which releases it.
     pub fn render(&self, id: JobId, options: &RenderOptions) -> WorkflowResult<RenderOutcome> {
+        let _claim = self.try_lock_job(id)?;
         let loaded = self.load(id)?;
         self.begin_render(id, &loaded, options)?;
         match self.render_run(id, &loaded, options) {

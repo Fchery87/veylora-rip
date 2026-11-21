@@ -821,3 +821,125 @@ fn an_acknowledgement_for_another_subject_does_not_cover_the_finding() {
     ));
     assert_eq!(e.ws.state(e.job).unwrap(), JobState::Held);
 }
+
+#[test]
+fn recovery_refuses_a_job_another_process_is_working_on() {
+    let e = ready(true);
+    let before = events(&e);
+    let claim = e.ws.try_lock_job(e.job).unwrap();
+    let err = e.ws.recover(e.job).unwrap_err().to_string().to_lowercase();
+    assert!(err.contains("another process"), "{err}");
+    assert_eq!(events(&e), before, "a refused recovery records nothing");
+    drop(claim);
+    assert!(e.ws.recover(e.job).is_ok());
+}
+
+#[test]
+fn render_and_submit_refuse_a_job_someone_else_is_working_on_and_touch_nothing() {
+    let e = ready(true);
+    let (t, sent) = counted(FailurePoint::None);
+    let before = events(&e);
+    let claim = e.ws.try_lock_job(e.job).unwrap();
+    for err in [
+        e.ws.submit(e.job, &artifact(), &t).unwrap_err().to_string(),
+        e.ws.render(e.job, &RenderOptions::default())
+            .unwrap_err()
+            .to_string(),
+    ] {
+        assert!(err.to_lowercase().contains("another process"), "{err}");
+    }
+    assert_eq!(
+        sent.load(Ordering::SeqCst),
+        0,
+        "the printer was never touched"
+    );
+    assert_eq!(events(&e), before);
+    drop(claim);
+    e.ws.submit(e.job, &artifact(), &t).unwrap();
+    assert_eq!(sent.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn a_claim_is_per_job_and_is_released_when_dropped() {
+    let e = ready(true);
+    let claim = e.ws.try_lock_job(e.job).unwrap();
+    assert!(e.ws.try_lock_job(e.job).is_err(), "one claim at a time");
+    assert!(
+        e.ws.try_lock_job(veylora_domain::ids::JobId::default())
+            .is_ok(),
+        "another job is not affected"
+    );
+    drop(claim);
+    assert!(e.ws.try_lock_job(e.job).is_ok());
+}
+
+#[test]
+fn an_operation_that_fails_still_releases_its_claim() {
+    let e = env(true); // never rendered, so submit is refused before it starts
+    let (t, _) = counted(FailurePoint::None);
+    assert!(e.ws.submit(e.job, &artifact(), &t).is_err());
+    assert!(
+        e.ws.try_lock_job(e.job).is_ok(),
+        "the failed submit did not keep the claim"
+    );
+}
+
+/// Not a test of its own: the child process of the crash test below takes a claim and holds it.
+#[test]
+#[ignore = "helper process for a_crashed_process_does_not_keep_its_claim"]
+fn hold_the_claim_until_killed() {
+    use std::io::Write;
+    let (Ok(root), Ok(job)) = (
+        std::env::var("VEYLORA_TEST_ROOT"),
+        std::env::var("VEYLORA_TEST_JOB"),
+    ) else {
+        return;
+    };
+    let ws = Workspace::open(root).unwrap();
+    let _claim = ws.try_lock_job(job.parse().unwrap()).unwrap();
+    println!("HELD");
+    std::io::stdout().flush().unwrap();
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
+
+#[test]
+fn a_crashed_process_does_not_keep_its_claim() {
+    use std::io::{BufRead, BufReader};
+    use std::process::{Command, Stdio};
+    let e = ready(true);
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--ignored",
+            "--exact",
+            "hold_the_claim_until_killed",
+            "--nocapture",
+        ])
+        .env("VEYLORA_TEST_ROOT", e.ws.root())
+        .env("VEYLORA_TEST_JOB", e.job.to_string())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    for line in lines {
+        if line.unwrap().trim() == "HELD" {
+            break;
+        }
+    }
+    // Another process really holds the job: recovery must refuse it.
+    let refused = e.ws.recover(e.job);
+    // Kill the holder the way a crash would, with no chance to clean up.
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert!(
+        refused
+            .unwrap_err()
+            .to_string()
+            .to_lowercase()
+            .contains("another process"),
+        "a live holder in another process was not respected"
+    );
+    // Its claim went with it, so the recovery it would have needed is not blocked.
+    assert!(e.ws.recover(e.job).is_ok());
+}
