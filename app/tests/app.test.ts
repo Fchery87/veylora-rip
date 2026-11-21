@@ -114,12 +114,16 @@ describe("creating jobs", () => {
     recipes: [{ hash: "d".repeat(64), id: "RECIPE-1", revision: 1, retired: false }],
   };
 
-  async function openLive(createJob: (req: unknown) => Promise<unknown>) {
+  async function openLive(
+    createJob: (req: unknown) => Promise<unknown>,
+    extra: Record<string, unknown> = {},
+  ) {
     const user = userEvent.setup();
     const services = {
       ...createMockServices("working-day"),
       getCreationOptions: async () => options,
       createJob,
+      ...extra,
     } as ReturnType<typeof createMockServices>;
     render(App, { services });
     await screen.findByRole("navigation", { name: "Sections" });
@@ -142,6 +146,9 @@ describe("creating jobs", () => {
     const form = await screen.findByRole("form", { name: "New job" });
     expect(within(form).getByRole("button", { name: "Create job" })).toBeDisabled();
     await user.type(within(form).getByLabelText(/Artwork file/), "C:Artlogo.png");
+    // Each select starts on a real choice instead of showing blank.
+    expect(within(form).getByLabelText("Print mode")).toHaveValue(options.modes[0].hash);
+    expect(within(form).getByLabelText("Recipe")).toHaveValue(options.recipes[0].hash);
     // Modes follow the chosen setup: another setup's mode is not offered.
     expect(within(form).queryByRole("option", { name: /MODE-OTHER/ })).not.toBeInTheDocument();
     await user.click(within(form).getByRole("button", { name: "Create job" }));
@@ -156,6 +163,22 @@ describe("creating jobs", () => {
     });
     await screen.findByRole("heading", { level: 1, name: created.name });
     expect(screen.queryByRole("form", { name: "New job" })).not.toBeInTheDocument();
+  });
+
+  it("draws the sheet at the job's real shape, not a fixture paper size", async () => {
+    const created = {
+      ...(await createMockServices("working-day").getJob("J-0142")),
+      sheet: "1 x 0.250 mm",
+      sheetMm: { w: 1, h: 0.25 },
+    };
+    const { user } = await openLive(async () => created, { getJob: async () => created });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    await user.type(within(form).getByLabelText(/Artwork file/), "a.png");
+    await user.click(within(form).getByRole("button", { name: "Create job" }));
+    await user.click(await screen.findByRole("tab", { name: /Sheet/ }));
+    const sheet = await screen.findByRole("img", { name: /Simulated 1 x 0.250 mm sheet/ });
+    expect(sheet.style.aspectRatio).toBe("1 / 0.25");
   });
 
   it("keeps the form open and shows the reason when Rust refuses", async () => {

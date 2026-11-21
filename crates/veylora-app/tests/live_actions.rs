@@ -357,3 +357,21 @@ fn the_file_sink_refuses_a_job_that_was_never_rendered() {
     let (ws, id) = job(|_| {});
     assert!(live::write_to_file_sink(&ws, &id).is_err());
 }
+
+#[test]
+fn a_finding_acknowledged_for_a_render_stays_acknowledged_afterwards() {
+    let (ws, id) = job(|_| {});
+    let findings = live::run_preflight(&ws, &id, &[]).unwrap().findings;
+    let confirm = findings
+        .iter()
+        .find(|f| f.severity == Severity::Confirm)
+        .unwrap();
+    live::render_job(&ws, &id, std::slice::from_ref(&confirm.id)).unwrap();
+    // The session list was cleared by the render; the manifest still remembers the decision.
+    let after = live::run_preflight(&ws, &id, &[]).unwrap();
+    let again = after.findings.iter().find(|f| f.id == confirm.id).unwrap();
+    assert!(again.acknowledged);
+    let caps = live::capabilities(&ws, &id).unwrap();
+    let view = preflight::present(&after, &caps);
+    assert_eq!(view.open_count, 0);
+}

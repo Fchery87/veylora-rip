@@ -83,6 +83,7 @@ fn base_job(id: &str, name: &str) -> JobDetail {
             choke_mm: 0.0,
         },
         rendered: false,
+        sheet_mm: None,
     }
 }
 

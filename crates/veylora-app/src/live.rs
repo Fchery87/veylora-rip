@@ -65,6 +65,24 @@ fn mm_text(um: u32) -> String {
 }
 
 /// `YYYY-MM-DD HH:MM UTC` from Unix milliseconds (proleptic Gregorian, no leap seconds).
+/// Shows a stored `YYYY-MM-DDTHH:MM:SSZ` time the way every other time here is shown.
+/// Anything else is returned unchanged rather than guessed at.
+fn display_utc(stored: &str) -> String {
+    let b = stored.as_bytes();
+    let shaped = b.len() == 20
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b[10] == b'T'
+        && b[13] == b':'
+        && b[16] == b':'
+        && b[19] == b'Z';
+    if shaped {
+        format!("{} {} UTC", &stored[..10], &stored[11..16])
+    } else {
+        stored.to_owned()
+    }
+}
+
 fn utc_text(ms: u64) -> String {
     let secs = ms / 1000;
     let days = (secs / 86_400) as i64;
@@ -94,7 +112,10 @@ fn summary(ws: &Workspace, id: JobId) -> Result<JobSummary, String> {
         .lifecycle_events(id)
         .map_err(|e| e.to_string())?
         .last()
-        .map_or_else(|| utc_text(inputs.created_at_ms), |r| r.recorded_at.clone());
+        .map_or_else(
+            || utc_text(inputs.created_at_ms),
+            |r| display_utc(&r.recorded_at),
+        );
     Ok(JobSummary {
         id: id.to_string(),
         // Jobs have no operator-given name yet; the id prefix is the honest label.
@@ -210,6 +231,10 @@ pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
         provenance,
         white_policy: white_policy(&snapshot)?,
         rendered: !report.renders.is_empty(),
+        sheet_mm: Some((
+            f64::from(layout.page_width_um) / 1000.0,
+            f64::from(layout.page_height_um) / 1000.0,
+        )),
     })
 }
 
@@ -723,6 +748,16 @@ pub fn run_preflight(
         .preflight(id, &PreflightOptions::default())
         .map_err(|e| e.to_string())?;
     check_acknowledgements(&report.findings, acknowledged)?;
+    // Decisions already recorded in a render's manifest still stand for the same finding.
+    let mut acknowledged = acknowledged.to_vec();
+    if let Some(run) = crate::artifacts::retained_for_job(ws, job_id)? {
+        for id in run.acknowledged_findings {
+            if !acknowledged.contains(&id) {
+                acknowledged.push(id);
+            }
+        }
+    }
+    let acknowledged = &acknowledged[..];
     let at = now_utc();
     let mut detail = job_detail(ws, job_id)?;
     detail.findings = report
@@ -887,6 +922,16 @@ pub fn render_job(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stored_times_are_shown_in_the_common_format_or_left_alone() {
+        assert_eq!(display_utc("2026-11-21T05:57:23Z"), "2026-11-21 05:57 UTC");
+        assert_eq!(display_utc("yesterday"), "yesterday");
+        assert_eq!(
+            display_utc("2026-11-21T05:57:23+01:00"),
+            "2026-11-21T05:57:23+01:00"
+        );
+    }
 
     #[test]
     fn every_mode_status_maps_to_its_own_maturity() {

@@ -70,6 +70,11 @@ fn a_valid_request_creates_a_draft_job_that_then_lists_and_opens() {
         (1.0, 0.25)
     );
     assert_eq!(d.summary.sheet, "1 x 0.250 mm");
+    assert_eq!(
+        d.sheet_mm,
+        Some((1.0, 0.25)),
+        "the viewer draws the real sheet shape"
+    );
     let listed = live::job_summaries(&ws).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, d.summary.id);

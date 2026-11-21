@@ -119,6 +119,8 @@ export interface JobDetail extends JobSummary {
     chokeMm: number;
   };
   rendered: boolean;
+  /** Real sheet size in mm for live jobs; fixture jobs leave it unset. */
+  sheetMm?: { w: number; h: number };
 }
 
 export interface ChannelRow {
