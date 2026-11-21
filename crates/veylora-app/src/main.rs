@@ -158,18 +158,32 @@ fn set_white_choke(jobs: State<Jobs>, job_id: String, choke_mm: f64) -> Result<J
 /// and the retained-artifact command says so instead of inventing values.
 struct LiveWorkspace(Option<std::path::PathBuf>);
 
+impl LiveWorkspace {
+    fn open(&self) -> Result<veylora_workflow::Workspace, String> {
+        let root = self.0.as_ref().ok_or(
+            "No workspace is configured (set VEYLORA_WORKSPACE); only fixture jobs exist.",
+        )?;
+        veylora_workflow::Workspace::open(root).map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+fn live_list_jobs(live: State<LiveWorkspace>) -> Result<Vec<JobSummary>, String> {
+    veylora_app_lib::live::job_summaries(&live.open()?)
+}
+
+#[tauri::command]
+fn live_get_job(live: State<LiveWorkspace>, job_id: String) -> Result<JobDetail, String> {
+    veylora_app_lib::live::job_detail(&live.open()?, &job_id)
+}
+
 #[tauri::command]
 fn get_retained_inspect_view(
     live: State<LiveWorkspace>,
     job_id: String,
     selection: Option<InspectSelection>,
 ) -> Result<InspectView, String> {
-    let root = live
-        .0
-        .as_ref()
-        .ok_or("No workspace is configured (set VEYLORA_WORKSPACE); only fixture jobs exist.")?;
-    let ws = veylora_workflow::Workspace::open(root).map_err(|e| e.to_string())?;
-    let retained = retained_for_job(&ws, &job_id)?
+    let retained = retained_for_job(&live.open()?, &job_id)?
         .ok_or("This job has no completed render. Render it to inspect its retained output.")?;
     inspect::present_retained(
         &retained,
@@ -191,6 +205,8 @@ fn main() {
             get_job_actions,
             get_inspect_view,
             get_retained_inspect_view,
+            live_list_jobs,
+            live_get_job,
             toggle_inspect_plane,
             set_inspect_composite,
             get_review_view,

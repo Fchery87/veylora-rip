@@ -105,6 +105,31 @@ impl FileJobStore {
             .collect())
     }
 
+    /// Ids named by the stored snapshot files, in no particular order. Contents are not read, so
+    /// a damaged snapshot still appears here and fails when it is opened. Other files are ignored.
+    pub fn list_ids(&self) -> PersistenceResult<Vec<JobId>> {
+        let mut ids = Vec::new();
+        let entries = match std::fs::read_dir(self.root.join("jobs")) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(ids),
+            Err(e) => return Err(PersistenceError::from_io(e)),
+        };
+        for entry in entries {
+            let path = entry.map_err(PersistenceError::from_io)?.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            if let Some(id) = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.parse::<JobId>().ok())
+            {
+                ids.push(id);
+            }
+        }
+        Ok(ids)
+    }
+
     fn log_path(&self) -> PathBuf {
         self.root.join("attempts.log")
     }

@@ -767,6 +767,27 @@ impl Workspace {
         Ok(names)
     }
 
+    /// Every stored job, newest first (ties broken by id so the order is stable). A snapshot that
+    /// cannot be read is still listed here and fails when opened.
+    pub fn list_jobs(&self) -> WorkflowResult<Vec<JobId>> {
+        let mut keyed: Vec<(u64, JobId)> = Vec::new();
+        for id in self.jobs.list_ids()? {
+            // An unreadable snapshot sorts last rather than vanishing from the list.
+            let created = self.jobs.get(id).map_or(0, |s| s.inputs().created_at_ms);
+            keyed.push((created, id));
+        }
+        keyed.sort_by(|a, b| {
+            b.0.cmp(&a.0)
+                .then_with(|| a.1.to_string().cmp(&b.1.to_string()))
+        });
+        Ok(keyed.into_iter().map(|(_, id)| id).collect())
+    }
+
+    /// The immutable record of what a job was created from.
+    pub fn job_snapshot(&self, id: JobId) -> WorkflowResult<veylora_domain::job::JobSnapshot> {
+        Ok(self.jobs.get(id)?)
+    }
+
     /// Inspects the newest run that completed (wrote a manifest), from its retained bytes. A run
     /// directory without a manifest never finished and is skipped. `None` when nothing was ever
     /// rendered; a damaged run is returned with its problems, not hidden.
