@@ -3651,6 +3651,7 @@ dependencies = [
  "tauri-build",
  "veylora-device",
  "veylora-domain",
+ "veylora-transport",
  "veylora-workflow",
 ]
 

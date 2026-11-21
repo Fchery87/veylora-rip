@@ -141,6 +141,10 @@ pub struct JobDevice {
     pub setup_physically_verified: bool,
     pub mode_id: String,
     pub mode_status: veylora_device::mode::ModeStatus,
+    /// Largest page the mode can print, in micrometres (width, height).
+    pub printable_um: (u64, u64),
+    /// True when the mode caps a white channel above zero, so white can be printed at all.
+    pub white_capable: bool,
 }
 
 /// One completed render run and what re-reading its retained bytes found.
@@ -793,6 +797,12 @@ impl Workspace {
         Ok(keyed.into_iter().map(|(_, id)| id).collect())
     }
 
+    /// Every submission attempt of a job at its latest recorded state, oldest first.
+    pub fn job_attempts(&self, id: JobId) -> WorkflowResult<Vec<veylora_persistence::AttemptView>> {
+        self.jobs.get(id)?;
+        Ok(self.jobs.list_attempts(id)?)
+    }
+
     /// The device facts a job was created against, read from its stored setup and mode records.
     pub fn job_device(&self, id: JobId) -> WorkflowResult<JobDevice> {
         let loaded = self.load(id)?;
@@ -801,6 +811,19 @@ impl Workspace {
             setup_physically_verified: loaded.setup.require_production().is_ok(),
             mode_id: loaded.mode.id().to_string(),
             mode_status: loaded.mode.status(),
+            printable_um: {
+                let r = loaded.mode.raster();
+                (
+                    u64::from(r.printable_width_px) * 25_400 / u64::from(r.dpi_x),
+                    u64::from(r.printable_height_px) * 25_400 / u64::from(r.dpi_y),
+                )
+            },
+            white_capable: loaded
+                .mode
+                .deposition()
+                .coverage_caps
+                .iter()
+                .any(|(name, cap)| name.eq_ignore_ascii_case("white") && *cap > 0.0),
         })
     }
 

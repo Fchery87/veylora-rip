@@ -67,7 +67,7 @@ export interface Placement {
   clipped: boolean;
 }
 
-export type AttemptKind = "file-sink" | "printer";
+export type AttemptKind = "file-sink" | "printer" | "transport";
 export type AttemptOutcome =
   | "pending"
   | "ambiguous"
@@ -76,7 +76,11 @@ export type AttemptOutcome =
   | "printed-badly"
   | "kept-in-review"
   /** A reprint attempt created by a review choice. Never sent until released. */
-  | "held";
+  | "held"
+  /** The transport accepted the data; physical completion is not confirmed. */
+  | "accepted"
+  | "failed"
+  | "cancelled";
 
 export interface Attempt {
   id: string;

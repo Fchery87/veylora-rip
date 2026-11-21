@@ -20,6 +20,7 @@ pub use lifecycle::{AttemptReview, ReviewReport, SetupDraft, SetupStatus};
 pub use spec::{CropSpec, JobSpec, LayoutSpec, PlacementSpec};
 pub use support::SupportBundleOptions;
 pub use update::UpdateBlocker;
+pub use veylora_persistence::AttemptView;
 pub use workspace::{
     asset_id_for, AttemptSummary, InspectedRun, JobCreated, JobDevice, JobReport, PreflightOptions,
     PreflightReport, RenderOptions, RenderOutcome, RenderSummary, Workspace, DIAGNOSTIC_BACKEND,

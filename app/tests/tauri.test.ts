@@ -130,10 +130,14 @@ describe("tauri adapter", () => {
       ]);
     });
 
-    it("has no review for live jobs yet, and says so instead of showing fixture attempts", async () => {
+    it("reads review and records its resolution through Rust", async () => {
       const { calls, services } = live();
-      expect(await services.getReviewView("J-1")).toBeNull();
-      expect(calls).toEqual([]);
+      await services.getReviewView("J-1");
+      await services.resolveReview("A-1", "finished");
+      expect(calls).toEqual([
+        { command: "live_get_review_view", args: { jobId: "J-1" } },
+        { command: "live_resolve_review", args: { attemptId: "A-1", outcome: "finished" } },
+      ]);
     });
 
     it("rejects what the live backend cannot do instead of touching fixture state", async () => {
@@ -141,7 +145,6 @@ describe("tauri adapter", () => {
       for (const attempt of [
         () => services.writeToFileSink("J-1"),
         () => services.releaseToPrinter("J-1"),
-        () => services.resolveReview("A-1", "decide-later"),
         () => services.setWhitePolicy("J-1", "No white"),
         () => services.setWhiteMask("J-1", { source: "Whole placement", invert: false }),
         () => services.setWhiteChoke("J-1", 0.5),

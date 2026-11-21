@@ -84,6 +84,8 @@ pub struct Placement {
 pub enum AttemptKind {
     FileSink,
     Printer,
+    /// A recorded submission whose destination is not recorded with the attempt.
+    Transport,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,6 +100,11 @@ pub enum AttemptOutcome {
     KeptInReview,
     /// Created by a reprint choice. Never sent until an operator releases it.
     Held,
+    /// The transport accepted the data. Physical completion is not confirmed.
+    Accepted,
+    /// Rejected or failed; the record says what was written.
+    Failed,
+    Cancelled,
 }
 
 impl AttemptOutcome {

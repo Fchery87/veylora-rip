@@ -5,19 +5,24 @@ use veylora_device::mode::ModeStatus;
 use veylora_domain::{
     errors::ErrorCode,
     ids::JobId,
+    job::AttemptState,
     layout::Rotation,
     lifecycle::JobState as DomainState,
     preflight::{Finding as DomainFinding, Severity as DomainSeverity},
     recipe::WhiteSource,
 };
-use veylora_workflow::{PreflightOptions, RenderOptions, WorkflowError, Workspace};
+use veylora_workflow::{
+    PreflightOptions, RenderOptions, ReviewResolution, WorkflowError, Workspace,
+};
 
 use crate::state::{
-    CapabilityState, DataSource, ModeCapability, ModeMaturity, SetupCapability, SinkCapability,
+    CapabilityState, DataSource, ModeCapability, ModeMaturity, OpenReview, SetupCapability,
+    SinkCapability,
 };
 use crate::view_models::{
-    Acknowledgement, Finding, JobDetail, JobState, JobSummary, MaskSource, Placement,
-    ProvenanceRow, Severity, WhitePolicy, WhitePolicyKind,
+    Acknowledgement, Attempt, AttemptKind, AttemptOutcome, Finding, JobDetail, JobState,
+    JobSummary, MaskSource, Placement, ProvenanceRow, ReviewOutcome, ReviewView, Severity,
+    WhitePolicy, WhitePolicyKind,
 };
 
 fn parse_id(job_id: &str) -> Result<JobId, String> {
@@ -139,8 +144,7 @@ fn white_policy(snapshot: &veylora_domain::job::JobSnapshot) -> Result<WhitePoli
     })
 }
 
-/// Detail for one job. Findings and attempts are not itemized here: findings come from a preflight
-/// run, and attempt outcomes need the operator-review vocabulary mapped without approximation.
+/// Detail for one job. Findings come only from a preflight run, so they are empty here.
 pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
     let id = parse_id(job_id)?;
     let snapshot = ws.job_snapshot(id).map_err(|e| e.to_string())?;
@@ -186,17 +190,14 @@ pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
         row("Created", utc_text(report.created_at_ms)),
         row(
             "Submission attempts",
-            format!(
-                "{} recorded (not itemized here yet)",
-                report.submission_attempts.len()
-            ),
+            report.submission_attempts.len().to_string(),
         ),
     ];
     Ok(JobDetail {
         summary: summary(ws, id)?,
         placements,
         findings: Vec::new(),
-        attempts: Vec::new(),
+        attempts: attempts(ws, id)?,
         provenance,
         white_policy: white_policy(&snapshot)?,
         rendered: !report.renders.is_empty(),
@@ -240,7 +241,11 @@ impl Acknowledgements {
 /// workspace holds no jobs. Nothing is invented for an empty workspace.
 pub fn workspace_capabilities(ws: &Workspace) -> Result<CapabilityState, String> {
     match ws.list_jobs().map_err(|e| e.to_string())?.first() {
-        Some(id) => capabilities(ws, &id.to_string()),
+        Some(id) => {
+            let mut caps = capabilities(ws, &id.to_string())?;
+            caps.open_review = open_review(ws)?;
+            Ok(caps)
+        }
         None => Ok(CapabilityState {
             data_source: DataSource::Live,
             setup: SetupCapability {
@@ -275,6 +280,145 @@ fn maturity(status: ModeStatus) -> ModeMaturity {
     }
 }
 
+fn attempt_outcome(state: AttemptState) -> AttemptOutcome {
+    match state {
+        AttemptState::Submitting => AttemptOutcome::Pending,
+        // The transport took the data; whether it printed is not known.
+        AttemptState::Submitted => AttemptOutcome::Accepted,
+        AttemptState::Ambiguous => AttemptOutcome::Ambiguous,
+        AttemptState::Failed => AttemptOutcome::Failed,
+        AttemptState::Cancelled => AttemptOutcome::Cancelled,
+        // Only an operator's confirmation is ever called finished.
+        AttemptState::OperatorConfirmedFinished => AttemptOutcome::Finished,
+    }
+}
+
+fn attempts(ws: &Workspace, id: JobId) -> Result<Vec<Attempt>, String> {
+    Ok(ws
+        .job_attempts(id)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|a| Attempt {
+            id: a.attempt_id.to_string(),
+            kind: AttemptKind::Transport,
+            at: a.recorded_at,
+            outcome: attempt_outcome(a.state),
+            note: a.note,
+            sink_path: None,
+            spool_job_id: None,
+            bytes_written: Some(a.bytes_written),
+            bytes_intended: None,
+            artifact_hash: None,
+        })
+        .collect())
+}
+
+/// The choices a live review can honour. The workflow records "it printed" and "nothing printed"
+/// (which cancels the job; a new print is a new job). It cannot record "printed badly", so that is
+/// not offered rather than promised.
+fn live_choices() -> Vec<crate::view_models::ReviewChoiceView> {
+    let choice =
+        |outcome, label: &str, confirm: &str, effect: &str| crate::view_models::ReviewChoiceView {
+            outcome,
+            label: label.to_owned(),
+            confirm_label: confirm.to_owned(),
+            effect: effect.to_owned(),
+        };
+    vec![
+        choice(
+            ReviewOutcome::Finished,
+            "It printed correctly",
+            "Mark finished",
+            "The attempt will be recorded as finished by the operator. No new attempt is created.",
+        ),
+        choice(
+            ReviewOutcome::Reprint,
+            "Nothing printed",
+            "Cancel this job",
+            "The job will be recorded as not printed and cancelled. Printing again is a new job.",
+        ),
+        choice(
+            ReviewOutcome::DecideLater,
+            "Decide later",
+            "Keep in review",
+            "The attempt stays in review. The printer remains blocked until it is resolved.",
+        ),
+    ]
+}
+
+/// The attempt waiting for an operator outcome, if the job has one.
+pub fn review_view(ws: &Workspace, job_id: &str) -> Result<Option<ReviewView>, String> {
+    let id = parse_id(job_id)?;
+    let review = ws.review(id).map_err(|e| e.to_string())?;
+    if !review.requires_review {
+        return Ok(None);
+    }
+    let detail = job_detail(ws, job_id)?;
+    let caps = capabilities(ws, job_id)?;
+    Ok(
+        crate::screens::review::present(&caps, &detail).map(|mut v| {
+            v.choices = live_choices();
+            v
+        }),
+    )
+}
+
+/// Records the operator's decision for the attempt, wherever its job is.
+pub fn resolve_review(
+    ws: &Workspace,
+    attempt_id: &str,
+    outcome: ReviewOutcome,
+) -> Result<CapabilityState, String> {
+    let mut found = None;
+    for id in ws.list_jobs().map_err(|e| e.to_string())? {
+        if ws
+            .job_attempts(id)
+            .map_err(|e| e.to_string())?
+            .iter()
+            .any(|a| a.attempt_id.to_string() == attempt_id)
+        {
+            found = Some(id);
+            break;
+        }
+    }
+    let id = found.ok_or_else(|| format!("No attempt '{attempt_id}' exists in this workspace."))?;
+    let resolution = match outcome {
+        ReviewOutcome::Finished => Some(ReviewResolution::ConfirmedFinished),
+        ReviewOutcome::Reprint => Some(ReviewResolution::NotPrinted),
+        ReviewOutcome::DecideLater => None,
+        ReviewOutcome::PrintedBadly => {
+            return Err("Recording 'printed badly' is not available for live jobs yet.".to_owned())
+        }
+    };
+    if let Some(resolution) = resolution {
+        ws.resolve_review(
+            id,
+            resolution,
+            LOCAL_OPERATOR,
+            "Decision recorded from the app's review card; no further notes were entered.",
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    workspace_capabilities(ws)
+}
+
+/// The first job that still needs an operator decision, as the app-wide capability state shows it.
+fn open_review(ws: &Workspace) -> Result<Option<OpenReview>, String> {
+    for id in ws.list_jobs().map_err(|e| e.to_string())? {
+        let review = ws.review(id).map_err(|e| e.to_string())?;
+        if review.requires_review {
+            if let Some(a) = review.attempts.iter().find(|a| a.requires_review) {
+                return Ok(Some(OpenReview {
+                    job_id: id.to_string(),
+                    attempt_id: a.attempt_id.clone(),
+                    job_name: summary(ws, id)?.name,
+                }));
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Capabilities of the device a job was created against. What the stored records do not say is
 /// reported conservatively (controls off, no sheet list) rather than guessed: sheet sizes are the
 /// job's own layout, and white choke, mask inversion and policy choices are not read from the mode yet.
@@ -293,11 +437,22 @@ pub fn capabilities(ws: &Workspace, job_id: &str) -> Result<CapabilityState, Str
         mode: ModeCapability {
             id: device.mode_id,
             maturity: maturity(device.mode_status),
-            sheet_sizes: Vec::new(),
-            white_choke: false,
+            sheet_sizes: vec![format!(
+                "{} x {} mm",
+                mm_text(device.printable_um.0 as u32),
+                mm_text(device.printable_um.1 as u32)
+            )],
+            // The renderer applies a recipe's white spread, so choke is supported; recipes have
+            // no mask inversion.
+            white_choke: true,
             white_mask_invert: false,
-            white_policies: Vec::new(),
-            screened_inspect: false,
+            white_policies: if device.white_capable {
+                vec![WhitePolicyKind::Underbase, WhitePolicyKind::NoWhite]
+            } else {
+                vec![WhitePolicyKind::NoWhite]
+            },
+            // Every render retains screened planes.
+            screened_inspect: true,
         },
         sinks: SinkCapability {
             // No physical submission exists until the physical gate passes.

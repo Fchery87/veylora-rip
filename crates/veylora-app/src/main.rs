@@ -224,6 +224,23 @@ fn live_acknowledge_finding(
 }
 
 #[tauri::command]
+fn live_get_review_view(
+    live: State<LiveWorkspace>,
+    job_id: String,
+) -> Result<Option<ReviewView>, String> {
+    veylora_app_lib::live::review_view(&live.open()?, &job_id)
+}
+
+#[tauri::command]
+fn live_resolve_review(
+    live: State<LiveWorkspace>,
+    attempt_id: String,
+    outcome: ReviewOutcome,
+) -> Result<CapabilityState, String> {
+    veylora_app_lib::live::resolve_review(&live.open()?, &attempt_id, outcome)
+}
+
+#[tauri::command]
 fn live_render(
     live: State<LiveWorkspace>,
     acks: State<Acks>,
@@ -309,6 +326,8 @@ fn main() {
             live_get_job_actions,
             live_acknowledge_finding,
             live_render,
+            live_get_review_view,
+            live_resolve_review,
             live_toggle_inspect_plane,
             live_set_inspect_composite,
             live_get_job,

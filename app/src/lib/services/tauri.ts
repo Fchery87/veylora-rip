@@ -65,14 +65,13 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
       invoke("live_toggle_inspect_plane", { jobId, selection, plane, on }),
     setInspectComposite: (jobId, selection, on) =>
       invoke("live_set_inspect_composite", { jobId, selection, on }),
-    // Attempt outcomes are not itemized for live jobs yet, so no review is offered.
-    getReviewView: async () => null,
+    getReviewView: (jobId) => invoke("live_get_review_view", { jobId }),
     acknowledgeFinding: (jobId, findingId) =>
       invoke("live_acknowledge_finding", { jobId, findingId }),
     renderAndHold: (jobId) => invoke("live_render", { jobId }),
     writeToFileSink: () => NOT_LIVE("Writing to the file sink"),
     releaseToPrinter: () => NOT_LIVE("Release to the printer"),
-    resolveReview: () => NOT_LIVE("Resolving a review"),
+    resolveReview: (attemptId, outcome) => invoke("live_resolve_review", { attemptId, outcome }),
     setWhitePolicy: () => NOT_LIVE("Changing the white policy"),
     setWhiteMask: () => NOT_LIVE("Changing the white mask"),
     setWhiteChoke: () => NOT_LIVE("Changing the white choke"),
