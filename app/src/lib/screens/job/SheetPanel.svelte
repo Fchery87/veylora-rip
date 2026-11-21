@@ -14,7 +14,7 @@
     A3: { w: 297, h: 420 },
     A4: { w: 210, h: 297 },
   };
-  const size = $derived(SIZES[job.sheet] ?? SIZES.A3);
+  const size = $derived(job.sheetMm ?? SIZES[job.sheet] ?? SIZES.A3);
   const unsupported = $derived(`Not supported by mode ${caps.mode.id}`);
   const frozen = $derived(job.rendered);
 

@@ -190,6 +190,21 @@ pub struct JobDetail {
     pub provenance: Vec<ProvenanceRow>,
     pub white_policy: WhitePolicy,
     pub rendered: bool,
+    /// Sheet width and height in mm when the job has a real layout; fixtures leave it unset.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "sheet_mm_object"
+    )]
+    pub sheet_mm: Option<(f64, f64)>,
+}
+
+fn sheet_mm_object<S: serde::Serializer>(v: &Option<(f64, f64)>, s: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeStruct;
+    let (w, h) = v.unwrap_or_default();
+    let mut o = s.serialize_struct("SheetMm", 2)?;
+    o.serialize_field("w", &w)?;
+    o.serialize_field("h", &h)?;
+    o.end()
 }
 
 // ---- Preflight presentation ----

@@ -6,6 +6,8 @@
 
   const MAX_PX = 1024;
   const LOUPE = 7;
+  /** Small planes are enlarged on screen by whole steps so single pixels stay visible. */
+  const zoom = (img: PlaneImage) => Math.max(1, Math.min(16, Math.floor(480 / img.width)));
 
   let images = $state<Record<string, PlaneImage>>({});
   let loupe = $state<{ file: string; at: PlaneValues } | null>(null);
@@ -61,12 +63,12 @@
           aria-label={`Inspect values in ${file}`}
           onclick={(e) => inspect(e, file, img)}
         >
-          <img src={img.dataUrl} alt={`Retained plane ${file}`} width={img.width} height={img.height} />
+          <img src={img.dataUrl} alt={`Retained plane ${file}`} width={img.width * zoom(img)} height={img.height * zoom(img)} />
         </button>
         <p class="muted note">
           {img.sourceWidth} x {img.sourceHeight} px{img.scale > 1
             ? `, shown reduced ${img.scale}:1 (averaged)`
-            : ", shown 1:1"}. Click to read exact values.
+            : ", shown 1:1"}{zoom(img) > 1 ? `, enlarged ${zoom(img)}x on screen` : ""}. Click to read exact values.
         </p>
       {:else}
         <p class="muted">Loading…</p>

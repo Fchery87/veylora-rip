@@ -11,12 +11,17 @@
   const setupId = $derived(options.setups.find((s) => s.hash === setup)?.id);
   const modes = $derived(options.modes.filter((m) => m.setupId === setupId));
   let modeChoice = $state("");
-  const mode = $derived(modes.some((m) => m.hash === modeChoice) ? modeChoice : (modes[0]?.hash ?? ""));
-  const recipes = $derived(options.recipes.filter((r) => !r.retired));
   let recipeChoice = $state("");
-  const recipe = $derived(
-    recipes.some((r) => r.hash === recipeChoice) ? recipeChoice : (recipes[0]?.hash ?? ""),
-  );
+  const recipes = $derived(options.recipes.filter((r) => !r.retired));
+  // A select bound to a value with no matching option shows blank, so keep each choice valid.
+  $effect(() => {
+    if (!modes.some((m) => m.hash === modeChoice)) modeChoice = modes[0]?.hash ?? "";
+  });
+  $effect(() => {
+    if (!recipes.some((r) => r.hash === recipeChoice)) recipeChoice = recipes[0]?.hash ?? "";
+  });
+  const mode = $derived(modeChoice);
+  const recipe = $derived(recipeChoice);
 
   let artworkPath = $state("");
   let pageWidthMm = $state(297);
@@ -91,7 +96,7 @@
       Print mode
       <select bind:value={modeChoice}>
         {#each modes as m (m.hash)}
-          <option value={m.hash} selected={m.hash === mode}>{m.id} ({m.maturity})</option>
+          <option value={m.hash}>{m.id} ({m.maturity})</option>
         {/each}
       </select>
     </label>
@@ -99,7 +104,7 @@
       Recipe
       <select bind:value={recipeChoice}>
         {#each recipes as r (r.hash)}
-          <option value={r.hash} selected={r.hash === recipe}>{r.id} rev {r.revision}</option>
+          <option value={r.hash}>{r.id} rev {r.revision}</option>
         {/each}
       </select>
     </label>
@@ -152,7 +157,7 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
   fieldset {
@@ -163,8 +168,12 @@
     border-radius: 6px;
     padding: 10px 12px;
   }
-  input,
+  input[type="text"],
+  input[type="number"],
   select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     font: inherit;
     padding: 6px 8px;
     border: 1px solid var(--line);
