@@ -165,6 +165,34 @@ describe("creating jobs", () => {
     expect(screen.queryByRole("form", { name: "New job" })).not.toBeInTheDocument();
   });
 
+  it("fills the artwork path from the native file picker", async () => {
+    const { user } = await openLive(async () => ({}), {
+      pickArtwork: async () => "C:/Art/logo.png",
+    });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    await user.click(within(form).getByRole("button", { name: "Browse…" }));
+    await waitFor(() =>
+      expect(within(form).getByLabelText(/Artwork file/)).toHaveValue("C:/Art/logo.png"),
+    );
+  });
+
+  it("keeps a typed path when the picker is cancelled", async () => {
+    const { user } = await openLive(async () => ({}), { pickArtwork: async () => null });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    await user.type(within(form).getByLabelText(/Artwork file/), "typed.png");
+    await user.click(within(form).getByRole("button", { name: "Browse…" }));
+    expect(within(form).getByLabelText(/Artwork file/)).toHaveValue("typed.png");
+  });
+
+  it("offers no Browse button when there is no native picker", async () => {
+    const { user } = await openLive(async () => ({}), { pickArtwork: undefined });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    expect(within(form).queryByRole("button", { name: "Browse…" })).not.toBeInTheDocument();
+  });
+
   it("draws the sheet at the job's real shape, not a fixture paper size", async () => {
     const created = {
       ...(await createMockServices("working-day").getJob("J-0142")),

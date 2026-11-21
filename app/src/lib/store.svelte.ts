@@ -175,6 +175,22 @@ export class AppStore {
     this.creating = false;
   }
 
+  /** Whether the shell can open a native file dialog (live workspace only). */
+  get canPickArtwork() {
+    return this.#services.pickArtwork !== undefined;
+  }
+
+  /** The path chosen in the native dialog, or null when cancelled or it failed (reason in `error`). */
+  async pickArtwork(): Promise<string | null> {
+    try {
+      this.error = "";
+      return (await this.#services.pickArtwork?.()) ?? null;
+    } catch (e) {
+      this.error = e instanceof Error ? e.message : String(e);
+      return null;
+    }
+  }
+
   /** Creates the job in Rust, then opens it. A refusal keeps the form open and shows the reason. */
   async createJob(request: NewJobRequest) {
     try {

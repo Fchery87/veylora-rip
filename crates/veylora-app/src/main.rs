@@ -350,8 +350,29 @@ fn get_retained_inspect_view(
     )
 }
 
+/// The operating system's file dialog, limited to PNG artwork. `None` means cancelled. The dialog
+/// blocks, so this is async (a blocking dialog on the main thread would freeze the window).
+#[tauri::command]
+async fn live_pick_artwork(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let Some(chosen) = app
+        .dialog()
+        .file()
+        .set_title("Choose artwork")
+        .add_filter("PNG image", &["png"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = chosen
+        .into_path()
+        .map_err(|e| format!("The chosen file is not a local path: {e}"))?;
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(Jobs(Mutex::new(JobStore::fixture())))
         .manage(Acks(veylora_app_lib::live::Acknowledgements::default()))
         .manage(LiveWorkspace(
@@ -376,6 +397,7 @@ fn main() {
             live_plane_window,
             live_creation_options,
             live_create_job,
+            live_pick_artwork,
             live_write_to_file_sink,
             live_get_review_view,
             live_resolve_review,

@@ -193,7 +193,7 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "Cargo.lock",
-      "sha256": "14B09E54BADF2C7DBAF6F6C1827E9423A3ED9D7380A9D3CF210AB38BFFAB03BB"
+      "sha256": "4EC8AC549B79039298E7088616AE3D6E39FEA4DBE5C1B90C2489362EC0F25E61"
     },
     {
       "path": "Cargo.toml",
@@ -205,7 +205,7 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "path": "crates/veylora-app/Cargo.toml",
-      "sha256": "B068C362A9C32F703E981BC6B645204B05990A83AFA67C5ED80E8BAF2E64F210"
+      "sha256": "CB0E005BDBA4A308B62FA78EA22F4BE83E93F43FAD2A9B7530E0423D9077C21D"
     },
     {
       "path": "crates/veylora-app/icons-src/veylora-mark.svg",
@@ -2722,6 +2722,15 @@ It reads only locally available Rust manifests and does not download or alter lo
       "noticeSha256": ""
     },
     {
+      "id": "cargo:rfd@0.17.2",
+      "license": "MIT",
+      "source": "https://docs.rs/crate/rfd/0.17.2/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/rfd/0.17.2/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
       "id": "cargo:rustc_version@0.4.1",
       "license": "MIT OR Apache-2.0",
       "source": "https://docs.rs/crate/rustc_version/0.4.1/source/Cargo.toml",
@@ -3208,6 +3217,33 @@ It reads only locally available Rust manifests and does not download or alter lo
       "noticeSha256": ""
     },
     {
+      "id": "cargo:tauri-plugin-dialog@2.8.4",
+      "license": "Apache-2.0 OR MIT",
+      "source": "https://docs.rs/crate/tauri-plugin-dialog/2.8.4/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/tauri-plugin-dialog/2.8.4/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
+      "id": "cargo:tauri-plugin-fs@2.7.1",
+      "license": "Apache-2.0 OR MIT",
+      "source": "https://docs.rs/crate/tauri-plugin-fs/2.7.1/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/tauri-plugin-fs/2.7.1/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
+      "id": "cargo:tauri-plugin@2.7.4",
+      "license": "Apache-2.0 OR MIT",
+      "source": "https://docs.rs/crate/tauri-plugin/2.7.4/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/tauri-plugin/2.7.4/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "status": "unresolved",
+      "notice": "",
+      "noticeSha256": ""
+    },
+    {
       "id": "cargo:tauri-runtime-wry@2.12.3",
       "license": "Apache-2.0 OR MIT",
       "source": "https://docs.rs/crate/tauri-runtime-wry/2.12.3/source/Cargo.toml",
@@ -3226,10 +3262,10 @@ It reads only locally available Rust manifests and does not download or alter lo
       "noticeSha256": ""
     },
     {
-      "id": "cargo:tauri-utils@2.10.2",
+      "id": "cargo:tauri-utils@2.10.4",
       "license": "Apache-2.0 OR MIT",
-      "source": "https://docs.rs/crate/tauri-utils/2.10.2/source/Cargo.toml",
-      "licenseSource": "https://docs.rs/crate/tauri-utils/2.10.2/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
+      "source": "https://docs.rs/crate/tauri-utils/2.10.4/source/Cargo.toml",
+      "licenseSource": "https://docs.rs/crate/tauri-utils/2.10.4/source/ (inspect LICENSE*, COPYING*, NOTICE*)",
       "status": "unresolved",
       "notice": "",
       "noticeSha256": ""
