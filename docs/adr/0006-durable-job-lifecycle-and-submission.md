@@ -42,8 +42,8 @@ like a safe retry.
 
 - A restart reconstructs the same state and attempts. An interrupted submission is never
   retried; it waits for a person.
-- Recipes cannot be validated yet (`RecipeStatus` has no validated state), so the submission gate
-  checks the setup and mode and refuses retired recipes only.
+- Recipes can now be validated (ADR 0018), and the submission gate requires a validated recipe
+  whose evidence names the job's setup and mode, as well as a verified setup and a validated mode.
 - `render`, `submit` and `recover` each claim the job for their whole run (`Workspace::try_lock_job`,
   ADR 0017), so `recover` refuses a job another process is working on instead of assuming it is
   free. The claim is an operating-system file lock that the system drops when its holder dies, so

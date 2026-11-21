@@ -43,7 +43,13 @@ fn env_with_mask(production: bool, with_mask: bool) -> Env {
         created_at_ms: 1735000000000,
         setup: setup_hash,
         mode: ws.import_mode(&m.to_record()).unwrap(),
-        recipe: ws.import_recipe(&recipe()).unwrap(),
+        recipe: ws
+            .import_recipe(&if production {
+                validated_recipe(&recipe(), s.content_hash(), m.content_hash())
+            } else {
+                recipe()
+            })
+            .unwrap(),
         assets: BTreeMap::from([("art".to_string(), ws.import_asset(&source).unwrap())]),
         masks: if with_mask {
             BTreeMap::from([("m".to_string(), ws.import_asset(&mask).unwrap())])

@@ -9,7 +9,7 @@ use veylora_domain::{
     ids::JobId,
     job::{JobSnapshot, JobSnapshotInput},
     provenance::ContentHash,
-    recipe::{PrintRecipe, WhiteSource},
+    recipe::{PrintRecipe, RecipeStatus, WhiteSource},
 };
 
 /// Provenance label under which a derived job records the snapshot it was made from.
@@ -86,6 +86,11 @@ impl Workspace {
         let mut input = old.recipe.inputs().clone();
         input.revision = revision;
         input.created_at_ms = created_at_ms;
+        // Changed white is a different recipe, so what validated the old one does not carry over.
+        if input.status == RecipeStatus::Validated {
+            input.status = RecipeStatus::Experimental;
+        }
+        input.validation = None;
         input.white.source = if edit.enabled {
             WhiteSource::Alpha
         } else {

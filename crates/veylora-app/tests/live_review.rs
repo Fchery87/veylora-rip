@@ -28,7 +28,13 @@ fn ready_job() -> (Workspace, veylora_domain::ids::JobId) {
         created_at_ms: 1_735_000_000_000,
         setup: setup_hash,
         mode: ws.import_mode(&m.to_record()).unwrap(),
-        recipe: ws.import_recipe(&recipe()).unwrap(),
+        recipe: ws
+            .import_recipe(&validated_recipe(
+                &recipe(),
+                s.content_hash(),
+                m.content_hash(),
+            ))
+            .unwrap(),
         assets: BTreeMap::from([(
             "art".to_string(),
             ws.import_asset(&fixture("alpha-ramp.png")).unwrap(),

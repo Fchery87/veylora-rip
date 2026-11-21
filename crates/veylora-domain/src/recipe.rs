@@ -65,6 +65,8 @@ pub enum ScreenAlgorithm {
 #[serde(rename_all = "snake_case")]
 pub enum RecipeStatus {
     Experimental,
+    /// Carries [`RecipeValidation`]: pressed samples and a named sign-off.
+    Validated,
     Retired,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,6 +134,87 @@ pub struct FinishPolicy {
     pub press_pressure_pa: u32,
     pub peel: PeelCondition,
 }
+/// Fewest pressed samples, and fewest separate sessions, behind a validated recipe. The product
+/// requirements call a recipe validated only when repeated pressed samples meet agreed tolerances
+/// across sessions; these are the floor for "repeated" and "across sessions". The tolerances
+/// themselves are the operator's, stated in the evidence, not decided here.
+pub const MIN_VALIDATION_SAMPLES: usize = 3;
+pub const MIN_VALIDATION_SESSIONS: usize = 2;
+
+/// One pressed sample, measured against the stated tolerances.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PressedSample {
+    /// The printing session it came from, as the operator names it (usually a date and a part of
+    /// the day). Samples from one session do not show the recipe holds across sessions.
+    pub session: String,
+    pub label: String,
+    pub within_tolerance: bool,
+    pub note: String,
+}
+/// What was physically observed, and under which conditions. It names the recipe revision it
+/// validates and the setup and mode it was measured with, so it cannot be reused for others.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecipeEvidence {
+    /// The experimental revision this one was made from, and its content hash.
+    pub validated_revision: u32,
+    pub validated_hash: ContentHash,
+    pub setup_hash: ContentHash,
+    pub mode_hash: ContentHash,
+    /// Who pressed and measured the samples.
+    pub operator: String,
+    /// The tolerances the samples were measured against, as the operator agreed them.
+    pub tolerances: String,
+    pub samples: Vec<PressedSample>,
+}
+/// The evidence plus the named person who accepted it. Both are required.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecipeValidation {
+    pub evidence: RecipeEvidence,
+    pub signed_off_by: String,
+    /// UTC time of the sign-off, supplied by the operator.
+    pub signed_off_at: String,
+    pub sign_off_note: String,
+}
+impl RecipeValidation {
+    fn validate(&self) -> Result<(), ValidationError> {
+        let bad = |message: &str| Err(ValidationError::invalid("recipe.validation", message));
+        let e = &self.evidence;
+        let blank = |v: &str| v.trim().is_empty();
+        if blank(&e.operator) || blank(&e.tolerances) {
+            return bad(
+                "Name who measured the samples and the tolerances they were measured against.",
+            );
+        }
+        if blank(&self.signed_off_by) || blank(&self.signed_off_at) || blank(&self.sign_off_note) {
+            return bad("A sign-off needs a name, a time and a note about what was reviewed.");
+        }
+        if e.validated_revision == 0 {
+            return bad("Name the revision that was validated.");
+        }
+        if e.samples.len() < MIN_VALIDATION_SAMPLES {
+            return bad("Validation needs repeated pressed samples.");
+        }
+        if e.samples
+            .iter()
+            .any(|s| blank(&s.session) || blank(&s.label))
+        {
+            return bad("Name the session and label of every sample.");
+        }
+        let sessions: std::collections::BTreeSet<&str> =
+            e.samples.iter().map(|s| s.session.trim()).collect();
+        if sessions.len() < MIN_VALIDATION_SESSIONS {
+            return bad("Validation needs samples from more than one session.");
+        }
+        if e.samples.iter().any(|s| !s.within_tolerance) {
+            return bad("A sample outside tolerance means the recipe is not validated.");
+        }
+        Ok(())
+    }
+}
+
 /// Most knockout rules one recipe may carry, so mask building stays bounded.
 pub const MAX_KNOCKOUT_RULES: usize = 16;
 
@@ -192,6 +275,10 @@ pub struct PrintRecipeInput {
     pub screen: ScreenPolicy,
     pub clear: ClearPolicy,
     pub finish: FinishPolicy,
+    /// Present exactly when `status` is `Validated`. Absent from the serialized record otherwise,
+    /// so recipes that predate validation keep their content hash.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation: Option<RecipeValidation>,
 }
 impl ClearPolicy {
     fn validate(&self) -> Result<(), ValidationError> {
@@ -257,6 +344,22 @@ impl PrintRecipe {
             ));
         }
         input.clear.validate()?;
+        match (&input.status, &input.validation) {
+            (RecipeStatus::Validated, Some(v)) => v.validate()?,
+            (RecipeStatus::Validated, None) => {
+                return Err(ValidationError::invalid(
+                    "recipe.validation",
+                    "A validated recipe carries its physical evidence and sign-off.",
+                ))
+            }
+            (_, Some(_)) => {
+                return Err(ValidationError::invalid(
+                    "recipe.validation",
+                    "Only a validated recipe carries validation evidence.",
+                ))
+            }
+            (_, None) => {}
+        }
         if input.calibration.revision == 0 || input.screen.revision == 0 {
             return Err(ValidationError::invalid(
                 "recipe.revision",

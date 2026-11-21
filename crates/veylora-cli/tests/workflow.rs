@@ -907,3 +907,88 @@ fn resource_limits_are_options_on_preflight_and_render() {
         &["job", "render", "--job", &job, "--max-page-pixels", "4"],
     ));
 }
+
+#[test]
+fn a_recipe_is_validated_from_the_cli_with_evidence_and_a_sign_off() {
+    let root = dir("cli-validate");
+    let files = dir("cli-validate-files");
+    fs::create_dir_all(&files).unwrap();
+    let ws = veylora_workflow::Workspace::open(&root).unwrap();
+    let s = setup();
+    let setup_hash = ws.import_setup(&s.to_record()).unwrap();
+    ws.verify_setup(&setup_hash, evidence_for_record(&s.to_record()))
+        .unwrap();
+    let mut m = mode(s.id());
+    m.mark_validated().unwrap();
+    let mode_hash = ws.import_mode(&m.to_record()).unwrap();
+    let recipe_hash = ws.import_recipe(&recipe()).unwrap();
+
+    let sample = |session: &str, label: &str, ok: bool| {
+        serde_json::json!({"session": session, "label": label, "within_tolerance": ok,
+                           "note": "pressed and measured"})
+    };
+    let body = |samples: Vec<serde_json::Value>| {
+        serde_json::json!({
+            "operator": "op", "tolerances": "dE 3", "samples": samples,
+            "signed_off_by": "op", "signed_off_at": "2026-11-20T09:00:00Z",
+            "sign_off_note": "reviewed"
+        })
+    };
+    let write = |name: &str, v: serde_json::Value| {
+        let p = files.join(name);
+        fs::write(&p, serde_json::to_vec(&v).unwrap()).unwrap();
+        p
+    };
+    let validate = |evidence: &Path| {
+        cli(
+            &root,
+            &[
+                "recipe",
+                "validate",
+                "--recipe",
+                &recipe_hash.to_string(),
+                "--setup",
+                &setup_hash.to_string(),
+                "--mode",
+                &mode_hash.to_string(),
+                "--evidence",
+                evidence.to_str().unwrap(),
+            ],
+        )
+    };
+
+    // One failing sample: refused, nothing stored.
+    let failing = write(
+        "failing.json",
+        body(vec![
+            sample("s1", "a", true),
+            sample("s1", "b", false),
+            sample("s2", "c", true),
+        ]),
+    );
+    let refused = validate(&failing);
+    assert_eq!(refused.status.code(), Some(2));
+    assert_eq!(ws.catalog().unwrap().recipes.len(), 1);
+
+    let good = write(
+        "good.json",
+        body(vec![
+            sample("s1", "a", true),
+            sample("s1", "b", true),
+            sample("s2", "c", true),
+        ]),
+    );
+    let made = json(&validate(&good));
+    assert_eq!(made["revision"], 2);
+    assert_ne!(hash_of(&made), recipe_hash.to_string());
+    assert_eq!(ws.catalog().unwrap().recipes.len(), 2);
+    let catalog = ws.catalog().unwrap();
+    assert!(catalog
+        .recipes
+        .iter()
+        .any(|r| r.validated && r.revision == 2));
+    assert!(catalog
+        .recipes
+        .iter()
+        .all(|r| r.revision == 2 || !r.validated));
+}

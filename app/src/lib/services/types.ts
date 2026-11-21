@@ -190,7 +190,13 @@ export interface CreationOptions {
     setupId: string;
     maturity: "experimental" | "validated" | "retired";
   }[];
-  recipes: { hash: string; id: string; revision: number; retired: boolean }[];
+  recipes: {
+    hash: string;
+    id: string;
+    revision: number;
+    retired: boolean;
+    validated: boolean;
+  }[];
 }
 
 /** One artwork placed on one sheet; sizes in millimetres. */

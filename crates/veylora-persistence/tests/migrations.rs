@@ -108,6 +108,7 @@ fn snapshot(job_id: JobId) -> JobSnapshot {
                 thresholds: vec![32768],
             },
             clear: ClearPolicy::default(),
+            validation: None,
             finish: FinishPolicy {
                 ink_id: "synthetic".into(),
                 film_id: "synthetic".into(),

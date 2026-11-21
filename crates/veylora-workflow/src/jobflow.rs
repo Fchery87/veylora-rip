@@ -225,12 +225,30 @@ impl Workspace {
             ));
         }
         let recipe = &loaded.snapshot.inputs().recipe;
-        if recipe.inputs().status == RecipeStatus::Retired {
-            out.push(blocking(
+        match (&recipe.inputs().status, &recipe.inputs().validation) {
+            (RecipeStatus::Retired, _) => out.push(blocking(
                 ErrorCode::IncompatibleRecipe,
                 "recipe",
                 "The recipe is retired.",
-            ));
+            )),
+            (RecipeStatus::Validated, Some(v)) => {
+                // The evidence belongs to the conditions it was measured under, not to any other.
+                if v.evidence.setup_hash != loaded.setup.content_hash()
+                    || v.evidence.mode_hash != loaded.mode.content_hash()
+                {
+                    out.push(blocking(
+                        ErrorCode::IncompatibleRecipe,
+                        "recipe",
+                        "The recipe was validated with a different setup or print mode than \
+                         this job uses.",
+                    ));
+                }
+            }
+            _ => out.push(blocking(
+                ErrorCode::IncompatibleRecipe,
+                "recipe",
+                "Submission needs a recipe validated with physical evidence.",
+            )),
         }
         out.extend(
             check_compatibility(
