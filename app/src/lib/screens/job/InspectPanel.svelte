@@ -13,13 +13,23 @@
   // labels and metadata. This panel only holds the latest view.
   let view = $state<InspectView | null>(null);
   let error = $state("");
+  let loading = $state(false);
+  // Only the newest request may change the view, so a slow older answer cannot overwrite it.
+  let latest = 0;
 
   async function show(load: Promise<InspectView>) {
+    const mine = ++latest;
+    loading = true;
     try {
-      view = await load;
+      const next = await load;
+      if (mine !== latest) return;
+      view = next;
       error = "";
     } catch (e) {
+      if (mine !== latest) return;
       error = e instanceof Error ? e.message : String(e);
+    } finally {
+      if (mine === latest) loading = false;
     }
   }
 
@@ -48,6 +58,9 @@
 </script>
 
 {#if error}<p class="muted" role="status">{error}</p>{/if}
+{#if !view && loading}
+  <p class="muted" role="status" aria-label="Loading inspect view">Loading the retained output…</p>
+{/if}
 {#if view}
   <div class="wrap">
     <div class="tools">
@@ -76,7 +89,11 @@
       </div>
     </div>
     <StageChip source={view.source} text={view.chip} />
-    {#if view.rasterShown && view.rasterFiles?.length}
+    {#if loading}
+      <div class="viewport" role="status" aria-label="Loading inspect view">
+        <p>Loading the retained output…</p>
+      </div>
+    {:else if view.rasterShown && view.rasterFiles?.length}
       <RasterView {store} jobId={job.id} files={view.rasterFiles} />
       <p class="muted note">{view.placeholder}</p>
     {:else}
