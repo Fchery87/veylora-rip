@@ -84,7 +84,12 @@
       id="white-policy"
       value={job.whitePolicy.policy}
       disabled={frozen}
-      onchange={(e) => store.setWhitePolicy(job.id, e.currentTarget.value)}
+      onchange={async (e) => {
+        const el = e.currentTarget;
+        await store.setWhitePolicy(job.id, el.value);
+        // A refused change leaves the job as it was, so the dropdown must say so.
+        el.value = job.whitePolicy.policy;
+      }}
     >
       {#each caps.mode.whitePolicies as policy (policy)}
         <option value={policy}>{policy}</option>
@@ -95,11 +100,14 @@
       id="mask-source"
       value={job.whitePolicy.source}
       disabled={frozen}
-      onchange={(e) =>
-        store.setWhiteMask(job.id, {
-          source: e.currentTarget.value,
+      onchange={async (e) => {
+        const el = e.currentTarget;
+        await store.setWhiteMask(job.id, {
+          source: el.value,
           invert: job.whitePolicy.invertMask,
-        })}
+        });
+        el.value = job.whitePolicy.source;
+      }}
     >
       {#each WHITE_MASK_SOURCES as source (source)}
         <option value={source}>{source}</option>
