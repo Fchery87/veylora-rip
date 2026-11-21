@@ -21,7 +21,15 @@ Status: accepted, 2026-11-21
   detail and the app opens that job. Live jobs stay editable after a render, because the edit never
   touches the rendered one.
 
-## Not done
-The new job does not point back at the job it came from; the only trace is the shared recipe id
-with a higher revision and an unchanged layout hash. A recorded parent link would need a job format
-change and is left for the reprint-as-linked-job work.
+## Parent link
+A derived job records the snapshot it was made from as a `derived_from` provenance entry holding
+that snapshot's content hash. Provenance labels are free-form and unique, so this needs no job
+format change, and the entry is covered by the new job's own hash. `Workspace::job_parent` returns the
+recorded hash and, when a job with exactly that snapshot is in the workspace, its job id. A parent that
+is not in the workspace (an archive carries one job, not its parent) is reported by hash only and is
+never guessed. A chain of edits points one step at a time: each job names the job just before it.
+
+The Provenance tab shows it as "Derived from". The entry records that a job was derived, not by
+which kind of edit; what changed is read from the two jobs' recipes. This is not the reprint of the
+product requirements: a selective reprint is a new attempt on the same job and stays refused until
+a submission path exists.

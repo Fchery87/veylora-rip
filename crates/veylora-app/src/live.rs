@@ -266,6 +266,16 @@ pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
             report.submission_attempts.len().to_string(),
         ),
     ];
+    if let Some(parent) = ws.job_parent(id).map_err(|e| e.to_string())? {
+        let hash = parent.snapshot_hash.to_string();
+        provenance.push(row(
+            "Derived from",
+            match parent.job_id {
+                Some(job) => format!("Job {} (snapshot {})", &job.to_string()[..8], &hash[..16]),
+                None => format!("snapshot {} (not in this workspace)", &hash[..16]),
+            },
+        ));
+    }
     for dir in ws.exports(id).map_err(|e| e.to_string())? {
         provenance.push(row(
             "Exported to",

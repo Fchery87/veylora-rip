@@ -191,3 +191,54 @@ fn the_changes_the_interface_sends_read_back_as_one_change_each() {
         }
     );
 }
+
+fn row<'a>(detail: &'a veylora_app_lib::view_models::JobDetail, label: &str) -> Option<&'a str> {
+    detail
+        .provenance
+        .iter()
+        .find(|r| r.label == label)
+        .map(|r| r.value.as_str())
+}
+
+#[test]
+fn a_derived_job_shows_where_it_came_from_and_the_original_shows_nothing() {
+    let (ws, id) = created_job();
+    assert_eq!(
+        row(&live::job_detail(&ws, &id).unwrap(), "Derived from"),
+        None
+    );
+    let made = live::edit_white(
+        &ws,
+        &id,
+        &WhiteChange {
+            policy: Some(WhitePolicyKind::NoWhite),
+            ..change()
+        },
+    )
+    .unwrap();
+    let shown = row(&made, "Derived from").expect("a derived job names its parent");
+    assert!(shown.starts_with(&format!("Job {}", &id[..8])), "{shown}");
+}
+
+#[test]
+fn a_parent_missing_from_the_workspace_is_named_by_snapshot_hash() {
+    let (ws, id) = created_job();
+    let made = live::edit_white(
+        &ws,
+        &id,
+        &WhiteChange {
+            policy: Some(WhitePolicyKind::NoWhite),
+            ..change()
+        },
+    )
+    .unwrap();
+    let archive = ws
+        .export_job_archive(made.summary.id.parse().unwrap())
+        .unwrap();
+    let elsewhere = Workspace::open(dir("live-white-elsewhere")).unwrap();
+    let imported = elsewhere.import_job_archive(&archive).unwrap();
+    let detail = live::job_detail(&elsewhere, &imported.job_id.to_string()).unwrap();
+    let shown = row(&detail, "Derived from").unwrap();
+    assert!(shown.contains("not in this workspace"), "{shown}");
+    assert!(shown.contains("snapshot "), "{shown}");
+}
