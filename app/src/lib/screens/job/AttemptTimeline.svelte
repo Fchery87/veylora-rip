@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { Attempt } from "../../services/types";
 
+  const kindLabel = (kind: Attempt["kind"]) =>
+    kind === "file-sink" ? "File sink" : kind === "printer" ? "Printer" : "Submission";
+
   let { attempts, freshIds = [] }: { attempts: Attempt[]; freshIds?: string[] } = $props();
 </script>
 
@@ -9,7 +12,7 @@
     <li class={a.outcome} data-fresh={freshIds.includes(a.id) ? "true" : undefined}>
       <span class="mono">{a.at}</span>
       <span class="mono">{a.id}</span>
-      <span>{a.kind === "file-sink" ? "File sink" : "Printer"} · {a.outcome}</span>
+      <span>{kindLabel(a.kind)} · {a.outcome}</span>
       <span class="note">{a.note}</span>
       {#if a.sinkPath}<span class="mono path">{a.sinkPath}</span>{/if}
     </li>

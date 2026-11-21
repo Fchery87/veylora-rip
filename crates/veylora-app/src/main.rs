@@ -224,6 +224,69 @@ fn live_acknowledge_finding(
 }
 
 #[tauri::command]
+fn live_get_review_view(
+    live: State<LiveWorkspace>,
+    job_id: String,
+) -> Result<Option<ReviewView>, String> {
+    veylora_app_lib::live::review_view(&live.open()?, &job_id)
+}
+
+#[tauri::command]
+fn live_resolve_review(
+    live: State<LiveWorkspace>,
+    attempt_id: String,
+    outcome: ReviewOutcome,
+) -> Result<CapabilityState, String> {
+    veylora_app_lib::live::resolve_review(&live.open()?, &attempt_id, outcome)
+}
+
+#[tauri::command]
+fn live_write_to_file_sink(
+    live: State<LiveWorkspace>,
+    job_id: String,
+) -> Result<JobDetail, String> {
+    veylora_app_lib::live::write_to_file_sink(&live.open()?, &job_id)
+}
+
+#[tauri::command]
+fn live_creation_options(
+    live: State<LiveWorkspace>,
+) -> Result<veylora_app_lib::live::CreationOptions, String> {
+    veylora_app_lib::live::creation_options(&live.open()?)
+}
+
+#[tauri::command]
+fn live_create_job(
+    live: State<LiveWorkspace>,
+    request: veylora_app_lib::live::NewJobRequest,
+) -> Result<JobDetail, String> {
+    veylora_app_lib::live::create_job(&live.open()?, &request)
+}
+
+#[tauri::command]
+fn live_plane_image(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    file: String,
+    max_px: usize,
+) -> Result<veylora_app_lib::live::PlaneImage, String> {
+    veylora_app_lib::live::plane_image(&live.open()?, &job_id, &file, max_px)
+}
+
+#[tauri::command]
+fn live_plane_window(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    file: String,
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+) -> Result<veylora_app_lib::live::PlaneValues, String> {
+    veylora_app_lib::live::plane_window(&live.open()?, &job_id, &file, x, y, width, height)
+}
+
+#[tauri::command]
 fn live_render(
     live: State<LiveWorkspace>,
     acks: State<Acks>,
@@ -309,6 +372,13 @@ fn main() {
             live_get_job_actions,
             live_acknowledge_finding,
             live_render,
+            live_plane_image,
+            live_plane_window,
+            live_creation_options,
+            live_create_job,
+            live_write_to_file_sink,
+            live_get_review_view,
+            live_resolve_review,
             live_toggle_inspect_plane,
             live_set_inspect_composite,
             live_get_job,

@@ -93,7 +93,7 @@ fn the_view_is_labeled_retained_and_shows_values_read_from_the_bytes() {
     assert!(view.chip.contains("retained artifact"));
     assert!(view.chip.ends_with("Not physical output"));
     assert!(!view.chip.contains("Fixture"));
-    assert!(!view.raster_shown, "statistics only; no raster is drawn");
+    assert!(view.raster_shown, "a verified run is drawn from its bytes");
     // Alpha ramp: three of four pixels carry white; this is read from logical-w.f32.
     assert!(
         value(&view, "Coverage W").contains("3 of 4"),

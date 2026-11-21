@@ -67,7 +67,7 @@ export interface Placement {
   clipped: boolean;
 }
 
-export type AttemptKind = "file-sink" | "printer";
+export type AttemptKind = "file-sink" | "printer" | "transport";
 export type AttemptOutcome =
   | "pending"
   | "ambiguous"
@@ -76,7 +76,11 @@ export type AttemptOutcome =
   | "printed-badly"
   | "kept-in-review"
   /** A reprint attempt created by a review choice. Never sent until released. */
-  | "held";
+  | "held"
+  /** The transport accepted the data; physical completion is not confirmed. */
+  | "accepted"
+  | "failed"
+  | "cancelled";
 
 export interface Attempt {
   id: string;
@@ -176,7 +180,68 @@ export type ChannelTestResult = "matched" | "mismatch";
 
 export const WHITE_MASK_SOURCES = ["Auto from alpha", "Whole placement"] as const;
 
+export interface CreationOptions {
+  setups: { hash: string; id: string; verified: boolean }[];
+  modes: {
+    hash: string;
+    id: string;
+    setupId: string;
+    maturity: "experimental" | "validated" | "retired";
+  }[];
+  recipes: { hash: string; id: string; revision: number; retired: boolean }[];
+}
+
+/** One artwork placed on one sheet; sizes in millimetres. */
+export interface NewJobRequest {
+  artworkPath: string;
+  setup: string;
+  mode: string;
+  recipe: string;
+  pageWidthMm: number;
+  pageHeightMm: number;
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+  rotationDeg: 0 | 90 | 180 | 270;
+  mirror: boolean;
+}
+
+export interface PlaneImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+  /** Source pixels per picture pixel; 1 is exact. */
+  scale: number;
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+export interface PlaneValues {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Row-major values from 0 to 1, read from the retained bytes. */
+  values: number[];
+}
+
 export interface AppServices {
+  /** A picture of one retained plane. Only live jobs have retained planes. */
+  getPlaneImage(jobId: string, file: string, maxPx: number): Promise<PlaneImage>;
+  /** Exact values around a point of one retained plane, for the loupe. */
+  getPlaneWindow(
+    jobId: string,
+    file: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Promise<PlaneValues>;
+  /** Null when jobs cannot be created here (fixture data). */
+  getCreationOptions(): Promise<CreationOptions | null>;
+  /** Creates a draft job from one artwork file. Rejects with the reason when refused. */
+  createJob(request: NewJobRequest): Promise<JobDetail>;
   getCapabilities(): Promise<CapabilityState>;
   listJobs(): Promise<JobSummary[]>;
   getJob(jobId: string): Promise<JobDetail>;
@@ -294,6 +359,8 @@ export interface InspectView {
   /** Coverage and loupe stubs shown until a raster exists. */
   panels: { title: string; message: string }[];
   rasterShown: boolean;
+  /** Retained plane files the viewer can draw. Absent for fixture views. */
+  rasterFiles?: string[];
   viewportLabel: string;
   placeholder: string;
 }

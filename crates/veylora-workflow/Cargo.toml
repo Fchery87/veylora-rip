@@ -21,4 +21,5 @@ veylora-separation = { path = "../veylora-separation" }
 veylora-transport = { path = "../veylora-transport" }
 
 [dev-dependencies]
+png = "=0.18.1"
 uuid = { version = "1", features = ["v4"] }

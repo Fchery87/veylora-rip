@@ -77,6 +77,13 @@ describe("tauri adapter", () => {
     expect(calls[7].args).toEqual({ jobId: "J-1", chokeMm: 0.5 });
   });
 
+  it("offers no job creation on fixture jobs", async () => {
+    const { calls, services } = connected();
+    expect(await services.getCreationOptions()).toBeNull();
+    await expect(services.createJob({} as never)).rejects.toThrow(/live workspace/);
+    expect(calls).toEqual([]);
+  });
+
   it("leaves device setup, recipes and diagnostics on the fallback", async () => {
     const { calls, services } = connected();
     expect((await services.listRecipes()).length).toBeGreaterThan(0);
@@ -106,6 +113,7 @@ describe("tauri adapter", () => {
       await services.getJobActions("J-1");
       await services.acknowledgeFinding("J-1", "f1");
       await services.renderAndHold("J-1");
+      await services.writeToFileSink("J-1");
       expect(calls).toEqual([
         { command: "live_get_capabilities", args: undefined },
         { command: "live_list_jobs", args: undefined },
@@ -114,6 +122,44 @@ describe("tauri adapter", () => {
         { command: "live_get_job_actions", args: { jobId: "J-1" } },
         { command: "live_acknowledge_finding", args: { jobId: "J-1", findingId: "f1" } },
         { command: "live_render", args: { jobId: "J-1" } },
+        { command: "live_write_to_file_sink", args: { jobId: "J-1" } },
+      ]);
+    });
+
+    it("lists creation choices and creates jobs through Rust", async () => {
+      const { calls, services } = live();
+      const request = {
+        artworkPath: "a.png",
+        setup: "s",
+        mode: "m",
+        recipe: "r",
+        pageWidthMm: 1,
+        pageHeightMm: 1,
+        xMm: 0,
+        yMm: 0,
+        widthMm: 1,
+        heightMm: 1,
+        rotationDeg: 0 as const,
+        mirror: false,
+      };
+      await services.getCreationOptions();
+      await services.createJob(request);
+      expect(calls).toEqual([
+        { command: "live_creation_options", args: undefined },
+        { command: "live_create_job", args: { request } },
+      ]);
+    });
+
+    it("draws retained planes through Rust", async () => {
+      const { calls, services } = live();
+      await services.getPlaneImage("J-1", "logical-w.f32", 512);
+      await services.getPlaneWindow("J-1", "logical-w.f32", 1, 2, 7, 7);
+      expect(calls).toEqual([
+        { command: "live_plane_image", args: { jobId: "J-1", file: "logical-w.f32", maxPx: 512 } },
+        {
+          command: "live_plane_window",
+          args: { jobId: "J-1", file: "logical-w.f32", x: 1, y: 2, width: 7, height: 7 },
+        },
       ]);
     });
 
@@ -130,18 +176,20 @@ describe("tauri adapter", () => {
       ]);
     });
 
-    it("has no review for live jobs yet, and says so instead of showing fixture attempts", async () => {
+    it("reads review and records its resolution through Rust", async () => {
       const { calls, services } = live();
-      expect(await services.getReviewView("J-1")).toBeNull();
-      expect(calls).toEqual([]);
+      await services.getReviewView("J-1");
+      await services.resolveReview("A-1", "finished");
+      expect(calls).toEqual([
+        { command: "live_get_review_view", args: { jobId: "J-1" } },
+        { command: "live_resolve_review", args: { attemptId: "A-1", outcome: "finished" } },
+      ]);
     });
 
     it("rejects what the live backend cannot do instead of touching fixture state", async () => {
       const { calls, services } = live();
       for (const attempt of [
-        () => services.writeToFileSink("J-1"),
         () => services.releaseToPrinter("J-1"),
-        () => services.resolveReview("A-1", "decide-later"),
         () => services.setWhitePolicy("J-1", "No white"),
         () => services.setWhiteMask("J-1", { source: "Whole placement", invert: false }),
         () => services.setWhiteChoke("J-1", 0.5),

@@ -133,6 +133,46 @@ pub struct RenderOutcome {
     pub manifest: RenderManifest,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogSetup {
+    pub hash: ContentHash,
+    pub id: String,
+    pub physically_verified: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogMode {
+    pub hash: ContentHash,
+    pub id: String,
+    pub setup_id: String,
+    pub status: veylora_device::mode::ModeStatus,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogRecipe {
+    pub hash: ContentHash,
+    pub id: String,
+    pub revision: u32,
+    pub retired: bool,
+}
+
+/// Stored records a new job can be built from.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Catalog {
+    pub setups: Vec<CatalogSetup>,
+    pub modes: Vec<CatalogMode>,
+    pub recipes: Vec<CatalogRecipe>,
+}
+
+/// A run copied out of the workspace by `export_latest_run`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportedRun {
+    pub dir: PathBuf,
+    pub run: String,
+    pub files: usize,
+    pub bytes: u64,
+}
+
 /// What a job's stored device setup and print mode say about themselves.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JobDevice {
@@ -141,6 +181,10 @@ pub struct JobDevice {
     pub setup_physically_verified: bool,
     pub mode_id: String,
     pub mode_status: veylora_device::mode::ModeStatus,
+    /// Largest page the mode can print, in micrometres (width, height).
+    pub printable_um: (u64, u64),
+    /// True when the mode caps a white channel above zero, so white can be printed at all.
+    pub white_capable: bool,
 }
 
 /// One completed render run and what re-reading its retained bytes found.
@@ -793,6 +837,146 @@ impl Workspace {
         Ok(keyed.into_iter().map(|(_, id)| id).collect())
     }
 
+    /// What is stored and can be chosen when creating a job.
+    pub fn catalog(&self) -> WorkflowResult<Catalog> {
+        let mut setups = Vec::new();
+        for hash in self.devices.list_setups()? {
+            let setup = self.devices.get_setup(&hash)?;
+            setups.push(CatalogSetup {
+                hash,
+                id: setup.id().to_string(),
+                physically_verified: setup.require_production().is_ok(),
+            });
+        }
+        let mut modes = Vec::new();
+        for hash in self.devices.list_modes()? {
+            let mode = self.devices.get_mode(&hash)?;
+            modes.push(CatalogMode {
+                hash,
+                id: mode.id().to_string(),
+                setup_id: mode.device_setup().to_string(),
+                status: mode.status(),
+            });
+        }
+        let mut recipes = Vec::new();
+        for hash in self.records.list_recipes()? {
+            let recipe = self.records.get_recipe(&hash)?;
+            recipes.push(CatalogRecipe {
+                hash,
+                id: recipe.inputs().id.to_string(),
+                revision: recipe.inputs().revision,
+                retired: matches!(
+                    recipe.inputs().status,
+                    veylora_domain::recipe::RecipeStatus::Retired
+                ),
+            });
+        }
+        Ok(Catalog {
+            setups,
+            modes,
+            recipes,
+        })
+    }
+
+    fn exports_dir(&self) -> PathBuf {
+        self.root.join("exports")
+    }
+
+    /// Folders this job's runs were exported to, oldest first.
+    pub fn exports(&self, id: JobId) -> WorkflowResult<Vec<PathBuf>> {
+        self.jobs.get(id)?;
+        let prefix = format!("{id}-");
+        let mut found = Vec::new();
+        match std::fs::read_dir(self.exports_dir()) {
+            Ok(entries) => {
+                for entry in entries {
+                    let entry = entry?;
+                    let name = entry.file_name();
+                    let name = name.to_string_lossy();
+                    if name.starts_with(&prefix)
+                        && !name.ends_with(".partial")
+                        && entry.path().is_dir()
+                    {
+                        found.push(entry.path());
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.into()),
+        }
+        found.sort();
+        Ok(found)
+    }
+
+    /// Copies the newest completed run to `exports/<job>-<run>`: the manifest and every file it
+    /// names, byte for byte. Diagnostic output only; these are not printer bytes and nothing is
+    /// sent anywhere, so no submission attempt is recorded. A damaged run is refused, an existing
+    /// export is never overwritten, and the copy is re-verified before it is shown to exist.
+    pub fn export_latest_run(&self, id: JobId) -> WorkflowResult<ExportedRun> {
+        let inspected = self.inspect_latest_run(id)?.ok_or_else(|| {
+            WorkflowError::Invalid("Nothing to export: the job has no completed render.".into())
+        })?;
+        if !inspected.report.verified {
+            return Err(WorkflowError::Invalid(format!(
+                "Run {} failed verification and is not exported: {}",
+                inspected.run,
+                inspected.report.problems.join("; ")
+            )));
+        }
+        let source = self.artifacts_dir(id).join(&inspected.run);
+        let dest = self.exports_dir().join(format!("{id}-{}", inspected.run));
+        if dest.exists() {
+            return Err(WorkflowError::Invalid(format!(
+                "Run {} is already exported to {}.",
+                inspected.run,
+                dest.display()
+            )));
+        }
+        let partial = self
+            .exports_dir()
+            .join(format!("{id}-{}.partial", inspected.run));
+        let _ = std::fs::remove_dir_all(&partial);
+        std::fs::create_dir_all(&partial)?;
+        let m = &inspected.report.manifest;
+        let mut names: Vec<&str> = vec![MANIFEST_NAME];
+        for stage in [&m.logical_planes, &m.physical_planes, &m.screened_planes] {
+            names.extend(stage.files.iter().map(|f| f.name.as_str()));
+        }
+        let copied = (|| -> WorkflowResult<u64> {
+            let mut bytes = 0;
+            for name in &names {
+                bytes += std::fs::copy(source.join(name), partial.join(name))?;
+            }
+            let again = crate::inspect::inspect_artifacts(&partial)?;
+            if !again.verified {
+                return Err(WorkflowError::Invalid(format!(
+                    "The exported copy did not verify: {}",
+                    again.problems.join("; ")
+                )));
+            }
+            std::fs::rename(&partial, &dest)?;
+            Ok(bytes)
+        })();
+        match copied {
+            Ok(bytes) => Ok(ExportedRun {
+                dir: dest,
+                run: inspected.run,
+                files: names.len(),
+                bytes,
+            }),
+            Err(e) => {
+                let _ = std::fs::remove_dir_all(&partial);
+                Err(e)
+            }
+        }
+    }
+
+    /// Every submission attempt of a job at its latest recorded state, oldest first.
+    pub fn job_attempts(&self, id: JobId) -> WorkflowResult<Vec<veylora_persistence::AttemptView>> {
+        self.jobs.get(id)?;
+        Ok(self.jobs.list_attempts(id)?)
+    }
+
     /// The device facts a job was created against, read from its stored setup and mode records.
     pub fn job_device(&self, id: JobId) -> WorkflowResult<JobDevice> {
         let loaded = self.load(id)?;
@@ -801,6 +985,19 @@ impl Workspace {
             setup_physically_verified: loaded.setup.require_production().is_ok(),
             mode_id: loaded.mode.id().to_string(),
             mode_status: loaded.mode.status(),
+            printable_um: {
+                let r = loaded.mode.raster();
+                (
+                    u64::from(r.printable_width_px) * 25_400 / u64::from(r.dpi_x),
+                    u64::from(r.printable_height_px) * 25_400 / u64::from(r.dpi_y),
+                )
+            },
+            white_capable: loaded
+                .mode
+                .deposition()
+                .coverage_caps
+                .iter()
+                .any(|(name, cap)| name.eq_ignore_ascii_case("white") && *cap > 0.0),
         })
     }
 
@@ -824,6 +1021,40 @@ impl Workspace {
             }
         }
         Ok(None)
+    }
+
+    fn latest_run_dir(&self, id: JobId) -> WorkflowResult<PathBuf> {
+        self.jobs.get(id)?;
+        let mut runs = self.run_names(id)?;
+        runs.reverse();
+        runs.into_iter()
+            .map(|r| self.artifacts_dir(id).join(r))
+            .find(|d| d.join(MANIFEST_NAME).is_file())
+            .ok_or_else(|| WorkflowError::Invalid("The job has no completed render.".into()))
+    }
+
+    /// A gray picture of one plane of the newest run, no larger than `max_px` on a side. The file is
+    /// checked against the manifest first; a damaged plane is refused rather than drawn.
+    pub fn plane_overview(
+        &self,
+        id: JobId,
+        plane: &str,
+        max_px: usize,
+    ) -> WorkflowResult<crate::plane::PlaneOverview> {
+        crate::plane::overview(&self.latest_run_dir(id)?, plane, max_px)
+    }
+
+    /// Exact values of a small rectangle of one plane of the newest run, clipped to the plane.
+    pub fn plane_window(
+        &self,
+        id: JobId,
+        plane: &str,
+        x: usize,
+        y: usize,
+        width: usize,
+        height: usize,
+    ) -> WorkflowResult<crate::plane::PlaneWindow> {
+        crate::plane::window(&self.latest_run_dir(id)?, plane, x, y, width, height)
     }
 
     pub fn report(&self, id: JobId) -> WorkflowResult<JobReport> {

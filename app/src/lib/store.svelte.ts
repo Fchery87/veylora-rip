@@ -3,9 +3,11 @@ import type { SectionId } from "./capability";
 import type {
   AppServices,
   CapabilityState,
+  CreationOptions,
   JobActionsView,
   JobDetail,
   JobSummary,
+  NewJobRequest,
   PreflightView,
   ReviewOutcome,
   ReviewView,
@@ -26,6 +28,8 @@ export type QueryServices = Pick<
   | "listTargets"
   | "listArtworkCandidates"
   | "getInspectView"
+  | "getPlaneImage"
+  | "getPlaneWindow"
   | "toggleInspectPlane"
   | "setInspectComposite"
 >;
@@ -47,6 +51,10 @@ export class AppStore {
   /** Attempt ids added by the last command. Cleared after the 500 ms highlight (design 5.6). */
   freshAttemptIds = $state<string[]>([]);
   error = $state("");
+  /** Stored setups, modes and recipes a job can be built from. Null when jobs cannot be created here. */
+  creationOptions = $state<CreationOptions | null>(null);
+  /** The New job form is open. */
+  creating = $state(false);
 
   readonly #services: AppServices;
 
@@ -70,12 +78,14 @@ export class AppStore {
   }
 
   async load() {
-    const [caps, jobs] = await Promise.all([
+    const [caps, jobs, creationOptions] = await Promise.all([
       this.#services.getCapabilities(),
       this.#services.listJobs(),
+      this.#services.getCreationOptions(),
     ]);
     this.caps = caps;
     this.jobs = jobs;
+    this.creationOptions = creationOptions;
   }
 
   async refresh() {
@@ -154,6 +164,33 @@ export class AppStore {
     }
   }
 
+  /** Opens the form. Nothing is created until it is submitted. */
+  startCreating() {
+    this.error = "";
+    this.creating = true;
+  }
+
+  cancelCreating() {
+    this.error = "";
+    this.creating = false;
+  }
+
+  /** Creates the job in Rust, then opens it. A refusal keeps the form open and shows the reason. */
+  async createJob(request: NewJobRequest) {
+    try {
+      this.error = "";
+      const job = await this.#services.createJob(request);
+      await this.load();
+      this.creating = false;
+      await this.selectJob(job.id);
+      this.announcement = "Job created";
+      return job;
+    } catch (e) {
+      this.error = e instanceof Error ? e.message : String(e);
+      return undefined;
+    }
+  }
+
   renderAndHold(jobId: string) {
     return this.command((s) => s.renderAndHold(jobId), "Job rendered and held");
   }
@@ -164,8 +201,10 @@ export class AppStore {
 
   writeToFileSink(jobId: string) {
     return this.command(async (s) => {
-      await s.writeToFileSink(jobId);
-      this.tab = "attempts";
+      const before = this.job?.attempts.length ?? 0;
+      const job = await s.writeToFileSink(jobId);
+      // A sink write that sent nothing is not an attempt; its folder is listed under Provenance.
+      this.tab = job.attempts.length > before ? "attempts" : "provenance";
     }, "Written to file sink. Not physical output.");
   }
 

@@ -209,3 +209,151 @@ fn session_acknowledgements_are_per_job_deduplicated_and_clearable() {
     assert!(acks.for_job("a").is_empty());
     assert_eq!(acks.for_job("b").len(), 1);
 }
+
+#[test]
+fn mode_capabilities_come_from_the_mode_record() {
+    let (ws, id) = job(|_| {});
+    let caps = live::capabilities(&ws, &id).unwrap();
+    let device = ws.job_device(id.parse().unwrap()).unwrap();
+    let (w, h) = device.printable_um;
+    assert_eq!(caps.mode.sheet_sizes.len(), 1);
+    assert!(
+        caps.mode.sheet_sizes[0].contains("mm"),
+        "{:?}",
+        caps.mode.sheet_sizes
+    );
+    assert!(device.white_capable, "the fixture mode caps white at 1.0");
+    assert_eq!(
+        caps.mode.white_policies,
+        vec![
+            veylora_app_lib::view_models::WhitePolicyKind::Underbase,
+            veylora_app_lib::view_models::WhitePolicyKind::NoWhite
+        ]
+    );
+    assert!(
+        caps.mode.white_choke,
+        "the renderer applies a recipe's white choke"
+    );
+    assert!(
+        !caps.mode.white_mask_invert,
+        "mask inversion does not exist in recipes"
+    );
+    assert!(caps.mode.screened_inspect);
+    assert!(w > 0 && h > 0);
+}
+
+#[test]
+fn a_mode_without_white_offers_only_no_white() {
+    let ws = Workspace::open(dir("live-nowhite")).unwrap();
+    let s = setup();
+    let base = mode(s.id());
+    let m = veylora_device::mode::PrintMode::new(
+        veylora_domain::ids::PrintModeId::new(),
+        s.id(),
+        base.raster().clone(),
+        base.protocol().clone(),
+        base.media().clone(),
+        veylora_device::mode::DepositionSpec {
+            passes: 4,
+            overlap_percent: 50,
+            coverage_caps: vec![("cyan".into(), 1.0)],
+        },
+        base.quality().clone(),
+    )
+    .unwrap();
+    let setup_hash = ws.import_setup(&s.to_record()).unwrap();
+    let mode_hash = ws.import_mode(&m.to_record()).unwrap();
+    let recipe_hash = ws.import_recipe(&recipe()).unwrap();
+    let art = ws.import_asset(&fixture("alpha-ramp.png")).unwrap();
+    let spec = JobSpec {
+        schema_version: 1,
+        job_id: None,
+        created_at_ms: 1,
+        setup: setup_hash,
+        mode: mode_hash,
+        recipe: recipe_hash,
+        assets: BTreeMap::from([("art".to_string(), art)]),
+        masks: BTreeMap::new(),
+        layout: LayoutSpec {
+            page_width_um: 1_000,
+            page_height_um: 250,
+            mirror: false,
+            placements: vec![PlacementSpec {
+                asset: "art".into(),
+                mask: None,
+                x_um: 0,
+                y_um: 0,
+                width_um: 1_000,
+                height_um: 250,
+                rotation: Rotation::Deg0,
+                crop: None,
+            }],
+        },
+    };
+    let id = ws.create_job(&spec).unwrap().job_id.to_string();
+    let caps = live::capabilities(&ws, &id).unwrap();
+    assert_eq!(
+        caps.mode.white_policies,
+        vec![veylora_app_lib::view_models::WhitePolicyKind::NoWhite]
+    );
+}
+
+#[test]
+fn render_is_offered_after_preflight_moves_the_job_to_held() {
+    let (ws, id) = job(|_| {});
+    // Preflight records the job as Held; Render must still be available, not "already rendered".
+    let d = live::run_preflight(&ws, &id, &[]).unwrap();
+    assert_eq!(d.summary.state, JobState::Held);
+    let caps = live::capabilities(&ws, &id).unwrap();
+    let open = job_actions::present(&caps, &d).render_and_hold;
+    assert!(!open.enabled);
+    assert!(
+        open.reason
+            .as_deref()
+            .unwrap()
+            .contains("Confirm 1 finding"),
+        "{open:?}"
+    );
+    let confirm = d
+        .findings
+        .iter()
+        .find(|f| f.severity == Severity::Confirm)
+        .unwrap();
+    let d = live::run_preflight(&ws, &id, std::slice::from_ref(&confirm.id)).unwrap();
+    assert!(job_actions::present(&caps, &d).render_and_hold.enabled);
+}
+
+#[test]
+fn the_file_sink_export_writes_a_verified_folder_and_is_listed_in_provenance() {
+    let (ws, id) = job(|_| {});
+    let confirm = live::run_preflight(&ws, &id, &[])
+        .unwrap()
+        .findings
+        .into_iter()
+        .find(|f| f.severity == Severity::Confirm)
+        .unwrap();
+    let d = live::render_job(&ws, &id, std::slice::from_ref(&confirm.id)).unwrap();
+    let caps = live::capabilities(&ws, &id).unwrap();
+    assert!(job_actions::present(&caps, &d).write_to_file_sink.enabled);
+    let d = live::write_to_file_sink(&ws, &id).unwrap();
+    let row = d
+        .provenance
+        .iter()
+        .find(|r| r.label == "Exported to")
+        .expect("export row");
+    assert!(row.value.contains("exports"), "{}", row.value);
+    assert!(row.value.contains("diagnostic"), "{}", row.value);
+    assert!(
+        d.attempts.is_empty(),
+        "an export sends nothing, so it is not an attempt"
+    );
+    assert!(live::write_to_file_sink(&ws, &id)
+        .unwrap_err()
+        .contains("already exported"));
+}
+
+#[test]
+fn the_file_sink_refuses_a_job_that_was_never_rendered() {
+    let (ws, id) = job(|_| {});
+    assert!(live::write_to_file_sink(&ws, &id).is_err());
+}

@@ -56,6 +56,11 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
   return {
     ...fallback,
     getCapabilities: () => invoke<CapabilityState>("live_get_capabilities"),
+    getCreationOptions: () => invoke("live_creation_options"),
+    getPlaneImage: (jobId, file, maxPx) => invoke("live_plane_image", { jobId, file, maxPx }),
+    getPlaneWindow: (jobId, file, x, y, width, height) =>
+      invoke("live_plane_window", { jobId, file, x, y, width, height }),
+    createJob: (request) => invoke("live_create_job", { request }),
     listJobs: () => invoke("live_list_jobs"),
     getJob: (jobId) => invoke("live_get_job", { jobId }),
     getPreflightView: (jobId) => invoke("live_get_preflight_view", { jobId }),
@@ -65,14 +70,13 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
       invoke("live_toggle_inspect_plane", { jobId, selection, plane, on }),
     setInspectComposite: (jobId, selection, on) =>
       invoke("live_set_inspect_composite", { jobId, selection, on }),
-    // Attempt outcomes are not itemized for live jobs yet, so no review is offered.
-    getReviewView: async () => null,
+    getReviewView: (jobId) => invoke("live_get_review_view", { jobId }),
     acknowledgeFinding: (jobId, findingId) =>
       invoke("live_acknowledge_finding", { jobId, findingId }),
     renderAndHold: (jobId) => invoke("live_render", { jobId }),
-    writeToFileSink: () => NOT_LIVE("Writing to the file sink"),
+    writeToFileSink: (jobId) => invoke("live_write_to_file_sink", { jobId }),
     releaseToPrinter: () => NOT_LIVE("Release to the printer"),
-    resolveReview: () => NOT_LIVE("Resolving a review"),
+    resolveReview: (attemptId, outcome) => invoke("live_resolve_review", { attemptId, outcome }),
     setWhitePolicy: () => NOT_LIVE("Changing the white policy"),
     setWhiteMask: () => NOT_LIVE("Changing the white mask"),
     setWhiteChoke: () => NOT_LIVE("Changing the white choke"),

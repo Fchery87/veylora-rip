@@ -7,6 +7,7 @@ mod error;
 mod inspect;
 mod jobflow;
 mod lifecycle;
+mod plane;
 mod spec;
 mod support;
 mod update;
@@ -17,10 +18,13 @@ pub use error::{WorkflowError, WorkflowResult};
 pub use inspect::{inspect_artifacts, inspect_asset, ArtifactReport, AssetReport, PlaneStats};
 pub use jobflow::{RecoveryReport, ReviewResolution, SubmitOutcome};
 pub use lifecycle::{AttemptReview, ReviewReport, SetupDraft, SetupStatus};
+pub use plane::{PlaneOverview, PlaneWindow, MAX_OVERVIEW_PX, MAX_WINDOW_PX};
 pub use spec::{CropSpec, JobSpec, LayoutSpec, PlacementSpec};
 pub use support::SupportBundleOptions;
 pub use update::UpdateBlocker;
+pub use veylora_persistence::AttemptView;
 pub use workspace::{
-    asset_id_for, AttemptSummary, InspectedRun, JobCreated, JobDevice, JobReport, PreflightOptions,
-    PreflightReport, RenderOptions, RenderOutcome, RenderSummary, Workspace, DIAGNOSTIC_BACKEND,
+    asset_id_for, AttemptSummary, Catalog, CatalogMode, CatalogRecipe, CatalogSetup, ExportedRun,
+    InspectedRun, JobCreated, JobDevice, JobReport, PreflightOptions, PreflightReport,
+    RenderOptions, RenderOutcome, RenderSummary, Workspace, DIAGNOSTIC_BACKEND,
 };

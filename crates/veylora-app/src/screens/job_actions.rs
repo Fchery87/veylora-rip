@@ -14,7 +14,12 @@ fn count_label(count: usize, noun: &str) -> String {
 }
 
 pub fn render_and_hold(job: &JobDetail) -> CommandView {
-    if job.rendered || job.summary.state != JobState::Draft {
+    // Preflight can move a job to Held or PreflightFailed before it is ever rendered.
+    let renderable = matches!(
+        job.summary.state,
+        JobState::Draft | JobState::Held | JobState::PreflightFailed
+    );
+    if job.rendered || !renderable {
         return CommandView::disabled("Already rendered. Duplicate as new job to edit.");
     }
     let blocking = job

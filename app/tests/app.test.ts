@@ -99,6 +99,152 @@ describe("job commands from capability state", () => {
   });
 });
 
+describe("creating jobs", () => {
+  const options = {
+    setups: [{ hash: "a".repeat(64), id: "SETUP-1", verified: false }],
+    modes: [
+      { hash: "b".repeat(64), id: "MODE-1", setupId: "SETUP-1", maturity: "experimental" as const },
+      {
+        hash: "c".repeat(64),
+        id: "MODE-OTHER",
+        setupId: "SETUP-2",
+        maturity: "experimental" as const,
+      },
+    ],
+    recipes: [{ hash: "d".repeat(64), id: "RECIPE-1", revision: 1, retired: false }],
+  };
+
+  async function openLive(createJob: (req: unknown) => Promise<unknown>) {
+    const user = userEvent.setup();
+    const services = {
+      ...createMockServices("working-day"),
+      getCreationOptions: async () => options,
+      createJob,
+    } as ReturnType<typeof createMockServices>;
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    return { user };
+  }
+
+  it("offers no New job button on fixture data", async () => {
+    await openApp();
+    expect(screen.queryByRole("button", { name: "New job" })).not.toBeInTheDocument();
+  });
+
+  it("sends the chosen records and sizes to Rust, then opens the new job", async () => {
+    const sent: unknown[] = [];
+    const created = await createMockServices("working-day").getJob("J-0142");
+    const { user } = await openLive(async (req) => {
+      sent.push(req);
+      return created;
+    });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    expect(within(form).getByRole("button", { name: "Create job" })).toBeDisabled();
+    await user.type(within(form).getByLabelText(/Artwork file/), "C:Artlogo.png");
+    // Modes follow the chosen setup: another setup's mode is not offered.
+    expect(within(form).queryByRole("option", { name: /MODE-OTHER/ })).not.toBeInTheDocument();
+    await user.click(within(form).getByRole("button", { name: "Create job" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({
+      artworkPath: "C:Artlogo.png",
+      setup: options.setups[0].hash,
+      mode: options.modes[0].hash,
+      recipe: options.recipes[0].hash,
+      rotationDeg: 0,
+      mirror: false,
+    });
+    await screen.findByRole("heading", { level: 1, name: created.name });
+    expect(screen.queryByRole("form", { name: "New job" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the form open and shows the reason when Rust refuses", async () => {
+    const { user } = await openLive(async () => {
+      throw new Error("Cannot read 'x.png': not found");
+    });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    await user.type(within(form).getByLabelText(/Artwork file/), "x.png");
+    await user.click(within(form).getByRole("button", { name: "Create job" }));
+    expect(await within(form).findByRole("alert")).toHaveTextContent("Cannot read 'x.png'");
+    expect(screen.getByRole("form", { name: "New job" })).toBeInTheDocument();
+  });
+
+  it("goes back to the job view on Cancel without creating anything", async () => {
+    const sent: unknown[] = [];
+    const { user } = await openLive(async (req) => {
+      sent.push(req);
+      throw new Error("no");
+    });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    await user.click(
+      within(await screen.findByRole("form", { name: "New job" })).getByRole("button", {
+        name: "Cancel",
+      }),
+    );
+    expect(screen.queryByRole("form", { name: "New job" })).not.toBeInTheDocument();
+    expect(sent).toEqual([]);
+  });
+});
+
+describe("retained raster", () => {
+  async function openRetained() {
+    const user = userEvent.setup();
+    const base = createMockServices("working-day");
+    const calls: string[] = [];
+    const services = {
+      ...base,
+      getInspectView: async (id: string, selection?: unknown) => ({
+        ...(await base.getInspectView(id, selection as never)),
+        source: "retained" as const,
+        rasterShown: true,
+        rasterFiles: ["logical-w.f32"],
+        panels: [],
+        placeholder: "Drawn from the retained bytes after checking them against the manifest.",
+      }),
+      getPlaneImage: async (_j: string, file: string) => {
+        calls.push(`image ${file}`);
+        return {
+          dataUrl: "data:image/png;base64,AAAA",
+          width: 4,
+          height: 1,
+          scale: 2,
+          sourceWidth: 8,
+          sourceHeight: 2,
+        };
+      },
+      getPlaneWindow: async (_j: string, file: string, x: number, y: number) => {
+        calls.push(`window ${file} ${x},${y}`);
+        return { x, y, width: 2, height: 1, values: [0.25, 1] };
+      },
+    } as ReturnType<typeof createMockServices>;
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    await openJob(user, /Front chest/);
+    await user.click(screen.getByRole("tab", { name: "Inspect" }));
+    return { user, calls };
+  }
+
+  it("draws the retained plane with its reduction and no placeholder stubs", async () => {
+    const { calls } = await openRetained();
+    const img = await screen.findByRole("img", { name: "Retained plane logical-w.f32" });
+    expect(img).toHaveAttribute("src", "data:image/png;base64,AAAA");
+    expect(screen.getByText(/shown reduced 2:1/)).toBeInTheDocument();
+    expect(calls).toEqual(["image logical-w.f32"]);
+    expect(screen.queryByText("Available when a raster exists")).not.toBeInTheDocument();
+  });
+
+  it("reads exact values for the clicked pixel into the loupe", async () => {
+    const { user, calls } = await openRetained();
+    await screen.findByRole("img", { name: "Retained plane logical-w.f32" });
+    await user.click(screen.getByRole("button", { name: "Inspect values in logical-w.f32" }));
+    const loupe = await screen.findByRole("region", { name: "Loupe" });
+    expect(within(loupe).getByText("0.250")).toBeInTheDocument();
+    expect(within(loupe).getByText("1.000")).toBeInTheDocument();
+    expect(calls.some((c) => c.startsWith("window logical-w.f32"))).toBe(true);
+  });
+});
+
 describe("review flow", () => {
   it("opens the review tab from the banner and clears the banner after recording an outcome", async () => {
     const { user } = await openApp();

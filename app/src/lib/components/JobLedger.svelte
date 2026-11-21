@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { JobSummary } from "../services/types";
   import { isReviewState } from "../status";
+  import Button from "./Button.svelte";
   import EmptyState from "./EmptyState.svelte";
   import StatusBadge from "./StatusBadge.svelte";
 
@@ -8,9 +9,11 @@
     jobs: JobSummary[];
     selectedId: string | null;
     onSelect: (id: string) => void;
+    /** Shown only where jobs can be created. */
+    onNew?: () => void;
   }
 
-  let { jobs, selectedId, onSelect }: Props = $props();
+  let { jobs, selectedId, onSelect, onNew }: Props = $props();
 
   // Ambiguous and needs-review jobs are always pinned to the top.
   const pinned = $derived(jobs.filter((j) => isReviewState(j.state)));
@@ -32,9 +35,12 @@
 <aside class="ledger" aria-label="Job ledger">
   <header>
     <h2>Jobs</h2>
+    {#if onNew}<Button size="sm" onclick={onNew}>New job</Button>{/if}
   </header>
   {#if jobs.length === 0}
-    <EmptyState title="No jobs yet">Import artwork to start a sheet.</EmptyState>
+    <EmptyState title="No jobs yet"
+      >{onNew ? "Choose New job to place artwork on a sheet." : "Import artwork to start a sheet."}</EmptyState
+    >
   {:else}
     <div role="listbox" aria-label="Jobs">
       {#each ordered as job, index (job.id)}
