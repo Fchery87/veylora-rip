@@ -85,6 +85,13 @@ try {
     Check 'dev-only dependencies do not matter' 0 'passed'
     Generate
 
+    # Several programs are generated together, each with its own scope; a shared crate is reviewed once.
+    $r = Run $generator @('-Package', 'fixture-app,fixture-lib')
+    if ($r.Exit -ne 0) { throw "two-package generation failed: $($r.Text)" }
+    Check 'the first program of a pair passes' 0 'passed: 3 reviewed components'
+    Check 'the second program of a pair passes' 0 'passed: 2 reviewed components' @('-Package', 'fixture-lib')
+    Generate
+
     Check 'a package with no scope' 1 'no release scope for fixture-lib' @('-Package', 'fixture-lib')
     Check 'a package that was never inventoried' 1 'no release scope for nonexistent' @('-Package', 'nonexistent')
     Check 'another target needs its own scope' 1 'is for x86_64-pc-windows-msvc' @('-Package', 'fixture-app', '-Target', 'x86_64-unknown-linux-gnu')

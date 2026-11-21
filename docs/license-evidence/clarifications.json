@@ -1,0 +1,55 @@
+{
+  "note": "Licence texts for crates that ship none. Each file is the upstream licence fetched on 2026-11-21 and is reproduced verbatim in the notice. The generator checks every file's SHA-256 before use.",
+  "crates": {
+    "cargo:alloc-stdlib@0.3.0": {
+      "files": [
+        {
+          "path": "dropbox-rust-alloc-no-stdlib-LICENSE.txt",
+          "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+          "source": "https://github.com/dropbox/rust-alloc-no-stdlib/blob/master/LICENSE"
+        }
+      ]
+    },
+    "cargo:webview2-com@0.39.1": {
+      "files": [
+        {
+          "path": "webview2-rs-LICENSE.txt",
+          "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+          "source": "https://github.com/wravery/webview2-rs/blob/main/LICENSE"
+        }
+      ]
+    },
+    "cargo:webview2-com-macros@0.8.1": {
+      "files": [
+        {
+          "path": "webview2-rs-LICENSE.txt",
+          "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+          "source": "https://github.com/wravery/webview2-rs/blob/main/LICENSE"
+        }
+      ]
+    },
+    "cargo:webview2-com-sys@0.39.1": {
+      "files": [
+        {
+          "path": "webview2-rs-LICENSE.txt",
+          "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+          "source": "https://github.com/wravery/webview2-rs/blob/main/LICENSE"
+        },
+        {
+          "path": "microsoft-webview2-sdk-1.0.3800.47-LICENSE.txt",
+          "sha256": "0af8f1b807512aae39c2ac1aa4d0cae65cabecb6fd554b8439a5162a0d6eca55",
+          "source": "https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3800.47 (LICENSE.txt). This crate links Microsoft's WebView2 loader statically (x64/WebView2LoaderStatic.lib; its DLL reports file version 1.0.3800.47)"
+        }
+      ]
+    },
+    "cargo:selectors@0.38.0": {
+      "files": [
+        {
+          "path": "mpl-2.0-from-cssparser-0.37.0-LICENSE.txt",
+          "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85",
+          "source": "the MPL-2.0 text from the checksum-verified cssparser 0.37.0 crate (same Servo project; selectors 0.38.0 ships no LICENSE file, but every source file carries the MPL-2.0 header 'This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0')"
+        }
+      ]
+    }
+  }
+}

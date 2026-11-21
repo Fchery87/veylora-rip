@@ -12,14 +12,17 @@ marks a component reviewed when ALL of these hold:
   - its declared SPDX expression can be satisfied with permissive licenses only (an OR may be
     resolved by electing a permissive alternative);
   - the crate source contains license text, which is copied verbatim into the notice.
-Everything else stays unresolved and is listed as a scope blocker. That is an automated policy
+A crate that ships no license text may be given one through docs/license-evidence/clarifications.json
+(upstream text, SHA-256 checked). A copyleft license is accepted only if the owner has accepted it by
+name in $AcceptedCopyleft below. Everything else stays unresolved and is listed as a scope blocker. That is an automated policy
 decision authorised by the project owner for this scope; it is not a legal review of each license.
 Components outside the scope are never touched.
 #>
 [CmdletBinding()]
 param(
     [string]$Root = (Split-Path $PSScriptRoot -Parent),
-    [Parameter(Mandatory)][string]$Package,
+    # One or more packaged programs; each gets its own scope in the inventory.
+    [Parameter(Mandatory)][string[]]$Package,
     [string]$Target = 'x86_64-pc-windows-msvc',
     # Owner decision recorded for the project's own crates.
     [string]$ProjectCopyright = 'Copyright (c) 2026 Frantz Chery. All rights reserved.'
@@ -27,6 +30,16 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Root = (Resolve-Path $Root).Path
+# `pwsh -File` passes 'a,b' as one string.
+$Package = @($Package | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+
+# Licenses beyond the permissive set that the project owner has accepted for binary distribution,
+# each with the decision it rests on. MPL-2.0 is file-level copyleft: the crates are shipped
+# unmodified, their license text is in the notice, and their source is the published crate whose
+# checksum Cargo.lock pins.
+$AcceptedCopyleft = @{
+    'MPL-2.0' = 'project owner decision 2026-11-21: MPL-2.0 accepted for unmodified third-party crates; notice reproduced, published crate source is the corresponding source'
+}
 
 . (Join-Path $PSScriptRoot 'lib/spdx.ps1')
 
@@ -35,7 +48,7 @@ function Get-TextHash([string]$Text) {
         [Text.Encoding]::UTF8.GetBytes(($Text -replace "`r`n", "`n").Trim())))
 }
 
-function Get-RuntimeGraph {
+function Get-RuntimeGraph([string]$Package) {
     $lines = @(& cargo tree --manifest-path (Join-Path $Root 'Cargo.toml') -p $Package -e normal --target $Target --offline --locked --prefix none --format '{p}' 2>&1)
     if ($LASTEXITCODE -ne 0) { throw "cargo tree failed: $($lines -join ' ')" }
     $found = [Collections.Generic.SortedDictionary[string, bool]]::new()
@@ -70,7 +83,7 @@ function Get-CrateEvidence([string]$Name, [string]$Version) {
     $actual = (Get-FileHash $archive[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $expected) { return @{ Problem = 'cached crate archive does not match the Cargo.lock checksum' } }
     $manifest = Get-Content (Join-Path $src[0].FullName 'Cargo.toml') -Raw
-    $package = [regex]::Match($manifest, '(?ms)^\[package\]\r?\n(.*?)(?=^\[)').Groups[1].Value
+    $package = [regex]::Match($manifest, '(?ms)^\[package\]\r?\n(.*?)(?=^\[|\z)').Groups[1].Value
     $declared = [regex]::Match($package, '(?m)^license = "([^"]+)"').Groups[1].Value
     if (-not $declared) { return @{ Problem = 'the crate manifest declares no SPDX license expression' } }
     $files = @(Get-ChildItem $src[0].FullName -File | Where-Object { $_.Name -match $licenseFile -and $_.Length -lt 200KB } | Sort-Object Name)
@@ -114,16 +127,31 @@ $doc = Get-Content $invPath -Raw
 $block = [regex]::Match($doc, '(?ms)^```json license-inventory\r?\n(.*?)^```\s*$')
 $inventory = $block.Groups[1].Value | ConvertFrom-Json -AsHashtable
 
-# 2. Evidence for the packaged program.
-$ids = Get-RuntimeGraph
+# 2. Evidence for each packaged program. A component shared by several programs is reviewed once.
+$graphs = [ordered]@{}
+foreach ($p in $Package) { $graphs[$p] = Get-RuntimeGraph $p }
+$ids = [Collections.Generic.SortedDictionary[string, bool]]::new()
+foreach ($g in $graphs.Values) { foreach ($k in $g.Keys) { $ids[$k] = $g[$k] } }
 $notices = [Collections.Generic.List[string]]::new()
-$blockers = [Collections.Generic.List[string]]::new()
+$blockerById = @{}
 $byId = @{}
 foreach ($c in $inventory.components) { $byId[[string]$c.id] = $c }
+$clarificationFile = Join-Path $Root 'docs/license-evidence/clarifications.json'
+$clarifications = if (Test-Path $clarificationFile) { (Get-Content $clarificationFile -Raw | ConvertFrom-Json -AsHashtable).crates } else { @{} }
 
 function Add-Notice([string]$Key, [string]$Text) {
     $notices.Add("<!-- notice:$Key -->`n$Text`n<!-- /notice:$Key -->")
     Get-TextHash $Text
+}
+
+# Verbatim text from an evidence file; refuses a file whose hash is not the reviewed one.
+function Get-EvidenceFiles($Entry) {
+    foreach ($f in $Entry.files) {
+        $path = Join-Path $Root "docs/license-evidence/$($f.path)"
+        $actual = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actual -ne $f.sha256) { throw "License evidence $($f.path) does not match its recorded SHA-256" }
+        [pscustomobject]@{ Name = "$($f.path) (from $($f.source))"; FullName = $path }
+    }
 }
 
 $workspaceIds = @()
@@ -133,17 +161,26 @@ foreach ($id in @($ids.Keys)) {
     $c = $byId[$id]
     if ($ids[$id]) { $workspaceIds += $id; continue }
     $ev = Get-CrateEvidence $name $version
-    if ($ev.Problem) { $blockers.Add("${id}: $($ev.Problem)"); continue }
+    if ($ev.Problem) { $blockerById[$id] = "${id}: $($ev.Problem)"; continue }
     $c.license = $ev.License
-    if (-not (Test-PermissiveExpression $ev.License)) { $blockers.Add("${id}: license '$($ev.License)' needs a human decision (not all-permissive)"); continue }
-    if ($ev.Files.Count -eq 0 -and $ev.Headers.Count -eq 0) { $blockers.Add("${id}: the crate ships no license text to reproduce"); continue }
+    $accepted = $AcceptedCopyleft.ContainsKey($ev.License)
+    if (-not $accepted -and -not (Test-PermissiveExpression $ev.License)) { $blockerById[$id] = "${id}: license '$($ev.License)' needs a human decision (not all-permissive)"; continue }
+    $files = @($ev.Files)
+    $how = $(if ($files.Count) { 'verbatim license files from the checksum-verified crate source' } else { 'license text from source-file headers of the checksum-verified crate (no LICENSE file shipped)' })
+    if ($clarifications.ContainsKey($id)) {
+        # The crate ships no usable text of its own, or ships less than it links (a vendored library).
+        $files = @($files) + @(Get-EvidenceFiles $clarifications[$id])
+        $how = "$how plus upstream license text kept in docs/license-evidence (SHA-256 checked)"
+    }
+    if ($files.Count -eq 0 -and $ev.Headers.Count -eq 0) { $blockerById[$id] = "${id}: the crate ships no license text to reproduce"; continue }
     $key = "cargo-$name-$version"
     $header = "Crate: $name $version`nDeclared license: $($ev.License)`nSource: https://crates.io/crates/$name/$version (archive checksum matches Cargo.lock)"
+    if ($accepted) { $header += "`nCopyleft note: $($AcceptedCopyleft[$ev.License])" }
     $c.notice = $key
-    $c.noticeSha256 = Add-Notice $key (New-NoticeText $header $ev.Files $ev.Headers)
+    $c.noticeSha256 = Add-Notice $key (New-NoticeText $header $files $ev.Headers)
     $c.status = 'reviewed'
     $c.source = "https://crates.io/api/v1/crates/$name/$version/download (checksum from Cargo.lock)"
-    $c.licenseSource = $(if ($ev.Files.Count) { 'verbatim license files from the checksum-verified crate source' } else { 'license text from source-file headers of the checksum-verified crate (no LICENSE file shipped)' }) + '; permissive terms; automated under owner-approved policy'
+    $c.licenseSource = $how + $(if ($accepted) { '; ' + $AcceptedCopyleft[$ev.License] } else { '; permissive terms; automated under owner-approved policy' })
 }
 
 # The project's own crates: proprietary, owner-authorised binary distribution.
@@ -176,12 +213,16 @@ $inventory.components = @($inventory.components) + [ordered]@{
 }
 
 # 3. Scope, then write.
-$inventory.scopes = [ordered]@{
-    $Package = [ordered]@{
+$inventory.scopes = [ordered]@{}
+$allBlockers = [Collections.Generic.List[string]]::new()
+foreach ($p in $Package) {
+    $mine = @($graphs[$p].Keys | Where-Object { $blockerById.ContainsKey($_) } | ForEach-Object { $blockerById[$_] })
+    foreach ($b in $mine) { if (-not $allBlockers.Contains($b)) { $allBlockers.Add($b) } }
+    $inventory.scopes[$p] = [ordered]@{
         target = $Target
         extra = @($stdId)
         rustStdCopyrightSha256 = $stdHash
-        blockers = @($blockers)
+        blockers = $mine
     }
 }
 $json = $inventory | ConvertTo-Json -Depth 12
@@ -193,8 +234,8 @@ $noticePath = "$Root/THIRD_PARTY_NOTICES.md"
 $existing = Get-Content $noticePath -Raw
 $marker = '<!-- generated-notices -->'
 $head = ($existing -split [regex]::Escape($marker))[0].TrimEnd()
-$generated = @($marker, "## Notices for $Package (generated by scripts/generate-package-notices.ps1)", '') + $notices
+$generated = @($marker, "## Notices for $($Package -join ', ') (generated by scripts/generate-package-notices.ps1)", '') + $notices
 [IO.File]::WriteAllText($noticePath, (@($head, '') + $generated -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
-Write-Host "Scope $Package ($Target): $($ids.Count) cargo identities + rust std; $($blockers.Count) blockers."
-foreach ($b in $blockers) { Write-Host "  BLOCKER: $b" }
+Write-Host "Scopes $($Package -join ', ') ($Target): $($ids.Count) cargo identities + rust std; $($allBlockers.Count) blockers."
+foreach ($b in $allBlockers) { Write-Host "  BLOCKER: $b" }
 Write-Host "Rust std third-party notices (ship as licenses/rust-std-COPYRIGHT.html): $stdCopyright"
