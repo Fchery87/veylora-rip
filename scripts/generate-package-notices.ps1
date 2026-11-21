@@ -23,6 +23,10 @@ param(
     [string]$Root = (Split-Path $PSScriptRoot -Parent),
     # One or more packaged programs; each gets its own scope in the inventory.
     [Parameter(Mandatory)][string[]]$Package,
+    # The packaged program that embeds the built frontend (app/), if any. Its bundle is derived from
+    # a real build's source maps, so only what is actually redistributed is reviewed.
+    [string]$FrontendPackage = '',
+    [string]$FrontendDir = 'app',
     [string]$Target = 'x86_64-pc-windows-msvc',
     # Owner decision recorded for the project's own crates.
     [string]$ProjectCopyright = 'Copyright (c) 2026 Frantz Chery. All rights reserved.'
@@ -39,6 +43,7 @@ $Package = @($Package | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 # checksum Cargo.lock pins.
 $AcceptedCopyleft = @{
     'MPL-2.0' = 'project owner decision 2026-11-21: MPL-2.0 accepted for unmodified third-party crates; notice reproduced, published crate source is the corresponding source'
+    'OFL-1.1' = 'accepted 2026-11-21 for the unmodified Geist fonts the app bundles (the owner chose Geist; OFL-1.1 permits bundling with the copyright and license retained; fonts are never sold on their own and are not renamed or modified)'
 }
 
 . (Join-Path $PSScriptRoot 'lib/spdx.ps1')
@@ -183,6 +188,88 @@ foreach ($id in @($ids.Keys)) {
     $c.licenseSource = $how + $(if ($accepted) { '; ' + $AcceptedCopyleft[$ev.License] } else { '; permissive terms; automated under owner-approved policy' })
 }
 
+# 2b. The built frontend that the program embeds: npm packages compiled into the JavaScript, and the
+# fonts it emits. Derived from a real build (scripts/frontend-bundle.mjs), never from a list.
+$frontendIds = @()
+$frontendFiles = @()
+if ($FrontendPackage) {
+    if ($Package -notcontains $FrontendPackage) { throw "-FrontendPackage $FrontendPackage must also be in -Package" }
+    $appPath = Join-Path $Root $FrontendDir
+    $raw = & node (Join-Path $PSScriptRoot 'frontend-bundle.mjs') $appPath
+    if ($LASTEXITCODE -ne 0) { throw 'the frontend bundle could not be built and listed' }
+    $bundle = ($raw -join "`n") | ConvertFrom-Json -AsHashtable
+    $lockText = Get-Content (Join-Path $appPath 'pnpm-lock.yaml') -Raw
+    $licenseName = '(?i)^(LICENSE|LICENCE|COPYING|NOTICE)([-_.].*)?$'
+
+    function Get-LockIntegrity([string]$Name, [string]$Version) {
+        $m = [regex]::Match($lockText, "(?m)^\s+'?$([regex]::Escape("$Name@$Version"))[^\r\n:]*:\r?\n\s+resolution: \{integrity: (sha512-[A-Za-z0-9+/=]+)")
+        if ($m.Success) { $m.Groups[1].Value } else { $null }
+    }
+    function Add-NpmComponent([string]$Name, [string]$Version, [string]$Dir, [string]$Declared, [string]$Extra) {
+        $id = "npm:$Name@$Version"
+        $c = $byId[$id]
+        if (-not $c) {
+            # A transitive package: compiled into the bundle but not declared in app/package.json.
+            $c = [ordered]@{ id = $id; license = 'UNKNOWN'; source = ''; licenseSource = ''; status = 'unresolved'; notice = ''; noticeSha256 = '' }
+            $inventory.components = @($inventory.components) + $c
+            $byId[$id] = $c
+        }
+        $files = @(Get-ChildItem $Dir -File | Where-Object { $_.Name -match $licenseName -and $_.Length -lt 200KB -and $_.Name -notmatch '\.spdx$' } | Sort-Object Name)
+        $license = $Declared
+        $fromFile = $false
+        if (-not $license -and $files.Count -eq 1) {
+            # package.json declares no license; accept only a file that is plainly the MIT text.
+            $t = [IO.File]::ReadAllText($files[0].FullName)
+            if ($t -match '^\s*MIT License' -and $t -match 'Permission is hereby granted, free of charge') { $license = 'MIT'; $fromFile = $true }
+        }
+        if (-not $license) { $blockerById[$id] = "${id}: no license declared and the license file is not recognisably permissive"; return $id }
+        $c.license = $license
+        $accepted = $AcceptedCopyleft.ContainsKey($license)
+        if (-not $accepted -and -not (Test-PermissiveExpression $license)) { $blockerById[$id] = "${id}: license '$license' needs a human decision (not all-permissive)"; return $id }
+        if ($files.Count -eq 0) { $blockerById[$id] = "${id}: the package ships no license text to reproduce"; return $id }
+        $integrity = Get-LockIntegrity $Name $Version
+        if (-not $integrity) { $blockerById[$id] = "${id}: pnpm-lock.yaml records no integrity for this package"; return $id }
+        $key = 'npm-' + (($Name -replace '^@', '') -replace '/', '-') + "-$Version"
+        $header = "Package: $Name $Version`n$(if ($fromFile) { 'License (read from the license file; package.json declares none)' } else { 'Declared license' }): $license`nSource: https://registry.npmjs.org/$Name/$Version (integrity $integrity from app/pnpm-lock.yaml)"
+        if ($accepted) { $header += "`nNote: $($AcceptedCopyleft[$license])" }
+        if ($Extra) { $header += "`n$Extra" }
+        $c.notice = $key
+        $c.noticeSha256 = Add-Notice $key (New-NoticeText $header $files)
+        $c.status = 'reviewed'
+        $c.source = "https://registry.npmjs.org/$Name/$Version"
+        $c.licenseSource = 'verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; ' + $(if ($accepted) { $AcceptedCopyleft[$license] } else { 'permissive terms; automated under owner-approved policy' })
+        $id
+    }
+
+    foreach ($p in $bundle.packages) {
+        $frontendIds += Add-NpmComponent $p.name $p.version (Join-Path $appPath ($p.dir -replace '^node_modules/', 'node_modules/')) $p.license ''
+    }
+
+    # Fonts: match each emitted font file to the installed font package that holds identical bytes.
+    $fontPackages = @(Get-ChildItem (Join-Path $appPath 'node_modules/@fontsource-variable') -Directory -ErrorAction SilentlyContinue)
+    $fontHashes = @{}
+    foreach ($fp in $fontPackages) {
+        $pj = Get-Content (Join-Path $fp.FullName 'package.json') -Raw | ConvertFrom-Json -AsHashtable
+        foreach ($f in (Get-ChildItem (Join-Path $fp.FullName 'files') -File -ErrorAction SilentlyContinue)) {
+            $fontHashes[(Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant()] = @{ Package = $pj; Dir = $fp.FullName; File = $f.Name }
+        }
+    }
+    $usedFonts = @{}
+    foreach ($e in @($bundle.emitted | Where-Object { $_.file -match '\.(woff2?|ttf|otf)$' })) {
+        $hit = $fontHashes[$e.sha256]
+        if (-not $hit) { $blockerById["font:$($e.file)"] = "font $($e.file) matches no installed font package byte for byte (modified or unidentified)"; continue }
+        $key = "$($hit.Package.name)@$($hit.Package.version)"
+        if (-not $usedFonts.ContainsKey($key)) { $usedFonts[$key] = @{ Info = $hit; Files = @() } }
+        $usedFonts[$key].Files += "$($e.file) = $($hit.File) (SHA-256 $($e.sha256))"
+    }
+    foreach ($key in ($usedFonts.Keys | Sort-Object)) {
+        $u = $usedFonts[$key]
+        $extra = "Font files redistributed in the app (byte-identical to the package files; unmodified, not renamed):`n" + (($u.Files | Sort-Object) -join "`n")
+        $frontendIds += Add-NpmComponent $u.Info.Package.name $u.Info.Package.version $u.Info.Dir $u.Info.Package.license $extra
+    }
+    $frontendFiles = @("$FrontendDir/package.json", "$FrontendDir/pnpm-lock.yaml")
+}
+
 # The project's own crates: proprietary, owner-authorised binary distribution.
 $projectText = "Veylora RIP`n`n$ProjectCopyright`n`nVeylora RIP is proprietary software. It is distributed in binary form only. No license to its source code is granted, and no part of it may be copied, modified or redistributed except as the copyright holder authorises in writing.`n`nThird-party components linked into this program are licensed to you under their own terms, reproduced in the notices that follow."
 $projectHash = Add-Notice 'veylora-rip' $projectText
@@ -218,11 +305,20 @@ $allBlockers = [Collections.Generic.List[string]]::new()
 foreach ($p in $Package) {
     $mine = @($graphs[$p].Keys | Where-Object { $blockerById.ContainsKey($_) } | ForEach-Object { $blockerById[$_] })
     foreach ($b in $mine) { if (-not $allBlockers.Contains($b)) { $allBlockers.Add($b) } }
+    $extra = @($stdId)
+    $scopeFiles = @()
+    if ($p -eq $FrontendPackage) {
+        $extra += $frontendIds
+        $scopeFiles = $frontendFiles
+        $mine = @($mine) + @($blockerById.Keys | Where-Object { $_ -like 'npm:*' -or $_ -like 'font:*' } | ForEach-Object { $blockerById[$_] })
+        foreach ($b in $mine) { if (-not $allBlockers.Contains($b)) { $allBlockers.Add($b) } }
+    }
     $inventory.scopes[$p] = [ordered]@{
         target = $Target
-        extra = @($stdId)
+        extra = $extra
+        files = $scopeFiles
         rustStdCopyrightSha256 = $stdHash
-        blockers = $mine
+        blockers = @($mine)
     }
 }
 $json = $inventory | ConvertTo-Json -Depth 12

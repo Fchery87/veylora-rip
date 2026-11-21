@@ -4379,30 +4379,30 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "id": "npm:@fontsource-variable/geist-mono@5.3.0",
-      "license": "UNKNOWN",
+      "license": "OFL-1.1",
       "source": "https://registry.npmjs.org/@fontsource-variable/geist-mono/5.3.0",
-      "licenseSource": "UNRESOLVED: exact package tarball LICENSE/NOTICE and nested bundled dependencies",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; accepted 2026-11-21 for the unmodified Geist fonts the app bundles (the owner chose Geist; OFL-1.1 permits bundling with the copyright and license retained; fonts are never sold on their own and are not renamed or modified)",
+      "status": "reviewed",
+      "notice": "npm-fontsource-variable-geist-mono-5.3.0",
+      "noticeSha256": "A03C5E1157BE029E2F3E7994393D646AE455FD12304023E98A3AA5FB91317ED1"
     },
     {
       "id": "npm:@fontsource-variable/geist@5.3.0",
-      "license": "UNKNOWN",
+      "license": "OFL-1.1",
       "source": "https://registry.npmjs.org/@fontsource-variable/geist/5.3.0",
-      "licenseSource": "UNRESOLVED: exact package tarball LICENSE/NOTICE and nested bundled dependencies",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; accepted 2026-11-21 for the unmodified Geist fonts the app bundles (the owner chose Geist; OFL-1.1 permits bundling with the copyright and license retained; fonts are never sold on their own and are not renamed or modified)",
+      "status": "reviewed",
+      "notice": "npm-fontsource-variable-geist-5.3.0",
+      "noticeSha256": "FB4F8258E09E1D8BC157099FC305B4634CF4D64134DEC7F105BF2EBAA94C0B91"
     },
     {
       "id": "npm:@lucide/svelte@1.70.0",
-      "license": "UNKNOWN",
+      "license": "ISC",
       "source": "https://registry.npmjs.org/@lucide/svelte/1.70.0",
-      "licenseSource": "UNRESOLVED: exact package tarball LICENSE/NOTICE and nested bundled dependencies",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-lucide-svelte-1.70.0",
+      "noticeSha256": "6ED3DB4AE3E44444B921071113E69BB5903778A278EAB42C5DE7FCB5C5C15D34"
     },
     {
       "id": "npm:@pnpm/exe.android-arm64@12.18.0",
@@ -4541,12 +4541,12 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "id": "npm:@tauri-apps/api@2.12.4",
-      "license": "UNKNOWN",
+      "license": "Apache-2.0 OR MIT",
       "source": "https://registry.npmjs.org/@tauri-apps/api/2.12.4",
-      "licenseSource": "UNRESOLVED: exact package tarball LICENSE/NOTICE and nested bundled dependencies",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-tauri-apps-api-2.12.4",
+      "noticeSha256": "71DC9B77E72EB302D7641F939E6D64DFD074C1F56D11BE9E2068F92A6C7814FA"
     },
     {
       "id": "npm:@tauri-apps/cli@2.12.4",
@@ -4586,12 +4586,12 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "id": "npm:bits-ui@2.20.6",
-      "license": "UNKNOWN",
+      "license": "MIT",
       "source": "https://registry.npmjs.org/bits-ui/2.20.6",
-      "licenseSource": "UNRESOLVED: exact package tarball LICENSE/NOTICE and nested bundled dependencies",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-bits-ui-2.20.6",
+      "noticeSha256": "62A325DCF5884D9EE7175152A9A88D8C863BFBC3866B4696DBFAAF7B85B59F5B"
     },
     {
       "id": "npm:jsdom@31.0.0",
@@ -4622,12 +4622,12 @@ It reads only locally available Rust manifests and does not download or alter lo
     },
     {
       "id": "npm:svelte@5.57.3",
-      "license": "UNKNOWN",
+      "license": "MIT",
       "source": "https://registry.npmjs.org/svelte/5.57.3",
-      "licenseSource": "UNRESOLVED: exact package tarball LICENSE/NOTICE and nested bundled dependencies",
-      "status": "unresolved",
-      "notice": "",
-      "noticeSha256": ""
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-svelte-5.57.3",
+      "noticeSha256": "03B362B9703F6B3EEC781E5CA324BE67D591D2DA74D88ADBA68B0730DA2782BF"
     },
     {
       "id": "npm:typescript@6.0.3",
@@ -4646,6 +4646,60 @@ It reads only locally available Rust manifests and does not download or alter lo
       "status": "unresolved",
       "notice": "",
       "noticeSha256": ""
+    },
+    {
+      "id": "npm:clsx@2.1.1",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/clsx/2.1.1",
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-clsx-2.1.1",
+      "noticeSha256": "E778B72EC7FF6478F54D44DE0DBB75D145128F0214C7A434BDBECF077D1F6BD6"
+    },
+    {
+      "id": "npm:esm-env@1.2.2",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/esm-env/1.2.2",
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-esm-env-1.2.2",
+      "noticeSha256": "D923AF17272662F4CE46D48D8E9B1907AA53CABBAF5966391B9E3595EED9D15F"
+    },
+    {
+      "id": "npm:inline-style-parser@0.2.7",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/inline-style-parser/0.2.7",
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-inline-style-parser-0.2.7",
+      "noticeSha256": "ED97E898A798FF71D3C3D97EFF6D2DB2D71FD055B1159DE95590E9B905798ABC"
+    },
+    {
+      "id": "npm:runed@0.35.1",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/runed/0.35.1",
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-runed-0.35.1",
+      "noticeSha256": "893BE84DE363BE8583123C4B333BCB917AA03DB32498521A814EA854CBDD3D98"
+    },
+    {
+      "id": "npm:style-to-object@1.0.14",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/style-to-object/1.0.14",
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-style-to-object-1.0.14",
+      "noticeSha256": "D1B45A6C61A505A0EFDAAADA7E0D8AF7324E4C12FBC3CDB06C678F887ABB2243"
+    },
+    {
+      "id": "npm:svelte-toolbelt@0.10.7",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/svelte-toolbelt/0.10.7",
+      "licenseSource": "verbatim license files from the installed package, whose integrity is recorded in app/pnpm-lock.yaml; permissive terms; automated under owner-approved policy",
+      "status": "reviewed",
+      "notice": "npm-svelte-toolbelt-0.10.7",
+      "noticeSha256": "04390DB8880FDA802543A1DFD259FD6AC4CDC2EF13D0F869BFD985F164175659"
     },
     {
       "id": "toolchain:rust-std@1.99.1",
@@ -4669,13 +4723,30 @@ It reads only locally available Rust manifests and does not download or alter lo
       "extra": [
         "toolchain:rust-std@1.99.1"
       ],
+      "files": [],
       "rustStdCopyrightSha256": "5647BE074C8EDF7339FD863055923A8FC80BC5610A8D4661EC3B767B9D392C27",
       "blockers": []
     },
     "veylora-app": {
       "target": "x86_64-pc-windows-msvc",
       "extra": [
-        "toolchain:rust-std@1.99.1"
+        "toolchain:rust-std@1.99.1",
+        "npm:@lucide/svelte@1.70.0",
+        "npm:@tauri-apps/api@2.12.4",
+        "npm:bits-ui@2.20.6",
+        "npm:clsx@2.1.1",
+        "npm:esm-env@1.2.2",
+        "npm:inline-style-parser@0.2.7",
+        "npm:runed@0.35.1",
+        "npm:style-to-object@1.0.14",
+        "npm:svelte@5.57.3",
+        "npm:svelte-toolbelt@0.10.7",
+        "npm:@fontsource-variable/geist-mono@5.3.0",
+        "npm:@fontsource-variable/geist@5.3.0"
+      ],
+      "files": [
+        "app/package.json",
+        "app/pnpm-lock.yaml"
       ],
       "rustStdCopyrightSha256": "5647BE074C8EDF7339FD863055923A8FC80BC5610A8D4661EC3B767B9D392C27",
       "blockers": []

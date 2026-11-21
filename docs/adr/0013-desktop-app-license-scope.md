@@ -1,6 +1,6 @@
-# ADR 0013: Release scope for the desktop app (Rust side)
+# ADR 0013: Release scope for the desktop app
 
-Status: accepted, 2026-11-21. The frontend bundle, fonts and icons are not covered yet.
+Status: accepted, 2026-11-21.
 
 ## Context
 ADR 0010 cleared `veylora-cli` only. The owner chose to package the desktop app as a zip with the
@@ -24,10 +24,28 @@ no certificate yet). Scoped to `veylora-app`, the generator found 224 crates and
 - Fixed a generator bug: a `[package]` table that was the last table in a manifest was read as having
   no license (`heck`, `strsim`, `option-ext`).
 
+- **Frontend bundle.** `generate-package-notices.ps1 -FrontendPackage veylora-app` runs
+  `scripts/frontend-bundle.mjs`, which builds the frontend with source maps and lists the npm packages
+  actually compiled into it (10 today, including transitive ones such as `clsx` and `esm-env`) plus
+  every emitted file. Each package gets its license files verbatim and its integrity from
+  `app/pnpm-lock.yaml`. `svelte-toolbelt` declares no license in `package.json`; it is accepted only
+  because its LICENSE file is plainly the MIT text, and the notice says so. Dev-only tooling is not
+  in the bundle and is not part of the scope.
+- **Fonts.** Each emitted `.woff2` must be byte-identical to a file in an installed
+  `@fontsource-variable/*` package (no modification, no renaming); the notice lists every file's
+  SHA-256 and carries the package's OFL-1.1 text and copyright. **OFL-1.1 is treated as accepted by the
+  owner** because the owner chose Geist; this is recorded in `$AcceptedCopyleft` and can be reversed
+  there. The Geist copyright lines declare no Reserved Font Name.
+- **Icons.** `crates/veylora-app/icons-src/veylora-mark.svg` is simple original artwork (four offset
+  strokes on a rounded square, no third-party shapes) committed by the owner; the icons are generated
+  from it. They fall under the project notice. Trademark and domain clearance for the name and mark
+  were never done and are not a license matter.
+- **Binding.** A scope may list `files`; the checker binds each to its inventoried hash. The app's
+  scope binds `app/package.json` and `app/pnpm-lock.yaml`, so a changed frontend lock fails the
+  check until the inventory is regenerated.
+
 ## Not done (the app still cannot be packaged)
-- The bundled frontend: Svelte runtime, bits-ui and its dependencies, `@lucide/svelte`,
-  `@tauri-apps/api` are compiled into the app and need notices.
-- Fonts (Geist, OFL-1.1), app icons and any ICC profiles: `docs/profile-and-font-licensing.md`.
+- ICC profiles: none are bundled.
 - `package-release.ps1` packages only the CLI; the app executable, WebView2 prerequisite handling
   and a clean-machine run are open.
 - The global gate (`check-licenses.ps1` with no `-Package`) still fails closed.

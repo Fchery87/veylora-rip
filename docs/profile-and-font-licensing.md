@@ -6,6 +6,8 @@ embed it in generated output, publish screenshots, or redistribute derivatives.
 
 **2026-11-20 scope note:** the packaged `veylora-cli` bundles no fonts, ICC profiles, icons or fixtures, so none of the unresolved items below affect the CLI release scope (ADR 0010). They remain unresolved and block the desktop app and any profile-bearing release.
 
+**2026-11-21 update (ADR 0013):** the desktop app's emitted Geist fonts are now reviewed: byte-identical to the installed Fontsource files, OFL-1.1 text and copyright reproduced in `THIRD_PARTY_NOTICES.md`, no Reserved Font Name declared. No ICC profile is bundled. Fixtures are not shipped. The app icons are original project artwork. The tables below are the original inventory and are kept for history.
+
 ## Fonts
 
 | Asset | Current evidence | Permission and blocker |
