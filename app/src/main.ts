@@ -13,7 +13,9 @@ async function createServices() {
   const mocks = createMockServices("working-day");
   if (!isTauriRuntime()) return mocks;
   const { invoke } = await import("@tauri-apps/api/core");
-  return createTauriServices(invoke, mocks);
+  // With VEYLORA_WORKSPACE set, Rust serves real jobs; otherwise the fixture jobs stay.
+  const live = await invoke<boolean>("live_available");
+  return createTauriServices(invoke, mocks, live);
 }
 
 mount(App, {

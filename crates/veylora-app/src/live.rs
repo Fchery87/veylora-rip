@@ -1,14 +1,23 @@
 //! Job list and job detail read from a real workspace. Nothing here is fixture data and nothing
 //! is approximated: a value the UI model cannot represent exactly is an error, not a guess.
 
+use veylora_device::mode::ModeStatus;
 use veylora_domain::{
-    ids::JobId, layout::Rotation, lifecycle::JobState as DomainState, recipe::WhiteSource,
+    errors::ErrorCode,
+    ids::JobId,
+    layout::Rotation,
+    lifecycle::JobState as DomainState,
+    preflight::{Finding as DomainFinding, Severity as DomainSeverity},
+    recipe::WhiteSource,
 };
-use veylora_workflow::Workspace;
+use veylora_workflow::{PreflightOptions, RenderOptions, WorkflowError, Workspace};
 
+use crate::state::{
+    CapabilityState, DataSource, ModeCapability, ModeMaturity, SetupCapability, SinkCapability,
+};
 use crate::view_models::{
-    JobDetail, JobState, JobSummary, MaskSource, Placement, ProvenanceRow, WhitePolicy,
-    WhitePolicyKind,
+    Acknowledgement, Finding, JobDetail, JobState, JobSummary, MaskSource, Placement,
+    ProvenanceRow, Severity, WhitePolicy, WhitePolicyKind,
 };
 
 fn parse_id(job_id: &str) -> Result<JobId, String> {
@@ -194,9 +203,248 @@ pub fn job_detail(ws: &Workspace, job_id: &str) -> Result<JobDetail, String> {
     })
 }
 
+/// Acknowledgements the operator has made this session, per job. They are shown at once and
+/// recorded for good in the manifest of the render that uses them.
+#[derive(Default)]
+pub struct Acknowledgements(std::sync::Mutex<std::collections::BTreeMap<String, Vec<String>>>);
+
+impl Acknowledgements {
+    pub fn for_job(&self, job_id: &str) -> Vec<String> {
+        self.0
+            .lock()
+            .map(|m| m.get(job_id).cloned().unwrap_or_default())
+            .unwrap_or_default()
+    }
+
+    pub fn add(&self, job_id: &str, finding_id: &str) -> Result<(), String> {
+        let mut map = self
+            .0
+            .lock()
+            .map_err(|_| "Acknowledgements are unavailable.".to_owned())?;
+        let list = map.entry(job_id.to_owned()).or_default();
+        if !list.iter().any(|f| f == finding_id) {
+            list.push(finding_id.to_owned());
+        }
+        Ok(())
+    }
+
+    /// A render (or a new preflight policy) starts a fresh decision.
+    pub fn clear(&self, job_id: &str) {
+        if let Ok(mut map) = self.0.lock() {
+            map.remove(job_id);
+        }
+    }
+}
+
+/// Capabilities for the app as a whole: those of the newest job's device, or "no setup" when the
+/// workspace holds no jobs. Nothing is invented for an empty workspace.
+pub fn workspace_capabilities(ws: &Workspace) -> Result<CapabilityState, String> {
+    match ws.list_jobs().map_err(|e| e.to_string())?.first() {
+        Some(id) => capabilities(ws, &id.to_string()),
+        None => Ok(CapabilityState {
+            data_source: DataSource::Live,
+            setup: SetupCapability {
+                exists: false,
+                verified: false,
+                experimental: false,
+                name: String::new(),
+            },
+            mode: ModeCapability {
+                id: String::new(),
+                maturity: ModeMaturity::Experimental,
+                sheet_sizes: Vec::new(),
+                white_choke: false,
+                white_mask_invert: false,
+                white_policies: Vec::new(),
+                screened_inspect: false,
+            },
+            sinks: SinkCapability {
+                physical_printer: false,
+                file_sink: true,
+            },
+            open_review: None,
+        }),
+    }
+}
+
+fn maturity(status: ModeStatus) -> ModeMaturity {
+    match status {
+        ModeStatus::Experimental => ModeMaturity::Experimental,
+        ModeStatus::Validated => ModeMaturity::Validated,
+        ModeStatus::Retired => ModeMaturity::Retired,
+    }
+}
+
+/// Capabilities of the device a job was created against. What the stored records do not say is
+/// reported conservatively (controls off, no sheet list) rather than guessed: sheet sizes are the
+/// job's own layout, and white choke, mask inversion and policy choices are not read from the mode yet.
+pub fn capabilities(ws: &Workspace, job_id: &str) -> Result<CapabilityState, String> {
+    let device = ws
+        .job_device(parse_id(job_id)?)
+        .map_err(|e| e.to_string())?;
+    Ok(CapabilityState {
+        data_source: DataSource::Live,
+        setup: SetupCapability {
+            exists: true,
+            verified: device.setup_physically_verified,
+            experimental: false,
+            name: device.setup_id,
+        },
+        mode: ModeCapability {
+            id: device.mode_id,
+            maturity: maturity(device.mode_status),
+            sheet_sizes: Vec::new(),
+            white_choke: false,
+            white_mask_invert: false,
+            white_policies: Vec::new(),
+            screened_inspect: false,
+        },
+        sinks: SinkCapability {
+            // No physical submission exists until the physical gate passes.
+            physical_printer: false,
+            file_sink: true,
+        },
+        open_review: None,
+    })
+}
+
+fn finding_id(f: &DomainFinding) -> String {
+    format!("{}:{}", f.code, f.subject.as_deref().unwrap_or("-"))
+}
+
+fn humanize(code: ErrorCode) -> String {
+    let text = code.as_str().replace('_', " ");
+    let mut chars = text.chars();
+    chars
+        .next()
+        .map(|c| c.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
+}
+
+fn now_utc() -> String {
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64);
+    utc_text(ms)
+}
+
+/// Operator recorded on acknowledgements: operator identity does not exist yet, so the record names
+/// the workstation session instead of inventing a person.
+const LOCAL_OPERATOR: &str = "Operator at this workstation";
+
+fn view_finding(f: &DomainFinding, acknowledged: &[String], at: &str) -> Finding {
+    let id = finding_id(f);
+    let severity = match f.severity {
+        DomainSeverity::Blocking => Severity::Blocking,
+        DomainSeverity::ConfirmationRequired => Severity::Confirm,
+        DomainSeverity::Informational => Severity::Info,
+    };
+    let is_acknowledged = severity == Severity::Confirm && acknowledged.contains(&id);
+    Finding {
+        id,
+        severity,
+        title: humanize(f.code),
+        cause: f.message.clone(),
+        fix: f.code.message().to_owned(),
+        placement_id: None,
+        acknowledged: is_acknowledged,
+        acknowledgement: is_acknowledged.then(|| Acknowledgement {
+            operator: LOCAL_OPERATOR.to_owned(),
+            at: at.to_owned(),
+        }),
+    }
+}
+
+/// Acknowledgement ids must name a confirm-level finding of the current preflight.
+fn check_acknowledgements(findings: &[DomainFinding], ids: &[String]) -> Result<(), String> {
+    for id in ids {
+        match findings.iter().find(|f| &finding_id(f) == id) {
+            None => return Err(format!("'{id}' is not a finding of this job's preflight.")),
+            Some(f) if f.severity != DomainSeverity::ConfirmationRequired => {
+                return Err(format!(
+                    "'{id}' cannot be acknowledged: only confirmation-required findings can be."
+                ))
+            }
+            Some(_) => {}
+        }
+    }
+    Ok(())
+}
+
+/// Runs preflight (which records its outcome in the job's lifecycle) and returns the job with real
+/// findings. `acknowledged` ids are marked acknowledged; they are not stored until a render.
+pub fn run_preflight(
+    ws: &Workspace,
+    job_id: &str,
+    acknowledged: &[String],
+) -> Result<JobDetail, String> {
+    let id = parse_id(job_id)?;
+    let report = ws
+        .preflight(id, &PreflightOptions::default())
+        .map_err(|e| e.to_string())?;
+    check_acknowledgements(&report.findings, acknowledged)?;
+    let at = now_utc();
+    let mut detail = job_detail(ws, job_id)?;
+    detail.findings = report
+        .findings
+        .iter()
+        .map(|f| view_finding(f, acknowledged, &at))
+        .collect();
+    Ok(detail)
+}
+
+/// Renders the job with the acknowledged confirmations, which the render records in its manifest.
+/// Blocking findings, or confirmations left unacknowledged, refuse the render and name themselves.
+pub fn render_job(
+    ws: &Workspace,
+    job_id: &str,
+    acknowledged: &[String],
+) -> Result<JobDetail, String> {
+    let id = parse_id(job_id)?;
+    let report = ws
+        .preflight(id, &PreflightOptions::default())
+        .map_err(|e| e.to_string())?;
+    check_acknowledgements(&report.findings, acknowledged)?;
+    let options = RenderOptions {
+        acknowledged: report
+            .findings
+            .iter()
+            .filter(|f| acknowledged.contains(&finding_id(f)))
+            .map(|f| (f.code, f.subject.clone()))
+            .collect(),
+        ..RenderOptions::default()
+    };
+    match ws.render(id, &options) {
+        Ok(_) => {}
+        Err(WorkflowError::PreflightBlocked(open)) => {
+            let names: Vec<String> = open.iter().map(|f| humanize(f.code)).collect();
+            return Err(format!("Render refused: {}.", names.join(", ")));
+        }
+        Err(e) => return Err(e.to_string()),
+    }
+    let mut detail = job_detail(ws, job_id)?;
+    let at = now_utc();
+    detail.findings = report
+        .findings
+        .iter()
+        .map(|f| view_finding(f, acknowledged, &at))
+        .collect();
+    Ok(detail)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_mode_status_maps_to_its_own_maturity() {
+        assert_eq!(
+            maturity(ModeStatus::Experimental),
+            ModeMaturity::Experimental
+        );
+        assert_eq!(maturity(ModeStatus::Validated), ModeMaturity::Validated);
+        assert_eq!(maturity(ModeStatus::Retired), ModeMaturity::Retired);
+    }
 
     #[test]
     fn every_lifecycle_state_maps_to_its_own_view_state() {

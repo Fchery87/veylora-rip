@@ -158,6 +158,9 @@ fn set_white_choke(jobs: State<Jobs>, job_id: String, choke_mm: f64) -> Result<J
 /// and the retained-artifact command says so instead of inventing values.
 struct LiveWorkspace(Option<std::path::PathBuf>);
 
+/// Acknowledgements made this session, kept in Rust so the UI holds no decision state.
+struct Acks(veylora_app_lib::live::Acknowledgements);
+
 impl LiveWorkspace {
     fn open(&self) -> Result<veylora_workflow::Workspace, String> {
         let root = self.0.as_ref().ok_or(
@@ -170,6 +173,99 @@ impl LiveWorkspace {
 #[tauri::command]
 fn live_list_jobs(live: State<LiveWorkspace>) -> Result<Vec<JobSummary>, String> {
     veylora_app_lib::live::job_summaries(&live.open()?)
+}
+
+#[tauri::command]
+fn live_available(live: State<LiveWorkspace>) -> bool {
+    live.0.is_some()
+}
+
+#[tauri::command]
+fn live_get_capabilities(live: State<LiveWorkspace>) -> Result<CapabilityState, String> {
+    veylora_app_lib::live::workspace_capabilities(&live.open()?)
+}
+
+#[tauri::command]
+fn live_get_preflight_view(
+    live: State<LiveWorkspace>,
+    acks: State<Acks>,
+    job_id: String,
+) -> Result<PreflightView, String> {
+    let ws = live.open()?;
+    let job = veylora_app_lib::live::run_preflight(&ws, &job_id, &acks.0.for_job(&job_id))?;
+    let caps = veylora_app_lib::live::capabilities(&ws, &job_id)?;
+    Ok(preflight::present(&job, &caps))
+}
+
+#[tauri::command]
+fn live_get_job_actions(
+    live: State<LiveWorkspace>,
+    acks: State<Acks>,
+    job_id: String,
+) -> Result<JobActionsView, String> {
+    let ws = live.open()?;
+    let job = veylora_app_lib::live::run_preflight(&ws, &job_id, &acks.0.for_job(&job_id))?;
+    let caps = veylora_app_lib::live::capabilities(&ws, &job_id)?;
+    Ok(job_actions::present(&caps, &job))
+}
+
+#[tauri::command]
+fn live_acknowledge_finding(
+    live: State<LiveWorkspace>,
+    acks: State<Acks>,
+    job_id: String,
+    finding_id: String,
+) -> Result<JobDetail, String> {
+    let ws = live.open()?;
+    // Validate against the current preflight before remembering anything.
+    veylora_app_lib::live::run_preflight(&ws, &job_id, std::slice::from_ref(&finding_id))?;
+    acks.0.add(&job_id, &finding_id)?;
+    veylora_app_lib::live::run_preflight(&ws, &job_id, &acks.0.for_job(&job_id))
+}
+
+#[tauri::command]
+fn live_render(
+    live: State<LiveWorkspace>,
+    acks: State<Acks>,
+    job_id: String,
+) -> Result<JobDetail, String> {
+    let detail =
+        veylora_app_lib::live::render_job(&live.open()?, &job_id, &acks.0.for_job(&job_id))?;
+    acks.0.clear(&job_id);
+    Ok(detail)
+}
+
+#[tauri::command]
+fn live_toggle_inspect_plane(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    selection: InspectSelection,
+    plane: Plane,
+    on: bool,
+) -> Result<InspectView, String> {
+    let next = inspect::toggle_plane(&selection, plane, on);
+    live_inspect(&live, &job_id, &next)
+}
+
+#[tauri::command]
+fn live_set_inspect_composite(
+    live: State<LiveWorkspace>,
+    job_id: String,
+    selection: InspectSelection,
+    on: bool,
+) -> Result<InspectView, String> {
+    let next = inspect::set_composite(&selection, on);
+    live_inspect(&live, &job_id, &next)
+}
+
+fn live_inspect(
+    live: &LiveWorkspace,
+    job_id: &str,
+    selection: &InspectSelection,
+) -> Result<InspectView, String> {
+    let retained = retained_for_job(&live.open()?, job_id)?
+        .ok_or("This job has no completed render. Render it to inspect its retained output.")?;
+    inspect::present_retained(&retained, selection)
 }
 
 #[tauri::command]
@@ -194,6 +290,7 @@ fn get_retained_inspect_view(
 fn main() {
     tauri::Builder::default()
         .manage(Jobs(Mutex::new(JobStore::fixture())))
+        .manage(Acks(veylora_app_lib::live::Acknowledgements::default()))
         .manage(LiveWorkspace(
             std::env::var_os("VEYLORA_WORKSPACE").map(std::path::PathBuf::from),
         ))
@@ -206,6 +303,14 @@ fn main() {
             get_inspect_view,
             get_retained_inspect_view,
             live_list_jobs,
+            live_available,
+            live_get_capabilities,
+            live_get_preflight_view,
+            live_get_job_actions,
+            live_acknowledge_finding,
+            live_render,
+            live_toggle_inspect_plane,
+            live_set_inspect_composite,
             live_get_job,
             toggle_inspect_plane,
             set_inspect_composite,
