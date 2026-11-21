@@ -124,6 +124,12 @@ try {
         & $program @smokeArgs | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail "the smoke test exited with $LASTEXITCODE" }
     }
+    # The desktop app is a GUI program: `&` would not wait for it or report its exit code, so it is
+    # started and waited on directly. --version proves it loads without opening a window.
+    if ($RunSmokeTest -and ($manifest.files | Where-Object { $_.path -eq 'veylora-app.exe' })) {
+        $proc = Start-Process -FilePath (Join-Path $dir 'veylora-app.exe') -ArgumentList '--version' -Wait -PassThru -WindowStyle Hidden
+        if ($proc.ExitCode -ne 0) { Fail "veylora-app.exe --version exited with $($proc.ExitCode)" }
+    }
     Write-Host "RELEASE OK: veylora-rip $($manifest.version), $($manifest.files.Count) files; unsigned executables: $($unsigned.Count)"
     exit 0
 } finally {

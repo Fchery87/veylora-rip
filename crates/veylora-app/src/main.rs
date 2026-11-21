@@ -371,6 +371,13 @@ async fn live_pick_artwork(app: tauri::AppHandle) -> Result<Option<String>, Stri
 }
 
 fn main() {
+    // Headless self-check for release verification: it proves the program loads and its libraries
+    // resolve, without a window or WebView2. A release build is a GUI program, so only the exit code
+    // is observable there.
+    if std::env::args().nth(1).as_deref() == Some("--version") {
+        println!("veylora-app {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Jobs(Mutex::new(JobStore::fixture())))

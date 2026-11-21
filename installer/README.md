@@ -1,7 +1,8 @@
 # Installer and update safety
 
-Status: the release, verification and update-safety machinery exists and is tested. **No installer
-is chosen or built yet, and nothing here has been run on a clean machine.**
+Status: the release, verification and update-safety machinery exists and is tested. **The installer
+is a zip plus these scripts (owner decision, 2026-11-21); the zip holds `veylora-cli.exe` and the
+desktop app `veylora-app.exe`. Nothing here has been run on a clean machine.**
 
 ## What exists
 
@@ -31,10 +32,10 @@ is chosen or built yet, and nothing here has been run on a clean machine.**
 
 ## What is not done
 
-- **Installer technology.** Options are the Tauri bundler's NSIS or MSI targets, or a signed zip
-  with these scripts. The choice affects signing and WebView2 handling and is a product decision.
-  `tauri.conf.json` has `bundle.active = false`.
-- **The desktop app is not packaged.** Only `veylora-cli` is.
+- **A conventional installer.** None is built: no Start-menu entry, no uninstaller, no file
+  association. `tauri.conf.json` keeps `bundle.active = false`. The owner chose a zip with these
+  scripts; revisit if operators need a setup.exe.
+- **Signing and clean-machine record** below still apply to the desktop app.
 - **Signatures.** No signing certificate exists. `verify-release.ps1` reports unsigned executables
   and fails with `-RequireSignature`. Until releases are signed, integrity rests on a SHA-256 that
   the publisher distributes separately from the zip.

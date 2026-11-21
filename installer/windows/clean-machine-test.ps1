@@ -59,6 +59,23 @@ try {
     }
 
     Step 'the shipped program starts' { & $cli --version | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'no start' } }
+    if (Test-Path (Join-Path $release 'veylora-app.exe')) {
+        Step 'the desktop app starts without a window (--version)' {
+            $p = Start-Process -FilePath (Join-Path $release 'veylora-app.exe') -ArgumentList '--version' -Wait -PassThru -WindowStyle Hidden
+            if ($p.ExitCode -ne 0) { throw "exit code $($p.ExitCode)" }
+        }
+        Step 'the desktop app shows its embedded pages' {
+            & $hostExe -NoProfile -File (Join-Path $PSScriptRoot 'app-launch-check.ps1') -Exe (Join-Path $release 'veylora-app.exe') | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw 'the app did not show its pages' }
+        }
+        # The app draws its UI with the WebView2 runtime, which is not shipped. Windows 11 provides it.
+        Step 'the WebView2 runtime is installed' {
+            $keys = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+            $found = @($keys | Where-Object { $v = Get-ItemProperty -Path $_ -ErrorAction SilentlyContinue; $v -and $v.PSObject.Properties['pv'] -and $v.pv })
+            if (-not $found) { throw 'the WebView2 runtime is missing; the desktop app cannot show its window without it' }
+            Write-Host ("  WebView2 runtime " + (Get-ItemProperty -Path $found[0]).pv)
+        }
+    }
     Step 'install into a new root' {
         & $cli release install --install-root $root --from $release --no-workspace | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'install failed' }

@@ -13,8 +13,8 @@ Only what has been observed is marked as tested.
 
 | Component | Needed by | Status |
 | --- | --- | --- |
-| Visual C++ runtime | `veylora-cli` (default Rust MSVC build) | Unconfirmed. Record the result of `clean-machine-test.ps1` on a machine without it, or link the CRT statically. |
-| WebView2 runtime | Desktop app only | Not packaged yet. Distribution choice (installed runtime, bootstrapper or fixed runtime) is open; see `docs/dependency-inventory.md`. |
+| Visual C++ runtime | `veylora-cli`, `veylora-app` | Linked statically (`+crt-static`); packaging fails if either executable imports the VC++ runtime DLLs. Not yet observed on a clean machine. |
+| WebView2 runtime | Desktop app only | Not shipped; the app needs the installed runtime (Windows 11 includes it). Observed on the development machine: 157.0.4341.60, and the packaged app started and showed its pages there. `clean-machine-test.ps1` fails with a clear message if it is missing. Not yet observed on a clean machine. |
 | Rust, Node, pnpm, cargo | Nothing at runtime | Excluded by the packaging checks; the installation test runs with them off `PATH`. |
 
 ## Device setup prerequisites
