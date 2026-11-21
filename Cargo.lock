@@ -3649,6 +3649,9 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "veylora-device",
+ "veylora-domain",
+ "veylora-workflow",
 ]
 
 [[package]]

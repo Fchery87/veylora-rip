@@ -449,3 +449,56 @@ fn reviewing_an_unknown_job_is_an_error_not_an_empty_report() {
     let f = fixture_job(|_| {});
     assert!(f.ws.review(veylora_domain::ids::JobId::new()).is_err());
 }
+
+#[test]
+fn a_job_with_no_render_has_nothing_to_inspect() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    assert!(f.ws.inspect_latest_run(id).unwrap().is_none());
+}
+
+#[test]
+fn the_latest_completed_run_is_inspected_from_its_retained_bytes() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    f.ws.render(id, &RenderOptions::default()).unwrap();
+    let second = f.ws.render(id, &RenderOptions::default()).unwrap();
+    // A run that never wrote a manifest did not complete and is not a render.
+    std::fs::create_dir_all(
+        f.ws.root()
+            .join("artifacts")
+            .join(id.to_string())
+            .join("run-9999"),
+    )
+    .unwrap();
+
+    let latest =
+        f.ws.inspect_latest_run(id)
+            .unwrap()
+            .expect("a completed run");
+    assert_eq!(
+        latest.run,
+        second.dir.file_name().unwrap().to_str().unwrap()
+    );
+    assert!(latest.report.verified, "{:?}", latest.report.problems);
+    assert_eq!(latest.report.manifest, second.manifest);
+    assert_eq!(latest.report.plane("logical-w.f32").unwrap().nonzero, 3);
+}
+
+#[test]
+fn inspecting_the_latest_run_reports_tampering_instead_of_hiding_it() {
+    let f = fixture_job(|_| {});
+    let id = f.ws.create_job(&f.spec).unwrap().job_id;
+    let out = f.ws.render(id, &RenderOptions::default()).unwrap();
+    let file = out.dir.join("logical-w.f32");
+    let mut bytes = std::fs::read(&file).unwrap();
+    bytes[0] ^= 0xff;
+    std::fs::write(&file, bytes).unwrap();
+    let latest = f.ws.inspect_latest_run(id).unwrap().unwrap();
+    assert!(!latest.report.verified);
+    assert!(latest
+        .report
+        .problems
+        .iter()
+        .any(|p| p.contains("logical-w.f32")));
+}
