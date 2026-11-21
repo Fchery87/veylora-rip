@@ -8,8 +8,21 @@ use crate::{
 use veylora_domain::{
     ids::JobId,
     job::{JobSnapshot, JobSnapshotInput},
+    provenance::ContentHash,
     recipe::{PrintRecipe, WhiteSource},
 };
+
+/// Provenance label under which a derived job records the snapshot it was made from.
+pub const DERIVED_FROM: &str = "derived_from";
+
+/// The job a derived job was made from. The snapshot hash is what was recorded; `job_id` is set
+/// only when a job with exactly that snapshot is in this workspace (an archive carries one job,
+/// not its parent).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JobParent {
+    pub snapshot_hash: ContentHash,
+    pub job_id: Option<JobId>,
+}
 use veylora_persistence::JobStore;
 
 /// The white settings a recipe can state that an operator may change.
@@ -85,6 +98,15 @@ impl Workspace {
         let mut next: JobSnapshotInput = old.clone();
         next.id = JobId::default();
         next.created_at_ms = created_at_ms;
+        // The new job points at the one it was made from, not at that job's own parent, so a chain
+        // of edits reads one step at a time.
+        let parent_hash = snapshot.content_hash();
+        next.provenance
+            .content_hashes
+            .retain(|(label, _)| label != DERIVED_FROM);
+        next.provenance
+            .content_hashes
+            .push((DERIVED_FROM.to_owned(), parent_hash));
         for (label, hash) in &mut next.provenance.content_hashes {
             if label == "recipe" {
                 *hash = recipe.content_hash();
@@ -98,5 +120,31 @@ impl Workspace {
         };
         self.jobs.create_snapshot(made)?;
         Ok(created)
+    }
+
+    /// The job `id` was derived from, or `None` for a job made from scratch.
+    pub fn job_parent(&self, id: JobId) -> WorkflowResult<Option<JobParent>> {
+        let snapshot = self.jobs.get(id)?;
+        let Some((_, hash)) = snapshot
+            .inputs()
+            .provenance
+            .content_hashes
+            .iter()
+            .find(|(label, _)| label == DERIVED_FROM)
+        else {
+            return Ok(None);
+        };
+        let snapshot_hash = *hash;
+        // Another job's damaged record must not hide this one's parent, so unreadable ones are
+        // skipped rather than failing the lookup.
+        let job_id = self.list_jobs()?.into_iter().find(|other| {
+            self.jobs
+                .get(*other)
+                .is_ok_and(|s| s.content_hash() == snapshot_hash)
+        });
+        Ok(Some(JobParent {
+            snapshot_hash,
+            job_id,
+        }))
     }
 }
