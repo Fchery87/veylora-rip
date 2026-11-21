@@ -46,4 +46,4 @@ Status: accepted (slices 1 and 2), 2026-11-20
   lists `rasterFiles` only for a verified run. Screened planes are shown as value / dot level. Composite simulation was added later (ADR 0014).
 
 ## Not done
-Slot letters for physical planes.
+Nothing printer-independent remains; slot letters were added in ADR 0016. for physical planes.

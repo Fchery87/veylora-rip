@@ -826,3 +826,36 @@ fn a_damaged_plane_is_never_part_of_a_composite() {
     std::fs::write(&file, bytes).unwrap();
     assert!(f.ws.composite_overview(id, 100).is_err());
 }
+
+#[test]
+fn a_job_reports_the_channel_map_of_its_stored_setup() {
+    use veylora_device::channels::LogicalChannel::*;
+    let (f, id) = wide_job();
+    let device = f.ws.job_device(id).unwrap();
+    assert_eq!(device.channel_map_version, 1);
+    let got: Vec<_> = device
+        .channels
+        .iter()
+        .map(|c| {
+            (
+                c.logical,
+                c.slot,
+                c.protocol,
+                c.fraction,
+                c.tank_label.as_str(),
+                c.head_label.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            (Cyan, 0, 10, 1.0, "t0", "h0"),
+            (Magenta, 1, 11, 1.0, "t1", "h1"),
+            (Yellow, 2, 12, 1.0, "t2", "h2"),
+            (Black, 3, 13, 1.0, "t3", "h3"),
+            (White, 4, 14, 0.5, "t4", "h4"),
+            (White, 5, 15, 0.5, "t5", "h5"),
+        ]
+    );
+}

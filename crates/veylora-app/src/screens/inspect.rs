@@ -4,7 +4,7 @@
 use crate::state::{CapabilityState, DataSource};
 use crate::view_models::{
     CompositeOption, InfoPanel, InspectView, JobDetail, MetaKind, MetaRow, Plane, PlaneOption,
-    PreviewSource, RetainedArtifact, StageId, StageOption,
+    PreviewSource, RetainedArtifact, RetainedSlot, StageId, StageOption,
 };
 
 pub use crate::view_models::InspectSelection;
@@ -332,6 +332,28 @@ fn plane_row(label: String, p: &crate::view_models::RetainedPlane) -> MetaRow {
     )
 }
 
+/// The retained file of the slot a letter names, on a physical or screened stage. The letter must
+/// come from the setup's own channel map; nothing is mapped when the map does not name it.
+fn slot_file(
+    artifact: &RetainedArtifact,
+    stage: StageId,
+    plane: Plane,
+) -> Option<(&RetainedSlot, String)> {
+    let slot = artifact
+        .slots
+        .iter()
+        .find(|s| s.letter.as_deref() == Some(plane.name()))?;
+    let file = match stage {
+        StageId::Slots => format!("physical-p{}.f32", slot.protocol),
+        _ => format!("screened-p{}.u16", slot.protocol),
+    };
+    artifact
+        .planes
+        .iter()
+        .any(|p| p.file == file)
+        .then_some((slot, file))
+}
+
 /// The Inspect view for a real retained run. Values come from the bytes the run kept, are
 /// verified against its manifest, and a damaged run is shown as such. No raster is drawn.
 pub fn present_retained(
@@ -455,6 +477,7 @@ pub fn present_retained(
             artifact.run
         )
     };
+    let mut slot_files: Option<Vec<String>> = None;
     if selection.stage == StageId::Logical {
         for plane in &selection.planes {
             let Some(file) = plane_file(*plane) else {
@@ -465,12 +488,41 @@ pub fn present_retained(
             }
         }
     } else {
-        for p in &stage_files {
-            metadata.push(plane_row(p.file.clone(), p));
+        let mut mapped: Vec<String> = Vec::new();
+        for plane in &selection.planes {
+            match slot_file(artifact, selection.stage, *plane) {
+                Some((slot, file)) => {
+                    if let Some(p) = stage_files.iter().find(|p| p.file == file) {
+                        let mut row = plane_row(format!("Slot {}", plane.name()), p);
+                        row.value = format!(
+                            "protocol channel {} \u{b7} slot {} \u{b7} tank {} \u{b7} head {} \u{b7} {}",
+                            slot.protocol, slot.slot, slot.tank_label, slot.head_label, row.value
+                        );
+                        metadata.push(row);
+                        mapped.push(file);
+                    }
+                }
+                None => note.push_str(&format!(
+                    " The channel map does not name a slot {}, so nothing is shown for it.",
+                    plane.name()
+                )),
+            }
         }
-        note.push_str(
-            " Slot letters come from the mode's channel map and are not mapped here, so files are listed by name.",
-        );
+        if selection.planes.is_empty() {
+            for p in &stage_files {
+                metadata.push(plane_row(p.file.clone(), p));
+            }
+        }
+        slot_files = Some(mapped);
+        note.push_str(&format!(
+            " Slot letters come from channel map version {} of this job's setup, which is {}.",
+            artifact.channel_map_version,
+            if artifact.channel_map_verified {
+                "physically verified"
+            } else {
+                "not physically verified, so the letters are as recorded, not as observed on the printer"
+            }
+        ));
     }
 
     // Only a verified run is drawn; a damaged one is shown as statistics and a warning.
@@ -485,8 +537,10 @@ pub fn present_retained(
             .filter_map(|plane| plane_file(*plane))
             .filter(|file| stage_files.iter().any(|p| p.file == *file))
             .collect()
-    } else {
+    } else if selection.planes.is_empty() {
         stage_files.iter().map(|p| p.file.clone()).collect()
+    } else {
+        slot_files.unwrap_or_default()
     };
     let raster_shown = !raster_files.is_empty();
     let panel = |title: &str| InfoPanel {

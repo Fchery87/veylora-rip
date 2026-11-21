@@ -410,6 +410,24 @@ pub struct RetainedArtifact {
     /// Confirmation-required findings the operator acknowledged for this render, as `code:subject`.
     pub acknowledged_findings: Vec<String>,
     pub planes: Vec<RetainedPlane>,
+    /// The job's setup channel map: what each protocol channel file is. Empty when unknown.
+    pub slots: Vec<RetainedSlot>,
+    pub channel_map_version: u32,
+    /// True only when the setup carries physical evidence for its channel map.
+    pub channel_map_verified: bool,
+}
+
+/// One binding of the setup's channel map. `letter` is the Inspect plane that names it, when the
+/// map says so unambiguously.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RetainedSlot {
+    pub letter: Option<String>,
+    pub logical: String,
+    pub protocol: u8,
+    pub slot: u8,
+    pub fraction: f64,
+    pub tank_label: String,
+    pub head_label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

@@ -145,20 +145,74 @@ fn a_tampered_artifact_is_shown_as_unverified_with_the_problem_named() {
 }
 
 #[test]
-fn physical_stages_list_files_without_guessing_slot_letters() {
+fn a_slot_letter_selects_the_file_its_setup_binds_to_it() {
     let (ws, id, _dir) = rendered_job();
     let retained = retained_for_job(&ws, &id).unwrap().unwrap();
-    for stage in [StageId::Slots, StageId::Screened] {
-        let view = inspect::present_retained(&retained, &select(stage, &[Plane::K])).unwrap();
+    for (stage, ext, prefix) in [
+        (StageId::Slots, "f32", "physical"),
+        (StageId::Screened, "u16", "screened"),
+    ] {
+        for (plane, protocol, slot) in [
+            (Plane::C, 10, 0),
+            (Plane::K, 13, 3),
+            (Plane::W1, 14, 4),
+            (Plane::W2, 15, 5),
+        ] {
+            let view = inspect::present_retained(&retained, &select(stage, &[plane])).unwrap();
+            assert_eq!(
+                view.raster_files,
+                vec![format!("{prefix}-p{protocol}.{ext}")],
+                "{plane:?} on {stage:?}"
+            );
+            let row = value(&view, &format!("Slot {}", plane.name()));
+            for part in [
+                format!("protocol channel {protocol}"),
+                format!("slot {slot}"),
+                format!("tank t{slot}"),
+                format!("head h{slot}"),
+            ] {
+                assert!(row.contains(&part), "{row}");
+            }
+        }
+    }
+}
+
+#[test]
+fn with_no_slot_chosen_files_are_listed_by_name_and_no_letter_is_invented() {
+    let (ws, id, _dir) = rendered_job();
+    let retained = retained_for_job(&ws, &id).unwrap().unwrap();
+    for (stage, prefix) in [
+        (StageId::Slots, "physical-"),
+        (StageId::Screened, "screened-"),
+    ] {
+        let view = inspect::present_retained(&retained, &select(stage, &[])).unwrap();
         let rows: Vec<&str> = view.metadata.iter().map(|r| r.label.as_str()).collect();
         assert!(
-            rows.iter()
-                .any(|l| l.starts_with("physical-") || l.starts_with("screened-")),
+            rows.iter().filter(|l| l.starts_with(prefix)).count() == 6,
             "{rows:?}"
         );
-        assert!(view.metadata_note.contains("channel map"));
-        assert!(rows.iter().all(|l| *l != "Coverage K"));
+        assert!(rows.iter().all(|l| !l.starts_with("Slot ")), "{rows:?}");
+        assert_eq!(view.raster_files.len(), 6);
     }
+}
+
+#[test]
+fn the_note_says_where_slot_letters_come_from_and_that_they_are_not_observed() {
+    let (ws, id, _dir) = rendered_job();
+    let retained = retained_for_job(&ws, &id).unwrap().unwrap();
+    let view = inspect::present_retained(&retained, &select(StageId::Slots, &[Plane::K])).unwrap();
+    let note = &view.metadata_note;
+    assert!(note.contains("channel map version 1"), "{note}");
+    assert!(note.contains("not physically verified"), "{note}");
+    assert!(note.contains("as recorded"), "{note}");
+    // The logical stage needs no map and does not talk about one.
+    let logical =
+        inspect::present_retained(&retained, &select(StageId::Logical, &[Plane::K])).unwrap();
+    assert!(
+        !logical.metadata_note.contains("channel map"),
+        "{}",
+        logical.metadata_note
+    );
 }
 
 fn composite_selection(stage: StageId) -> InspectSelection {
