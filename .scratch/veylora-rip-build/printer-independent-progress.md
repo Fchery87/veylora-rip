@@ -55,6 +55,8 @@ All of the recovery lanes listed above were accepted and merged to `main` (persi
 
 7.3 (2026-11-20): local redacted support bundles with opt-in artwork; see ADR 0007.
 
+9.1 (2026-11-20): portable job archives; see ADR 0008 and docs/job-format.md.
+
 ## Acceptance policy
 
 A passing stub, interface, or fixture is not completed product behavior. Each task requires coordinator spec review, quality review and fresh tests. Tests validate software behavior only. Production protocol fields, hardware mapping and physical quality gates remain unverified until real evidence exists.

@@ -156,6 +156,50 @@ fn headless_workflow_runs_from_files_to_a_verified_report() {
         .status
         .success());
     assert!(!files.join("x.tar").exists());
+
+    // Portable job: export, import elsewhere, never overwrite or merge.
+    let tar = files.join("job.tar");
+    let export = |out: &Path| {
+        cli(
+            &ws,
+            &[
+                "archive",
+                "export",
+                "--job",
+                &job,
+                "--output",
+                out.to_str().unwrap(),
+            ],
+        )
+    };
+    assert!(export(&tar).status.success());
+    assert!(!export(&tar).status.success());
+    let other = common::dir("cli-import");
+    let imported = json(&cli(
+        &other,
+        &["archive", "import", "--input", tar.to_str().unwrap()],
+    ));
+    assert_eq!(imported["job_id"], job.as_str());
+    assert_eq!(imported["setup_verification_carried"], false);
+    let status = json(&cli(&other, &["job", "status", "--job", &job]));
+    assert_eq!(
+        status["state"],
+        json(&cli(&ws, &["job", "status", "--job", &job]))["state"]
+    );
+    let again = cli(
+        &other,
+        &["archive", "import", "--input", tar.to_str().unwrap()],
+    );
+    assert!(!again.status.success());
+    assert!(String::from_utf8_lossy(&again.stderr).contains("already exists"));
+    let junk = files.join("junk.tar");
+    fs::write(&junk, b"not an archive").unwrap();
+    assert!(!cli(
+        &common::dir("cli-junk"),
+        &["archive", "import", "--input", junk.to_str().unwrap()]
+    )
+    .status
+    .success());
 }
 
 #[test]

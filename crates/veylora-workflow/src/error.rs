@@ -15,6 +15,11 @@ pub enum WorkflowError {
     /// The printer may have received data but the outcome could not be saved. The job stays open
     /// until `recover` marks it for operator review. It is never retried.
     OutcomeNotRecorded(String),
+    /// A job archive was made by a layout this build does not read.
+    ArchiveVersion {
+        found: u32,
+        supported: u32,
+    },
     Io(std::io::Error),
     Json(serde_json::Error),
 }
@@ -34,6 +39,10 @@ impl std::fmt::Display for WorkflowError {
                 Ok(())
             }
             Self::OutcomeNotRecorded(m) => write!(f, "submission outcome not recorded: {m}"),
+            Self::ArchiveVersion { found, supported } => write!(
+                f,
+                "the archive uses layout version {found}; this build reads up to version {supported}"
+            ),
             Self::Io(e) => write!(f, "{e}"),
             Self::Json(e) => write!(f, "{e}"),
         }
