@@ -4,6 +4,8 @@ Task 9.3 inventory, 2026-11-08. **Distribution review is unresolved.** Rights to
 use an asset locally do not imply rights to bundle it, export it in a job archive,
 embed it in generated output, publish screenshots, or redistribute derivatives.
 
+**2026-11-20 scope note:** the packaged `veylora-cli` bundles no fonts, ICC profiles, icons or fixtures, so none of the unresolved items below affect the CLI release scope (ADR 0010). They remain unresolved and block the desktop app and any profile-bearing release.
+
 ## Fonts
 
 | Asset | Current evidence | Permission and blocker |
