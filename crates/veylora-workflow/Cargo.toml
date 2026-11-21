@@ -11,6 +11,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 veylora-compose = { path = "../veylora-compose" }
 veylora-device = { path = "../veylora-device" }
+veylora-diagnostics = { path = "../veylora-diagnostics" }
 veylora-domain = { path = "../veylora-domain" }
 veylora-image = { path = "../veylora-image" }
 veylora-layout = { path = "../veylora-layout" }

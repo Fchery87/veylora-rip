@@ -130,6 +130,32 @@ fn headless_workflow_runs_from_files_to_a_verified_report() {
     )
     .status
     .success());
+
+    // Support bundles: artwork only when asked, never overwritten, bad choice refused.
+    let plain = files.join("plain.tar");
+    let with_art = files.join("art.tar");
+    let run = |out: &Path, extra: &[&str]| {
+        let mut a = vec!["report", "support-bundle", "--job", &job, "--output"];
+        a.push(out.to_str().unwrap());
+        a.extend_from_slice(extra);
+        cli(&ws, &a)
+    };
+    assert!(run(&plain, &[]).status.success());
+    assert!(run(&with_art, &["--artwork", "include"]).status.success());
+    let names = |p: &Path| -> Vec<String> {
+        veylora_diagnostics::bundle::read_tar(&fs::read(p).unwrap())
+            .unwrap()
+            .into_iter()
+            .map(|e| e.path)
+            .collect()
+    };
+    assert!(names(&plain).iter().all(|n| !n.starts_with("artwork/")));
+    assert!(names(&with_art).iter().any(|n| n.starts_with("artwork/")));
+    assert!(!run(&plain, &[]).status.success());
+    assert!(!run(&files.join("x.tar"), &["--artwork", "yes"])
+        .status
+        .success());
+    assert!(!files.join("x.tar").exists());
 }
 
 #[test]

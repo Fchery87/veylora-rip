@@ -17,7 +17,7 @@ use veylora_domain::{errors::ErrorCode, ids::JobId, recipe::PrintRecipe};
 use veylora_image::UntaggedPolicy;
 use veylora_workflow::{
     inspect_artifacts, inspect_asset, JobSpec, PreflightOptions, RenderOptions, ReviewResolution,
-    SetupDraft, Workspace,
+    SetupDraft, SupportBundleOptions, Workspace,
 };
 
 const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
@@ -40,6 +40,8 @@ const USAGE: &str = "usage: veylora-cli --workspace <dir> <command>
       [--disk-budget-bytes N] [--acknowledge <code>[:<subject>]]...
   artifact inspect --dir <run directory>
   report export --job <id> --output <new.json>
+  report support-bundle --job <id> --output <new.tar> [--artwork include|omit]
+      (local, redacted archive; artwork is omitted unless asked for; nothing is uploaded)
 Output is file-sink diagnostic output only. Submission, review and reprint are not available.";
 
 /// True when the arguments are a workspace command rather than another subcommand.
@@ -159,6 +161,7 @@ fn execute(args: &[OsString]) -> Result<(), String> {
         ],
         ("artifact", "inspect") => &["--dir"],
         ("report", "export") => &["--job", "--output"],
+        ("report", "support-bundle") => &["--job", "--output", "--artwork"],
         _ => return Err(format!("unknown command\n{USAGE}")),
     };
     let p = Parsed {
@@ -311,6 +314,17 @@ fn dispatch(root: &Path, p: &Parsed) -> Result<(), String> {
             let report = ws.report(p.job()?).map_err(e)?;
             let mut bytes = serde_json::to_vec_pretty(&report).map_err(|x| x.to_string())?;
             bytes.push(b'\n');
+            write_new(Path::new(p.need("--output")?), &bytes)
+        }
+        ("report", "support-bundle") => {
+            let include_artwork = match p.one("--artwork")? {
+                None | Some("omit") => false,
+                Some("include") => true,
+                Some(_) => return Err("--artwork must be include or omit".into()),
+            };
+            let bytes = ws
+                .support_bundle(p.job()?, &SupportBundleOptions { include_artwork })
+                .map_err(e)?;
             write_new(Path::new(p.need("--output")?), &bytes)
         }
         _ => unreachable!("validated above"),

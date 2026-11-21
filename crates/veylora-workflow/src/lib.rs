@@ -7,6 +7,7 @@ mod inspect;
 mod jobflow;
 mod lifecycle;
 mod spec;
+mod support;
 mod workspace;
 
 pub use error::{WorkflowError, WorkflowResult};
@@ -14,6 +15,7 @@ pub use inspect::{inspect_artifacts, inspect_asset, ArtifactReport, AssetReport,
 pub use jobflow::{RecoveryReport, ReviewResolution, SubmitOutcome};
 pub use lifecycle::{AttemptReview, ReviewReport, SetupDraft, SetupStatus};
 pub use spec::{CropSpec, JobSpec, LayoutSpec, PlacementSpec};
+pub use support::SupportBundleOptions;
 pub use workspace::{
     asset_id_for, AttemptSummary, JobCreated, JobReport, PreflightOptions, PreflightReport,
     RenderOptions, RenderOutcome, RenderSummary, Workspace, DIAGNOSTIC_BACKEND,

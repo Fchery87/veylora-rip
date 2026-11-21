@@ -723,7 +723,7 @@ impl Workspace {
         }
     }
 
-    fn artifacts_dir(&self, id: JobId) -> PathBuf {
+    pub(crate) fn artifacts_dir(&self, id: JobId) -> PathBuf {
         self.root.join("artifacts").join(id.to_string())
     }
 
@@ -742,7 +742,7 @@ impl Workspace {
         }
     }
 
-    fn run_names(&self, id: JobId) -> WorkflowResult<Vec<String>> {
+    pub(crate) fn run_names(&self, id: JobId) -> WorkflowResult<Vec<String>> {
         let mut names = Vec::new();
         match std::fs::read_dir(self.artifacts_dir(id)) {
             Ok(entries) => {

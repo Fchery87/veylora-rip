@@ -3797,6 +3797,7 @@ dependencies = [
  "uuid",
  "veylora-compose",
  "veylora-device",
+ "veylora-diagnostics",
  "veylora-domain",
  "veylora-image",
  "veylora-layout",
