@@ -174,7 +174,7 @@ pub struct ExportedRun {
 }
 
 /// What a job's stored device setup and print mode say about themselves.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct JobDevice {
     pub setup_id: String,
     /// True only when the setup carries physical channel evidence.
@@ -185,6 +185,22 @@ pub struct JobDevice {
     pub printable_um: (u64, u64),
     /// True when the mode caps a white channel above zero, so white can be printed at all.
     pub white_capable: bool,
+    /// Version of the setup's logical-channel map, which says what each protocol channel is.
+    pub channel_map_version: u32,
+    /// The setup's channel bindings, in the order the map stores them.
+    pub channels: Vec<JobChannel>,
+}
+
+/// One binding of a setup's channel map with the labels of the physical slot it names.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JobChannel {
+    pub logical: veylora_device::channels::LogicalChannel,
+    pub slot: u8,
+    pub protocol: u8,
+    /// Fraction of the logical coverage this slot carries.
+    pub fraction: f64,
+    pub tank_label: String,
+    pub head_label: String,
 }
 
 /// One completed render run and what re-reading its retained bytes found.
@@ -998,6 +1014,26 @@ impl Workspace {
                 .coverage_caps
                 .iter()
                 .any(|(name, cap)| name.eq_ignore_ascii_case("white") && *cap > 0.0),
+            channel_map_version: loaded.setup.details().channel_map.version(),
+            channels: {
+                let details = loaded.setup.details();
+                details
+                    .channel_map
+                    .bindings()
+                    .iter()
+                    .map(|b| {
+                        let slot = details.physical_slots.iter().find(|s| s.id == b.slot);
+                        JobChannel {
+                            logical: b.logical,
+                            slot: b.slot.0,
+                            protocol: b.protocol.0,
+                            fraction: b.fraction,
+                            tank_label: slot.map(|s| s.tank_label.clone()).unwrap_or_default(),
+                            head_label: slot.map(|s| s.head_label.clone()).unwrap_or_default(),
+                        }
+                    })
+                    .collect()
+            },
         })
     }
 
