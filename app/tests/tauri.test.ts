@@ -129,17 +129,21 @@ describe("tauri adapter", () => {
     it("lists creation choices and creates jobs through Rust", async () => {
       const { calls, services } = live();
       const request = {
-        artworkPath: "a.png",
         setup: "s",
         mode: "m",
         recipe: "r",
         pageWidthMm: 1,
         pageHeightMm: 1,
-        xMm: 0,
-        yMm: 0,
-        widthMm: 1,
-        heightMm: 1,
-        rotationDeg: 0 as const,
+        placements: [
+          {
+            artworkPath: "a.png",
+            xMm: 0,
+            yMm: 0,
+            widthMm: 1,
+            heightMm: 1,
+            rotationDeg: 0 as const,
+          },
+        ],
         mirror: false,
       };
       await services.getCreationOptions();

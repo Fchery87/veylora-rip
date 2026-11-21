@@ -35,9 +35,11 @@ Status: accepted (slices 1 and 2), 2026-11-20
   `exports/<job>-<run>`, via a `.partial` folder, re-verified, never overwriting. It is diagnostic output, not printer bytes (no
   encoder exists), nothing is sent, so it is not a submission attempt; the folder is listed under Provenance as "Exported to".
 - Job creation: `Workspace::catalog` lists stored setups, modes and recipes; `live::create_job` validates every number, file
-  size and hash before importing the artwork or creating anything, then calls `Workspace::create_job`. One artwork per job from
-  the form; multi-placement layouts still go through the CLI spec. The artwork is given as a file path typed into the form
-  (no native file picker yet).
+  size and hash of every placement before importing any artwork or creating anything, then calls `Workspace::create_job`. A sheet
+  holds 1 to 32 artworks (`MAX_PLACEMENTS`), each with its own position, size and rotation; errors name the artwork ("Artwork 2:
+  ..."). A file placed twice is one stored asset. Fit and overlap are preflight's judgement, not the form's. Artwork is chosen
+  with a native file dialog opened by the Rust command `live_pick_artwork` (PNG filter; the webview only receives the path) or a
+  typed path.
 - Render is offered for Held and PreflightFailed un-rendered jobs, not only Draft (preflight moves a job out of Draft).
 - Raster/loupe: `Workspace::plane_overview` (box-averaged gray PNG, at most 4096 px) and `plane_window` (at most 64 x 64 exact
   values) check the plane against the manifest hash before use; a damaged plane is refused rather than drawn. The Inspect view
@@ -45,5 +47,4 @@ Status: accepted (slices 1 and 2), 2026-11-20
   not built.
 
 ## Not done
-White-setting edits (jobs are immutable snapshots, so they would create a new job); multi-artwork layouts in the UI; native file
-picker; composite simulation of retained planes; slot letters for physical planes.
+White-setting edits (jobs are immutable snapshots, so they would create a new job); composite simulation of retained planes; slot letters for physical planes.
