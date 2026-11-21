@@ -61,6 +61,7 @@ function createLiveServices(invoke: Invoke, fallback: AppServices): AppServices 
     getPlaneWindow: (jobId, file, x, y, width, height) =>
       invoke("live_plane_window", { jobId, file, x, y, width, height }),
     createJob: (request) => invoke("live_create_job", { request }),
+    pickArtwork: () => invoke("live_pick_artwork"),
     listJobs: () => invoke("live_list_jobs"),
     getJob: (jobId) => invoke("live_get_job", { jobId }),
     getPreflightView: (jobId) => invoke("live_get_preflight_view", { jobId }),

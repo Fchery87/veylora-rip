@@ -150,6 +150,12 @@ describe("tauri adapter", () => {
       ]);
     });
 
+    it("opens the native picker only on a live workspace", async () => {
+      const { calls, services } = live();
+      await services.pickArtwork?.();
+      expect(calls).toEqual([{ command: "live_pick_artwork", args: undefined }]);
+    });
+
     it("draws retained planes through Rust", async () => {
       const { calls, services } = live();
       await services.getPlaneImage("J-1", "logical-w.f32", 512);

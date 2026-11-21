@@ -59,6 +59,11 @@
     await store.createJob(request);
     busy = false;
   }
+
+  async function browse() {
+    const chosen = await store.pickArtwork();
+    if (chosen) artworkPath = chosen;
+  }
 </script>
 
 <form class="new" onsubmit={submit} aria-label="New job">
@@ -78,10 +83,15 @@
     </p>
   {/if}
 
-  <label>
-    Artwork file (PNG path)
-    <input type="text" bind:value={artworkPath} placeholder="C:\Art\logo.png" spellcheck="false" />
-  </label>
+  <div class="pick">
+    <label>
+      Artwork file (PNG path)
+      <input type="text" bind:value={artworkPath} placeholder="C:\Art\logo.png" spellcheck="false" />
+    </label>
+    {#if store.canPickArtwork}
+      <Button onclick={browse} disabled={busy}>Browse…</Button>
+    {/if}
+  </div>
 
   <div class="grid">
     <label>
@@ -144,6 +154,12 @@
     gap: 14px;
     max-width: 640px;
     padding: 20px 24px;
+  }
+  .pick {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: end;
   }
   label {
     display: grid;

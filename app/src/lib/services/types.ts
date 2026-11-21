@@ -242,6 +242,11 @@ export interface AppServices {
   ): Promise<PlaneValues>;
   /** Null when jobs cannot be created here (fixture data). */
   getCreationOptions(): Promise<CreationOptions | null>;
+  /**
+   * Opens the operating system's file dialog and resolves to the chosen PNG's path, or null when
+   * the person cancels. Absent where there is no native dialog (fixture data, plain browser).
+   */
+  pickArtwork?(): Promise<string | null>;
   /** Creates a draft job from one artwork file. Rejects with the reason when refused. */
   createJob(request: NewJobRequest): Promise<JobDetail>;
   getCapabilities(): Promise<CapabilityState>;
