@@ -44,6 +44,9 @@ like a safe retry.
   retried; it waits for a person.
 - Recipes cannot be validated yet (`RecipeStatus` has no validated state), so the submission gate
   checks the setup and mode and refuses retired recipes only.
-- `recover` assumes no other process is working on the job. A lock is future work.
+- `render`, `submit` and `recover` each claim the job for their whole run (`Workspace::try_lock_job`,
+  ADR 0017), so `recover` refuses a job another process is working on instead of assuming it is
+  free. The claim is an operating-system file lock that the system drops when its holder dies, so
+  a crashed process never blocks the recovery meant to clean up after it.
 - A render that succeeded but whose completion could not be recorded leaves the job `Rendering`;
   `recover` marks it failed and its run directory stays on disk.

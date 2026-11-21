@@ -257,6 +257,7 @@ impl Workspace {
         artifact: &PrinterArtifact,
         transport: &dyn PrinterTransport,
     ) -> WorkflowResult<SubmitOutcome> {
+        let _claim = self.try_lock_job(id)?;
         let state = self.state(id)?;
         if state != JobState::Ready {
             return Err(WorkflowError::Invalid(format!(
@@ -326,9 +327,11 @@ impl Workspace {
 
     /// Settles a job a crash left in the middle of an operation. An interrupted render becomes a
     /// failure that can be retried. An interrupted submission is completed from whatever the
-    /// attempt log proves, and otherwise becomes `Review`: the printer may have the data. Run it
-    /// only when no other process is working on the job.
+    /// attempt log proves, and otherwise becomes `Review`: the printer may have the data. It refuses a job
+    /// another process is working on.
     pub fn recover(&self, id: JobId) -> WorkflowResult<RecoveryReport> {
+        // Refused while another process holds the job; a crashed one has already let go.
+        let _claim = self.try_lock_job(id)?;
         let before = self.state(id)?;
         match before {
             JobState::Rendering => {
