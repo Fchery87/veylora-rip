@@ -53,6 +53,8 @@ All of the recovery lanes listed above were accepted and merged to `main` (persi
 
 7.1 and 7.2 (2026-11-15): durable lifecycle, submission service, recovery and operator review implemented; see ADR 0006. `job submit` and `job reprint` remain refused until an encoder exists.
 
+7.3 (2026-11-20): local redacted support bundles with opt-in artwork; see ADR 0007.
+
 ## Acceptance policy
 
 A passing stub, interface, or fixture is not completed product behavior. Each task requires coordinator spec review, quality review and fresh tests. Tests validate software behavior only. Production protocol fields, hardware mapping and physical quality gates remain unverified until real evidence exists.
