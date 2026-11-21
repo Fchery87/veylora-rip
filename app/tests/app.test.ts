@@ -828,3 +828,75 @@ describe("review fixes for task 8.3", () => {
     expect(screen.getByText(/Printer · held/)).toBeInTheDocument();
   });
 });
+
+describe("lists that the backend changes underneath", () => {
+  it("shows the state a preflight recorded while the job was being opened", async () => {
+    const base = createMockServices("working-day");
+    const first = (await base.listJobs())[0];
+    // Loading the preflight view is what records the change, as it does in the live workspace.
+    let recorded = false;
+    const as = <T extends { state: string }>(job: T): T => ({
+      ...job,
+      state: recorded ? "held" : "draft",
+    });
+    const services = {
+      ...base,
+      listJobs: async () => (await base.listJobs()).map((j) => (j.id === first.id ? as(j) : j)),
+      getJob: async (id: string) => {
+        const job = await base.getJob(id);
+        return id === first.id ? as(job) : job;
+      },
+      getPreflightView: async (id: string) => {
+        if (id === first.id) recorded = true;
+        return base.getPreflightView(id);
+      },
+    } as ReturnType<typeof createMockServices>;
+    const user = userEvent.setup();
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    const row = () => screen.getByRole("option", { name: new RegExp(first.name) });
+    expect(within(row()).getByText("Draft")).toBeInTheDocument();
+    await user.click(row());
+    await screen.findByRole("heading", { level: 1, name: new RegExp(first.name) });
+    // Neither the open job nor the list still says Draft.
+    await waitFor(() => expect(within(row()).getByText("Held")).toBeInTheDocument());
+    expect(within(row()).queryByText("Draft")).not.toBeInTheDocument();
+    const header = screen.getByRole("heading", { level: 1, name: new RegExp(first.name) });
+    expect(header.closest("header, section, div")?.textContent).not.toContain("Draft");
+  });
+
+  it("offers a recipe that was created after the app started when the New job form opens", async () => {
+    const recipe = (revision: number) => ({
+      hash: String(revision).repeat(64),
+      id: "RECIPE-1",
+      revision,
+      retired: false,
+      validated: revision === 2,
+    });
+    let stored = [recipe(1)];
+    const services = {
+      ...createMockServices("working-day"),
+      getCreationOptions: async () => ({
+        setups: [{ hash: "a".repeat(64), id: "SETUP-1", verified: true }],
+        modes: [
+          {
+            hash: "b".repeat(64),
+            id: "MODE-1",
+            setupId: "SETUP-1",
+            maturity: "validated" as const,
+          },
+        ],
+        recipes: stored,
+      }),
+    } as ReturnType<typeof createMockServices>;
+    const user = userEvent.setup();
+    render(App, { services });
+    await screen.findByRole("navigation", { name: "Sections" });
+    stored = [recipe(1), recipe(2)]; // made from the CLI while the app was open
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const form = await screen.findByRole("form", { name: "New job" });
+    expect(
+      await within(form).findByRole("option", { name: /rev 2 \(validated\)/ }),
+    ).toBeInTheDocument();
+  });
+});
