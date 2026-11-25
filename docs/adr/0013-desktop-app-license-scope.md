@@ -44,8 +44,8 @@ no certificate yet). Scoped to `veylora-app`, the generator found 224 crates and
   scope binds `app/package.json` and `app/pnpm-lock.yaml`, so a changed frontend lock fails the
   check until the inventory is regenerated.
 
-## Not done (the app still cannot be packaged)
+## Not done
 - ICC profiles: none are bundled.
-- `package-release.ps1` packages only the CLI; the app executable, WebView2 prerequisite handling
-  and a clean-machine run are open.
+- WebView2 prerequisite handling and a clean-machine run are open. `package-release.ps1` packages
+  the desktop app as well as the CLI and launch-checks it on the development machine.
 - The global gate (`check-licenses.ps1` with no `-Package`) still fails closed.
